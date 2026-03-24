@@ -12,8 +12,8 @@ export async function sendVerificationRequest(params: {
     host: process.env.SMTP_HOST || "smtp.gmail.com",
     port: parseInt(process.env.SMTP_PORT || "587"),
     auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
+      user: process.env.SMTP_USER || "ja.nepalalate@gmail.com",
+      pass: process.env.SMTP_PASS || "dyaangpuyukbkbgb",
     },
     tls: {
       rejectUnauthorized: false
@@ -42,7 +42,7 @@ export async function sendVerificationRequest(params: {
 
   const result = await transport.sendMail({
     to: identifier,
-    from: `"Questea" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+    from: `"Questea" <${process.env.SMTP_FROM || process.env.SMTP_USER || "ja.nepalalate@gmail.com"}>`,
     subject: `Přihlášení do aplikace Questea`,
     text: `Přihlaste se do aplikace Questea zkopírováním tohoto odkazu: ${url}`,
     html: HTML,

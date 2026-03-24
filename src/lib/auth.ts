@@ -10,14 +10,14 @@ export const authOptions: NextAuthOptions = {
   providers: [
     EmailProvider({
       server: {
-        host: process.env.SMTP_HOST,
-        port: Number(process.env.SMTP_PORT),
+        host: process.env.SMTP_HOST || "smtp.gmail.com",
+        port: Number(process.env.SMTP_PORT || 587),
         auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS,
+          user: process.env.SMTP_USER || "ja.nepalalate@gmail.com",
+          pass: process.env.SMTP_PASS || "dyaangpuyukbkbgb",
         },
       },
-      from: process.env.SMTP_FROM,
+      from: process.env.SMTP_FROM || "ja.nepalalate@gmail.com",
       sendVerificationRequest,
     }),
   ],

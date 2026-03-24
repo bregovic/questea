@@ -37,7 +37,7 @@ export const TaskList = () => {
     const originalTasks = [...tasks];
     
     // Update local state deeply if it's a subtask or root
-    const updateTasksRecursively = (taskList: any[]) => {
+    const updateTasksRecursively = (taskList: any[]): any[] => {
       return taskList.map(t => {
         if (t.id === id) return { ...t, ...data };
         if (t.subTasks) return { ...t, subTasks: updateTasksRecursively(t.subTasks) };

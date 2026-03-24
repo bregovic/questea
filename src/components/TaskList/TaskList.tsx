@@ -2,7 +2,8 @@
 
 import React, { useEffect, useState } from "react";
 import { TaskCard } from "../TaskCard/TaskCard";
-import { Plus, Filter, Search, Grid, List as ListIcon } from "lucide-react";
+import { TaskDetail } from "../TaskDetail/TaskDetail";
+import { Plus, Filter, Search, Grid, List as ListIcon, Subtitles } from "lucide-react";
 import styles from "./TaskList.module.css";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -12,6 +13,7 @@ export const TaskList = () => {
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   const [isAddingTask, setIsAddingTask] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [selectedTask, setSelectedTask] = useState<any | null>(null);
 
   const fetchTasks = async () => {
     try {
@@ -31,15 +33,25 @@ export const TaskList = () => {
     fetchTasks();
   }, []);
 
-  const handleStatusChange = async (id: string, newStatus: string) => {
+  const handleUpdate = async (id: string, data: any) => {
     const originalTasks = [...tasks];
-    setTasks(tasks.map(t => t.id === id ? { ...t, status: newStatus } : t));
+    
+    // Update local state deeply if it's a subtask or root
+    const updateTasksRecursively = (taskList: any[]) => {
+      return taskList.map(t => {
+        if (t.id === id) return { ...t, ...data };
+        if (t.subTasks) return { ...t, subTasks: updateTasksRecursively(t.subTasks) };
+        return t;
+      });
+    };
+
+    setTasks(updateTasksRecursively(tasks));
 
     try {
       const res = await fetch(`/api/tasks/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify(data),
       });
       if (!res.ok) throw new Error();
     } catch (error) {
@@ -59,7 +71,7 @@ export const TaskList = () => {
     }
   };
 
-  const handleAddTask = async (e: React.FormEvent) => {
+  const handleAddTask = async (e: React.FormEvent, parentId?: string) => {
     e.preventDefault();
     if (!newTaskTitle.trim()) return;
 
@@ -71,12 +83,17 @@ export const TaskList = () => {
           title: newTaskTitle,
           status: "TODO",
           priority: "MEDIUM",
-          taskType: "TASK"
+          taskType: "TASK",
+          parentId: parentId || null,
         }),
       });
       if (res.ok) {
         const newTask = await res.json();
-        setTasks([newTask, ...tasks]);
+        if (parentId) {
+          setTasks(tasks.map(t => t.id === parentId ? { ...t, subTasks: [...(t.subTasks || []), newTask] } : t));
+        } else {
+          setTasks([newTask, ...tasks]);
+        }
         setNewTaskTitle("");
         setIsAddingTask(false);
       }
@@ -87,6 +104,17 @@ export const TaskList = () => {
 
   return (
     <div className={styles.container}>
+      {/* Detail Drawer */}
+      <AnimatePresence>
+        {selectedTask && (
+          <TaskDetail 
+            task={selectedTask} 
+            onClose={() => setSelectedTask(null)}
+            onUpdate={handleUpdate}
+          />
+        )}
+      </AnimatePresence>
+
       <header className={styles.header}>
         <div className={styles.searchBar}>
           <Search size={18} />
@@ -108,16 +136,16 @@ export const TaskList = () => {
       <AnimatePresence>
         {isAddingTask && (
           <motion.form 
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
             onSubmit={handleAddTask} 
             className={styles.addForm}
           >
             <input 
               autoFocus
               type="text" 
-              placeholder="Co je třeba udělat?" 
+              placeholder="Nový hlavní úkol (např. Dům, Auto...)" 
               value={newTaskTitle}
               onChange={(e) => setNewTaskTitle(e.target.value)}
               onBlur={() => !newTaskTitle && setIsAddingTask(false)}
@@ -138,12 +166,29 @@ export const TaskList = () => {
             </div>
           ) : (
             tasks.map(task => (
-              <TaskCard 
-                key={task.id} 
-                task={task} 
-                onStatusChange={handleStatusChange} 
-                onDelete={handleDelete}
-              />
+              <div key={task.id} className={styles.taskGroup}>
+                <TaskCard 
+                  task={task} 
+                  onStatusChange={(id, status) => handleUpdate(id, { status })} 
+                  onDelete={handleDelete}
+                  onOpen={() => setSelectedTask(task)}
+                />
+                
+                {/* Render Subtasks if in list mode */}
+                {viewMode === "list" && task.subTasks && task.subTasks.length > 0 && (
+                  <div className={styles.subTasks}>
+                    {task.subTasks.map((sub: any) => (
+                      <TaskCard 
+                        key={sub.id}
+                        task={sub} 
+                        onStatusChange={(id, status) => handleUpdate(id, { status })} 
+                        onDelete={handleDelete}
+                        onOpen={() => setSelectedTask(sub)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
             ))
           )}
         </motion.div>

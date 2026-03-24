@@ -9,8 +9,17 @@ export async function GET() {
 
   try {
     const tasks = await prisma.task.findMany({
-      where: { userId: session.user.id },
-      include: { category: true },
+      where: { 
+        userId: session.user.id,
+        parentId: null // Only fetch root tasks originally? Or all and filter?
+      },
+      include: { 
+        category: true,
+        subTasks: {
+          include: { category: true }
+        },
+        attachments: true
+      },
       orderBy: { createdAt: "desc" },
     });
     return NextResponse.json(tasks);

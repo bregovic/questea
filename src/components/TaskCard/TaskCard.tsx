@@ -9,9 +9,10 @@ interface TaskCardProps {
   task: any;
   onStatusChange: (id: string, newStatus: string) => void;
   onDelete: (id: string) => void;
+  onOpen?: () => void;
 }
 
-export const TaskCard: React.FC<TaskCardProps> = ({ task, onStatusChange, onDelete }) => {
+export const TaskCard: React.FC<TaskCardProps> = ({ task, onStatusChange, onDelete, onOpen }) => {
   const x = useMotionValue(0);
   
   // Swipe right (complete) - Green background
@@ -60,6 +61,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onStatusChange, onDele
         dragConstraints={{ left: 0, right: 0 }}
         style={{ x }}
         onDragEnd={handleDragEnd}
+        onClick={onOpen}
         className={`${styles.card} ${task.status === "DONE" ? styles.completed : ""}`}
       >
         <div className={styles.statusIndicator} style={{ backgroundColor: getPriorityColor(task.priority) }} />

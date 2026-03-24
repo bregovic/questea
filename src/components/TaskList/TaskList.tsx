@@ -67,8 +67,26 @@ export const TaskList = () => {
     };
   }, [goUp, selectedTask, isAddingTask]);
 
+  const handleUndo = async () => {
+    if (!lastDeletedTask) return;
+    try {
+      const res = await fetch("/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(lastDeletedTask),
+      });
+      if (res.ok) {
+        const restored = await res.json();
+        setTasks([restored, ...tasks]);
+        setShowUndo(false);
+      }
+    } catch (error) {
+      console.error("Undo failed");
+    }
+  };
+
   // Derived breadcrumbs
-  const breadcrumbs = [];
+  const breadcrumbs: any[] = [];
   let curr: any = tasks.find(t => t.id === currentParentId);
   while (curr) {
     breadcrumbs.unshift(curr);

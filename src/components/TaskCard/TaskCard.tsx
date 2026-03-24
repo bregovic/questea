@@ -10,9 +10,10 @@ interface TaskCardProps {
   onUpdate: (data: any) => void;
   onDelete: (id: string) => void;
   onOpen?: () => void;
+  onOpenDetail?: () => void;
 }
 
-export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, onOpen }) => {
+export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, onOpen, onOpenDetail }) => {
   const x = useMotionValue(0);
   const y = useMotionValue(0);
   
@@ -99,15 +100,28 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
           
           <div className={styles.footer}>
             <div className={styles.progressContainer}>
+              {task.subTasks?.length > 0 && (
+                <span className="text-[10px] bg-sand/20 px-2 py-0.5 rounded-full font-bold text-sand-dark mr-2">FOLDER</span>
+              )}
               <div className={styles.progressBar}>
                 <div className={styles.progressFill} style={{ width: `${task.progress}%` }} />
               </div>
               <span className={styles.progressText}>{task.progress}%</span>
             </div>
             
-            <button className={styles.moreBtn}>
-              <ChevronRight size={18} />
-            </button>
+            <div className="flex items-center gap-1">
+              <button 
+                className={styles.moreBtn}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenDetail?.();
+                }}
+                title="Otevřít detail"
+              >
+                <AlertCircle size={18} />
+              </button>
+              {task.subTasks?.length > 0 && <ChevronRight size={14} className="opacity-30" />}
+            </div>
           </div>
         </div>
       </motion.div>

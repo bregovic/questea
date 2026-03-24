@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { TaskCard } from "../TaskCard/TaskCard";
 import { TaskDetail } from "../TaskDetail/TaskDetail";
-import { Plus, Filter, Search, Grid, List as ListIcon, Subtitles } from "lucide-react";
+import { Plus, Search, Grid, List as ListIcon, ChevronLeft } from "lucide-react";
 import styles from "./TaskList.module.css";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -18,8 +18,8 @@ export const TaskList = () => {
   // Filters & Sorting
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
-  const [showOnlyRoot, setShowOnlyRoot] = useState(false);
   const [sortBy, setSortBy] = useState<string>("PRIORITY");
+  const [currentParentId, setCurrentParentId] = useState<string | null>(null);
 
   const [lastDeletedTask, setLastDeletedTask] = useState<any | null>(null);
   const [showUndo, setShowUndo] = useState(false);
@@ -38,34 +38,25 @@ export const TaskList = () => {
     }
   };
 
-  // Derived filtered tasks
-  const filteredTasks = tasks.filter(task => {
-    // Search
-    if (searchQuery && !task.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-    // Status
-    if (filterStatus !== "ALL" && task.status !== filterStatus) return false;
-    // Root only
-    if (showOnlyRoot && task.parentId) return false;
-    return true;
-  }).sort((a, b) => {
-    if (sortBy === "PRIORITY") {
-      const pMap: any = { URGENT: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
-      return pMap[a.priority] - pMap[b.priority];
-    }
-    if (sortBy === "PROGRESS") {
-      return (b.progress || 0) - (a.progress || 0);
-    }
-    return 0;
-  });
-
   useEffect(() => {
     fetchTasks();
   }, []);
 
+  // Derived breadcrumbs for drill-down
+  const getBreadcrumbs = () => {
+    if (!currentParentId) return [];
+    const breadcrumbs: any[] = [];
+    let curr: any = tasks.find(t => t.id === currentParentId);
+    while (curr) {
+      breadcrumbs.unshift(curr);
+      curr = tasks.find(t => t.id === curr.parentId);
+    }
+    return breadcrumbs;
+  };
+
   const handleUpdate = async (id: string, data: any) => {
     const originalTasks = [...tasks];
     
-    // Update local state deeply if it's a subtask or root
     const updateTasksRecursively = (taskList: any[]): any[] => {
       return taskList.map(t => {
         if (t.id === id) return { ...t, ...data };
@@ -126,7 +117,7 @@ export const TaskList = () => {
     }
   };
 
-  const handleAddTask = async (e: React.FormEvent, parentId?: string) => {
+  const handleAddTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTaskTitle.trim()) return;
 
@@ -139,16 +130,12 @@ export const TaskList = () => {
           status: "TODO",
           priority: "MEDIUM",
           taskType: "TASK",
-          parentId: parentId || null,
+          parentId: currentParentId,
         }),
       });
       if (res.ok) {
         const newTask = await res.json();
-        if (parentId) {
-          setTasks(tasks.map(t => t.id === parentId ? { ...t, subTasks: [...(t.subTasks || []), newTask] } : t));
-        } else {
-          setTasks([newTask, ...tasks]);
-        }
+        setTasks([newTask, ...tasks]);
         setNewTaskTitle("");
         setIsAddingTask(false);
       }
@@ -157,33 +144,21 @@ export const TaskList = () => {
     }
   };
 
-  // Recursive renderer for tasks
-  const renderTaskBranch = (task: any, depth: number = 0) => {
-    return (
-      <motion.div 
-        key={task.id} 
-        layout
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.9 }}
-        className={styles.taskGroup}
-      >
-        <TaskCard 
-          task={task} 
-          onUpdate={(data) => handleUpdate(task.id, data)}
-          onDelete={() => handleDelete(task.id)}
-          onOpen={() => setSelectedTask(task)}
-        />
-        
-        {/* Render child tasks recursively if in list mode and not root-only filtered */}
-        {viewMode === "list" && !showOnlyRoot && task.subTasks && task.subTasks.length > 0 && (
-          <div className={styles.subTasks} style={{ marginLeft: depth < 3 ? '2rem' : '1rem' }}>
-            {task.subTasks.map((sub: any) => renderTaskBranch(sub, depth + 1))}
-          </div>
-        )}
-      </motion.div>
-    );
-  };
+  // Derived filtered tasks for drill-down
+  const filteredTasks = tasks.filter(task => {
+    if (searchQuery && !task.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    if (filterStatus !== "ALL" && task.status !== filterStatus) return false;
+    return task.parentId === currentParentId;
+  }).sort((a, b) => {
+    if (sortBy === "PRIORITY") {
+      const pMap: any = { URGENT: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
+      return pMap[a.priority] - pMap[b.priority];
+    }
+    if (sortBy === "PROGRESS") {
+      return (b.progress || 0) - (a.progress || 0);
+    }
+    return 0;
+  });
 
   return (
     <div className={styles.container}>
@@ -200,20 +175,56 @@ export const TaskList = () => {
 
       <header className={styles.header}>
         <div className={styles.headerTop}>
-          <h1 className="text-3xl font-bold text-sand-dark">Dnešní úkoly</h1>
-          <div className={styles.headerActions}>
-            <button 
-              onClick={() => setViewMode(viewMode === "list" ? "grid" : "list")}
-              className={styles.iconButton}
-            >
-              {viewMode === "list" ? <Grid size={20} /> : <ListIcon size={20} />}
-            </button>
+          <div className="flex items-center gap-4">
             <button 
               onClick={() => setIsAddingTask(true)}
               className={styles.addButton}
             >
               <Plus size={20} />
               <span>Nový úkol</span>
+            </button>
+            
+            {currentParentId && (
+              <button 
+                onClick={() => {
+                  const parent = tasks.find(t => t.id === currentParentId);
+                  setCurrentParentId(parent?.parentId || null);
+                }}
+                className="flex items-center gap-1 text-sm font-bold text-sand-dark opacity-40 hover:opacity-100 transition-opacity"
+              >
+                <ChevronLeft size={16} /> Zpět
+              </button>
+            )}
+          </div>
+
+          <div className="flex-1 px-4">
+            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+              <button 
+                onClick={() => setCurrentParentId(null)}
+                className={`text-xs font-bold uppercase tracking-wider ${!currentParentId ? 'text-coral' : 'text-sand-dark/40'}`}
+              >
+                Root
+              </button>
+              {getBreadcrumbs().map((b: any) => (
+                <React.Fragment key={b.id}>
+                  <span className="text-sand-dark/20">/</span>
+                  <button 
+                    onClick={() => setCurrentParentId(b.id)}
+                    className="text-xs font-bold uppercase tracking-wider text-sand-dark/60 hover:text-coral whitespace-nowrap"
+                  >
+                    {b.title}
+                  </button>
+                </React.Fragment>
+              ))}
+            </div>
+          </div>
+
+          <div className={styles.headerActions}>
+            <button 
+              onClick={() => setViewMode(viewMode === "list" ? "grid" : "list")}
+              className={styles.iconButton}
+            >
+              {viewMode === "list" ? <ListIcon size={20} /> : <Grid size={20} />}
             </button>
           </div>
         </div>
@@ -224,7 +235,7 @@ export const TaskList = () => {
             <Search className={styles.searchIcon} size={16} />
             <input 
               type="text"
-              placeholder="Hledat úkoly..."
+              placeholder="Hledat..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className={styles.searchInput}
@@ -238,28 +249,19 @@ export const TaskList = () => {
                 onClick={() => setFilterStatus(status)}
                 className={`${styles.filterChip} ${filterStatus === status ? styles.chipActive : styles.chipInactive}`}
               >
-                {status === "ALL" ? "Vše" : status === "TODO" ? "K vyřízení" : status === "IN_PROGRESS" ? "V řešení" : "Hotovo"}
+                {status === "ALL" ? "Vše" : status === "TODO" ? "Todo" : status === "IN_PROGRESS" ? "Progress" : "Done"}
               </button>
             ))}
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowOnlyRoot(!showOnlyRoot)}
-              className={`${styles.filterChip} ${showOnlyRoot ? styles.chipActive : styles.chipInactive} flex items-center gap-1`}
-            >
-              <Subtitles size={14} /> Root
-            </button>
-            
-            <select 
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className={styles.sortSelect}
-            >
-              <option value="PRIORITY">Podle priority</option>
-              <option value="PROGRESS">Podle progresu</option>
-            </select>
-          </div>
+          <select 
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className={styles.sortSelect}
+          >
+            <option value="PRIORITY">Priority</option>
+            <option value="PROGRESS">Progress</option>
+          </select>
         </div>
       </header>
 
@@ -276,18 +278,18 @@ export const TaskList = () => {
             <input 
               autoFocus
               type="text" 
-              placeholder="Nový hlavní úkol (např. Dům, Auto...)" 
+              placeholder={currentParentId ? "Nový podúkol..." : "Nový projekt..."} 
               value={newTaskTitle}
               onChange={(e) => setNewTaskTitle(e.target.value)}
               onBlur={() => !newTaskTitle && setIsAddingTask(false)}
             />
-            <button type="submit">Vytvořit</button>
+            <button type="submit">Přidat</button>
           </motion.form>
         )}
       </AnimatePresence>
 
       {loading ? (
-        <div className={styles.loading}>Načítám tvé úkoly...</div>
+        <div className={styles.loading}>Načítám...</div>
       ) : (
         <motion.div layout className={viewMode === "grid" ? styles.grid : styles.list}>
           <AnimatePresence mode="popLayout">
@@ -297,15 +299,38 @@ export const TaskList = () => {
                 animate={{ opacity: 1 }}
                 className={styles.empty}
               >
-                <h3>Vše hotovo! ✨</h3>
-                <p>Žádné úkoly neodpovídají vybraným filtrům.</p>
+                <h3>Prázdno ✨</h3>
+                <p>Klikni na + přidat a vytvoř první úkol v této úrovni.</p>
               </motion.div>
             ) : (
-              filteredTasks.map(task => renderTaskBranch(task))
+              filteredTasks.map(task => (
+                <motion.div 
+                  key={task.id} 
+                  layout
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                >
+                  <TaskCard 
+                    task={task} 
+                    onUpdate={(data) => handleUpdate(task.id, data)}
+                    onDelete={() => handleDelete(task.id)}
+                    onOpen={() => {
+                      if (task.subTasks && task.subTasks.length > 0) {
+                        setCurrentParentId(task.id);
+                      } else {
+                        setSelectedTask(task);
+                      }
+                    }}
+                    onOpenDetail={() => setSelectedTask(task)}
+                  />
+                </motion.div>
+              ))
             )}
           </AnimatePresence>
         </motion.div>
       )}
+
       {/* Undo Toast */}
       <AnimatePresence>
         {showUndo && (
@@ -315,8 +340,8 @@ export const TaskList = () => {
             exit={{ y: 100, opacity: 0 }}
             className={styles.undoToast}
           >
-            <span>Úkol byl smazán</span>
-            <button onClick={handleUndo} className={styles.undoBtn}>VRÁTIT (UNDO)</button>
+            <span>Smazáno</span>
+            <button onClick={handleUndo} className={styles.undoBtn}>UNDO</button>
           </motion.div>
         )}
       </AnimatePresence>

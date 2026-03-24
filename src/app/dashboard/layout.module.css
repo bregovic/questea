@@ -15,7 +15,13 @@
   padding: 1.5rem 1rem;
   position: fixed;
   height: 100vh;
-  z-index: 10;
+  z-index: 100;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.sidebar.collapsed {
+  width: 80px;
 }
 
 .brand {
@@ -28,11 +34,17 @@
   font-weight: 800;
   color: var(--text-main);
   letter-spacing: -0.03em;
+  white-space: nowrap;
+}
+
+.sidebar.collapsed .brandText {
+  display: none;
 }
 
 .brandIcon {
   width: 32px;
   height: 32px;
+  min-width: 32px;
   background: var(--accent-gradient);
   border-radius: 8px;
   display: flex;
@@ -60,6 +72,11 @@
   font-weight: 500;
   font-size: 0.95rem;
   transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.sidebar.collapsed .navItem span {
+  display: none;
 }
 
 .navItem:hover {
@@ -68,7 +85,7 @@
 }
 
 .navItem.active {
-  background-color: rgba(234, 88, 12, 0.08); /* Light orange tint */
+  background-color: rgba(234, 88, 12, 0.08);
   color: var(--accent-primary);
   font-weight: 600;
 }
@@ -76,11 +93,8 @@
 .navIcon {
   width: 20px;
   height: 20px;
+  min-width: 20px;
   opacity: 0.8;
-}
-
-.navItem.active .navIcon {
-  opacity: 1;
 }
 
 .userSection {
@@ -92,10 +106,9 @@
   gap: 0.75rem;
 }
 
-.userInfo {
-  padding: 0 1rem;
-  display: flex;
-  flex-direction: column;
+.sidebar.collapsed .userInfo,
+.sidebar.collapsed .logoutBtn span {
+  display: none;
 }
 
 .userName {
@@ -107,57 +120,38 @@
   text-overflow: ellipsis;
 }
 
-.userRole {
-  font-size: 0.8rem;
-  color: var(--text-muted);
-}
-
-.logoutBtn {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
-  border-radius: 12px;
-  color: var(--text-muted);
-  background: transparent;
-  border: none;
-  font-family: inherit;
-  font-size: 0.95rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  text-align: left;
-  width: 100%;
-}
-
-.logoutBtn:hover {
-  background-color: rgba(220, 38, 38, 0.08);
-  color: var(--danger-color);
-}
-
 .mainContent {
   flex: 1;
-  margin-left: 260px; /* offset for sidebar */
-  padding: 2.5rem 3rem;
+  margin-left: 260px;
+  padding: 2rem;
   background-color: var(--bg-color);
   min-height: 100vh;
+  transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Page Headers used broadly across dashboard */
-.pageHeader {
-  margin-bottom: 2rem;
+.mainContent.collapsed {
+  margin-left: 80px;
 }
 
-.pageTitle {
-  font-family: 'Outfit', sans-serif;
-  font-size: 2.25rem;
-  font-weight: 700;
-  color: var(--text-main);
-  letter-spacing: -0.02em;
-}
-
-.pageSubtitle {
+.toggleBtn {
+  position: absolute;
+  top: 1.5rem;
+  right: -12px;
+  width: 24px;
+  height: 24px;
+  background: white;
+  border: 1px solid var(--panel-border);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 110;
   color: var(--text-muted);
-  font-size: 1rem;
-  margin-top: 0.25rem;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.toggleBtn:hover {
+  color: var(--accent-primary);
+  border-color: var(--accent-primary);
 }

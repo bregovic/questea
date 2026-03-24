@@ -2,34 +2,38 @@
 
 import { useState } from "react";
 import { signIn } from "next-auth/react";
+import Link from "next/link";
 import Image from "next/image";
 import styles from "./login.module.css";
 // import { useSearchParams } from "next/navigation"; 
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email) return;
+    if (!email || !password) return;
 
     setStatus("loading");
     setErrorMessage("");
 
     try {
-      const res = await signIn("email", {
+      const res = await signIn("credentials", {
         email,
+        password,
         redirect: false,
         callbackUrl: "/dashboard",
       });
 
       if (res?.error) {
         setStatus("error");
-        setErrorMessage("Něco se pokazilo, zkuste to prosím znovu.");
-      } else {
+        setErrorMessage("Neplatné heslo nebo email.");
+      } else if (res?.ok) {
         setStatus("success");
+        window.location.href = "/dashboard";
       }
     } catch (error) {
       setStatus("error");
@@ -47,42 +51,47 @@ export default function LoginPage() {
         <h1 className={styles.title}>Vítejte zpět</h1>
         <p className={styles.subtitle}>Přihlaste se do Questea pro správu svých úkolů a projektů</p>
 
-        {status === "success" && (
-          <div className={styles.message}>
-            <strong>🪄 Odkaz byl odeslán!</strong>
-            <br />
-            Zkontrolujte si email ({email}) pro přihlašovací odkaz.
-          </div>
-        )}
-
         {status === "error" && (
           <div className={styles.error}>{errorMessage}</div>
         )}
 
-        {status !== "success" && (
-          <form className={styles.form} onSubmit={handleSubmit}>
-            <div className={styles.inputGroup}>
-              <label htmlFor="email" className={styles.label}>Emailová adresa</label>
-              <input
-                id="email"
-                type="email"
-                required
-                className={styles.input}
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={status === "loading"}
-                autoComplete="email"
-              />
-            </div>
-            <button 
-              type="submit" 
-              className={styles.submitBtn}
-              disabled={status === "loading" || !email}
-            >
-              {status === "loading" ? "Odesílám..." : "Přihlásit se"}
-            </button>
-          </form>
-        )}
+        <form className={styles.form} onSubmit={handleSubmit}>
+          <div className={styles.inputGroup}>
+            <label htmlFor="email" className={styles.label}>Emailová adresa</label>
+            <input
+              id="email"
+              type="email"
+              required
+              className={styles.input}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={status === "loading"}
+              autoComplete="email"
+            />
+          </div>
+          
+          <div className={styles.inputGroup}>
+            <label htmlFor="password" className={styles.label}>Heslo</label>
+            <input
+              id="password"
+              type="password"
+              required
+              className={styles.input}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={status === "loading"}
+              autoComplete="current-password"
+            />
+          </div>
+
+          <button 
+            type="submit" 
+            className={styles.submitBtn}
+            disabled={status === "loading" || !email || !password}
+          >
+            {status === "loading" ? "Přihlašuji..." : "Přihlásit se"}
+          </button>
+        </form>
 
         <div className={styles.divider}>nebo</div>
 
@@ -99,6 +108,10 @@ export default function LoginPage() {
           </svg>
           Pokračovat přes Google
         </button>
+        
+        <p className={styles.divider} style={{ marginTop: '2rem' }}>
+          Nemáte ještě účet? <Link href="/register" style={{ color: 'var(--accent-primary)', marginLeft: '0.5rem', textDecoration: 'none', fontWeight: 600 }}>Vytvořit účet</Link>
+        </p>
       </div>
     </div>
   );

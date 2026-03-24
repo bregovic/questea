@@ -8,28 +8,44 @@ import Link from "next/link";
 
 export default function RegisterPage() {
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email) return;
+    if (!email || !password) return;
 
     setStatus("loading");
     setErrorMessage("");
 
     try {
-      const res = await signIn("email", {
-        email,
-        redirect: false,
-        callbackUrl: "/dashboard",
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
       });
 
-      if (res?.error) {
+      const data = await res.json();
+
+      if (!res.ok) {
         setStatus("error");
-        setErrorMessage("Něco se pokazilo, zkuste to prosím znovu.");
+        setErrorMessage(data.error || "Něco se pokazilo, zkuste to prosím znovu.");
       } else {
-        setStatus("success");
+        // Automatically sign in after registration
+        const signInRes = await signIn("credentials", {
+          email,
+          password,
+          redirect: false,
+        });
+
+        if (signInRes?.ok) {
+          window.location.href = "/dashboard";
+        } else {
+          setStatus("success");
+        }
       }
     } catch (error) {
       setStatus("error");
@@ -49,9 +65,9 @@ export default function RegisterPage() {
 
         {status === "success" && (
           <div className={styles.message}>
-            <strong>🪄 Odkaz byl odeslán!</strong>
+            <strong>🪄 Účet úspěšně vytvořen!</strong>
             <br />
-            Zkontrolujte si email ({email}) pro vytvoření vašeho nového účtu.
+            Můžete se přihlásit.
           </div>
         )}
 
@@ -74,12 +90,28 @@ export default function RegisterPage() {
                 autoComplete="email"
               />
             </div>
+
+            <div className={styles.inputGroup}>
+              <label htmlFor="password" className={styles.label}>Heslo</label>
+              <input
+                id="password"
+                type="password"
+                required
+                className={styles.input}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={status === "loading"}
+                autoComplete="new-password"
+                minLength={6}
+              />
+            </div>
+
             <button 
               type="submit" 
               className={styles.submitBtn}
-              disabled={status === "loading" || !email}
+              disabled={status === "loading" || !email || !password}
             >
-              {status === "loading" ? "Odesílám..." : "Vytvořit účet e-mailem"}
+              {status === "loading" ? "Zpracovávám..." : "Vytvořit účet s heslem"}
             </button>
           </form>
         )}
@@ -101,7 +133,7 @@ export default function RegisterPage() {
         </button>
 
         <p className={styles.divider} style={{ marginTop: '2rem' }}>
-          Už máte účet? <Link href="/login" style={{ color: '#ea580c', marginLeft: '0.5rem', textDecoration: 'none', fontWeight: 600 }}>Přihlaste se</Link>
+          Už máte účet? <Link href="/login" style={{ color: 'var(--accent-primary)', marginLeft: '0.5rem', textDecoration: 'none', fontWeight: 600 }}>Přihlaste se</Link>
         </p>
       </div>
     </div>

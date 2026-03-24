@@ -162,7 +162,7 @@ export const TaskList = () => {
         </div>
 
         {/* Filter Bar */}
-        <div className="flex flex-col md:flex-row gap-4 mt-8 p-4 bg-white/50 backdrop-blur-sm rounded-3xl border border-sand/20 sticky top-4 z-40">
+        <div className="flex flex-col md:flex-row gap-4 mt-4 p-4 px-6 bg-white/50 backdrop-blur-sm rounded-[32px] border border-sand/20 sticky top-4 z-40 w-full shadow-sm">
           <div className="flex-1 relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-sand-dark/40" />
             <input 
@@ -170,7 +170,7 @@ export const TaskList = () => {
               placeholder="Hledat úkoly..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-11 p-3 bg-white border-none rounded-2xl text-sm focus:ring-2 focus:ring-coral shadow-sm"
+              className="w-full pl-11 p-3 bg-white border-none rounded-2xl text-sm focus:ring-2 focus:ring-coral shadow-sm shadow-sand/10"
             />
           </div>
           
@@ -179,10 +179,10 @@ export const TaskList = () => {
               <button
                 key={status}
                 onClick={() => setFilterStatus(status)}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                className={`px-5 py-2.5 rounded-2xl text-xs font-bold transition-all whitespace-nowrap ${
                   filterStatus === status 
-                    ? "bg-coral text-white shadow-md shadow-coral/20" 
-                    : "bg-white text-sand-dark/60 hover:bg-sand/10"
+                    ? "bg-coral text-white shadow-lg shadow-coral/20" 
+                    : "bg-white text-sand-dark/60 hover:bg-sand/10 border border-sand/10"
                 }`}
               >
                 {status === "ALL" ? "Vše" : status === "TODO" ? "K vyřízení" : status === "IN_PROGRESS" ? "V řešení" : "Hotovo"}
@@ -193,8 +193,8 @@ export const TaskList = () => {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowOnlyRoot(!showOnlyRoot)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold border transition-all ${
-                showOnlyRoot ? "bg-sand-dark text-white border-sand-dark" : "bg-white text-sand-dark/60 border-sand/20"
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold border transition-all ${
+                showOnlyRoot ? "bg-sand-dark text-white border-sand-dark shadow-md" : "bg-white text-sand-dark/60 border-sand/20 hover:bg-sand/5"
               }`}
             >
               <Subtitles className="w-4 h-4" /> Root
@@ -203,7 +203,7 @@ export const TaskList = () => {
             <select 
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              className="px-4 py-2 bg-white border border-sand/20 rounded-xl text-xs font-bold text-sand-dark/60 focus:ring-2 focus:ring-coral cursor-pointer"
+              className="px-5 py-2.5 bg-white border border-sand/20 rounded-2xl text-xs font-bold text-sand-dark/60 focus:ring-2 focus:ring-coral cursor-pointer shadow-sm"
             >
               <option value="PRIORITY">Podle priority</option>
               <option value="PROGRESS">Podle progresu</option>

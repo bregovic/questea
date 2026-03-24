@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, User, FileText, Link as LinkIcon, Image as ImageIcon, Calendar, Shield, CheckCircle } from "lucide-react";
+import { X, User, FileText, Link as LinkIcon, Image as ImageIcon, Calendar, Shield, CheckCircle, Plus } from "lucide-react";
 import styles from "./TaskDetail.module.css";
 
 interface TaskDetailProps {
@@ -12,10 +12,70 @@ interface TaskDetailProps {
 }
 
 export const TaskDetail: React.FC<TaskDetailProps> = ({ task, onClose, onUpdate }) => {
+  const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description || "");
+  const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
 
-  const handleSave = () => {
-    onUpdate(task.id, { description });
+  const handleSaveDescription = () => {
+    if (description !== task.description) {
+      onUpdate(task.id, { description });
+    }
+  };
+
+  const handleSaveTitle = () => {
+    if (title !== task.title) {
+      onUpdate(task.id, { title });
+    }
+  };
+
+  const handleSubtaskAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSubtaskTitle.trim()) return;
+
+    try {
+      const res = await fetch("/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          title: newSubtaskTitle,
+          status: "TODO",
+          priority: "MEDIUM",
+          taskType: "TASK",
+          parentId: task.id,
+        }),
+      });
+      if (res.ok) {
+        const newTask = await res.json();
+        onUpdate(task.id, { subTasks: [...(task.subTasks || []), newTask] });
+        setNewSubtaskTitle("");
+      }
+    } catch (error) {
+      console.error("Failed to add subtask", error);
+    }
+  };
+
+  const handleSplitTask = async () => {
+    const lines = description.split('\n').filter((l: string) => l.trim());
+    if (lines.length <= 1) return;
+
+    const confirmSplit = confirm(`Rozdělit popis na ${lines.length} nových podúkolů?`);
+    if (!confirmSplit) return;
+
+    for (const line of lines) {
+      await fetch("/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          title: line.substring(0, 50),
+          description: line,
+          status: "TODO",
+          priority: task.priority,
+          parentId: task.id,
+        }),
+      });
+    }
+    // Refresh task to show new subtasks (parent keeps state)
+    window.location.reload(); 
   };
 
   return (
@@ -28,8 +88,24 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ task, onClose, onUpdate 
     >
       <header className={styles.header}>
         <div className={styles.titleSection}>
-          <span className={styles.typeBadge}>{task.taskType}</span>
-          <h2 className={styles.title}>{task.title}</h2>
+          {task.parent && (
+            <div className={styles.breadcrumbs}>
+              <span>{task.parent.title}</span>
+              <span className={styles.breadcrumbSeparator}>/</span>
+            </div>
+          )}
+          <input 
+            className={styles.titleInput}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            onBlur={handleSaveTitle}
+          />
+          <div className="flex gap-2">
+            <span className={styles.typeBadge}>{task.taskType}</span>
+            <span className={styles.typeBadge} style={{ background: task.priority === 'URGENT' ? '#fee2e2' : '#f5f5f4' }}>
+              {task.priority}
+            </span>
+          </div>
         </div>
         <button onClick={onClose} className={styles.closeBtn}>
           <X size={24} />
@@ -37,6 +113,16 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ task, onClose, onUpdate 
       </header>
 
       <div className={styles.content}>
+        {/* Quick Actions */}
+        <div className={styles.actionRow}>
+          <button onClick={handleSplitTask} className={`${styles.actionBtn} ${styles.splitBtn}`}>
+            <Shield size={14} /> Rozdělit úkol
+          </button>
+          <button onClick={() => window.print()} className={styles.actionBtn}>
+            <FileText size={14} /> Export
+          </button>
+        </div>
+
         {/* Description Section */}
         <section className={styles.section}>
           <div className={styles.sectionHeader}>
@@ -47,65 +133,50 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ task, onClose, onUpdate 
             className={styles.textarea}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            onBlur={handleSave}
-            placeholder="Zadejte detailní popis..."
+            onBlur={handleSaveDescription}
+            placeholder="Zadejte detailní popis... Tip: Každý řádek může být nový úkol!"
           />
+        </section>
+
+        {/* Subtasks Section */}
+        <section className={styles.section}>
+          <div className={styles.sectionHeader}>
+            <LinkIcon size={18} />
+            <span>Struktura a podúkoly</span>
+          </div>
+          
+          <form onSubmit={handleSubtaskAdd} className="flex gap-2 mb-2">
+            <input 
+              type="text"
+              placeholder="Nový podúkol..."
+              value={newSubtaskTitle}
+              onChange={(e) => setNewSubtaskTitle(e.target.value)}
+              className="flex-1 p-2 bg-sand/5 border border-sand/20 rounded-xl text-sm"
+            />
+            <button type="submit" className="p-2 bg-coral text-white rounded-xl">
+              <Plus size={16} />
+            </button>
+          </form>
+
+          <div className={styles.subtaskList}>
+            {task.subTasks?.map((st: any) => (
+              <div key={st.id} className={styles.subtaskItem}>
+                <span className={st.status === 'DONE' ? 'line-through opacity-50' : ''}>{st.title}</span>
+                <span className="text-[10px] font-bold opacity-30 uppercase">{st.status}</span>
+              </div>
+            ))}
+          </div>
         </section>
 
         {/* Roles Section */}
         <section className={styles.labelsGrid}>
           <div className={styles.labelItem}>
             <div className={styles.labelHeader}><User size={14} /> Vlastník</div>
-            <div className={styles.labelValue}>{task.user?.name || task.user?.email || "Nepřiřazeno"}</div>
-          </div>
-          <div className={styles.labelItem}>
-            <div className={styles.labelHeader}><Shield size={14} /> Garant</div>
-            <div className={styles.labelValue}>{task.guarantor?.name || "Není určen"}</div>
-          </div>
-          <div className={styles.labelItem}>
-            <div className={styles.labelHeader}><CheckCircle size={14} /> Schvalovatel</div>
-            <div className={styles.labelValue}>{task.approver?.name || "Není určen"}</div>
+            <div className={styles.labelValue}>{task.user?.name || "Já"}</div>
           </div>
           <div className={styles.labelItem}>
             <div className={styles.labelHeader}><Calendar size={14} /> Termín</div>
-            <div className={styles.labelValue}>{task.dueDate ? new Date(task.dueDate).toLocaleDateString("cs-CZ") : "Bez termínu"}</div>
-          </div>
-        </section>
-
-        {/* Subtasks Section */}
-        {task.subTasks && task.subTasks.length > 0 && (
-          <section className={styles.section}>
-            <div className={styles.sectionHeader}>
-              <LinkIcon size={18} />
-              <span>Podřízené úkoly (Subtasky)</span>
-            </div>
-            <div className={styles.subtaskList}>
-              {task.subTasks.map((st: any) => (
-                <div key={st.id} className={styles.subtaskItem}>
-                  <div className={styles.subtaskStatus} style={{ background: st.status === "DONE" ? "#059669" : "#e7e5e4" }} />
-                  <span>{st.title}</span>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Attachments Section */}
-        <section className={styles.section}>
-          <div className={styles.sectionHeader}>
-            <ImageIcon size={18} />
-            <span>Přílohy a soubory</span>
-          </div>
-          <div className={styles.attachmentDropzone}>
-            <p>Klikněte nebo přetáhněte soubor pro nahrání</p>
-          </div>
-          <div className={styles.attachmentList}>
-            {task.attachments?.map((att: any) => (
-              <div key={att.id} className={styles.attachmentItem}>
-                {att.type === 'image' ? <ImageIcon size={16} /> : <FileText size={16} />}
-                <span>{att.name}</span>
-              </div>
-            ))}
+            <div className={styles.labelValue}>{task.dueDate ? new Date(task.dueDate).toLocaleDateString("cs-CZ") : "DNES"}</div>
           </div>
         </section>
       </div>

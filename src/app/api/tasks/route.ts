@@ -11,10 +11,10 @@ export async function GET() {
     const tasks = await prisma.task.findMany({
       where: { 
         userId: session.user.id,
-        parentId: null // Only fetch root tasks originally? Or all and filter?
       },
       include: { 
         category: true,
+        parent: true,
         subTasks: {
           include: { category: true }
         },

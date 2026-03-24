@@ -157,6 +157,34 @@ export const TaskList = () => {
     }
   };
 
+  // Recursive renderer for tasks
+  const renderTaskBranch = (task: any, depth: number = 0) => {
+    return (
+      <motion.div 
+        key={task.id} 
+        layout
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.9 }}
+        className={styles.taskGroup}
+      >
+        <TaskCard 
+          task={task} 
+          onUpdate={(data) => handleUpdate(task.id, data)}
+          onDelete={() => handleDelete(task.id)}
+          onOpen={() => setSelectedTask(task)}
+        />
+        
+        {/* Render child tasks recursively if in list mode and not root-only filtered */}
+        {viewMode === "list" && !showOnlyRoot && task.subTasks && task.subTasks.length > 0 && (
+          <div className={styles.subTasks} style={{ marginLeft: depth < 3 ? '2rem' : '1rem' }}>
+            {task.subTasks.map((sub: any) => renderTaskBranch(sub, depth + 1))}
+          </div>
+        )}
+      </motion.div>
+    );
+  };
+
   return (
     <div className={styles.container}>
       {/* Detail Drawer */}
@@ -273,38 +301,7 @@ export const TaskList = () => {
                 <p>Žádné úkoly neodpovídají vybraným filtrům.</p>
               </motion.div>
             ) : (
-              filteredTasks.map(task => (
-                <motion.div 
-                  key={task.id} 
-                  layout
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  className={styles.taskGroup}
-                >
-                  <TaskCard 
-                    task={task} 
-                    onUpdate={(data) => handleUpdate(task.id, data)}
-                    onDelete={() => handleDelete(task.id)}
-                    onOpen={() => setSelectedTask(task)}
-                  />
-                  
-                  {/* Render Subtasks if in list mode and not filtering by Root only */}
-                  {viewMode === "list" && !showOnlyRoot && task.subTasks && task.subTasks.length > 0 && (
-                    <div className={styles.subTasks}>
-                      {task.subTasks.map((sub: any) => (
-                        <TaskCard 
-                          key={sub.id}
-                          task={sub} 
-                          onUpdate={(data) => handleUpdate(sub.id, data)}
-                          onDelete={() => handleDelete(sub.id)}
-                          onOpen={() => setSelectedTask(sub)}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </motion.div>
-              ))
+              filteredTasks.map(task => renderTaskBranch(task))
             )}
           </AnimatePresence>
         </motion.div>

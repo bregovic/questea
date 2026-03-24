@@ -21,6 +21,9 @@ export const TaskList = () => {
   const [showOnlyRoot, setShowOnlyRoot] = useState(false);
   const [sortBy, setSortBy] = useState<string>("PRIORITY");
 
+  const [lastDeletedTask, setLastDeletedTask] = useState<any | null>(null);
+  const [showUndo, setShowUndo] = useState(false);
+
   const fetchTasks = async () => {
     try {
       const res = await fetch("/api/tasks");
@@ -86,6 +89,13 @@ export const TaskList = () => {
   };
 
   const handleDelete = async (id: string) => {
+    const taskToDelete = tasks.find(t => t.id === id);
+    if (taskToDelete) {
+      setLastDeletedTask(taskToDelete);
+      setShowUndo(true);
+      setTimeout(() => setShowUndo(false), 5000);
+    }
+
     const originalTasks = [...tasks];
     setTasks(tasks.filter(t => t.id !== id));
 
@@ -94,6 +104,25 @@ export const TaskList = () => {
       if (!res.ok) throw new Error();
     } catch (error) {
       setTasks(originalTasks);
+    }
+  };
+
+  const handleUndo = async () => {
+    if (!lastDeletedTask) return;
+    
+    try {
+      const res = await fetch("/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(lastDeletedTask),
+      });
+      if (res.ok) {
+        const restored = await res.json();
+        setTasks([restored, ...tasks]);
+        setShowUndo(false);
+      }
+    } catch (error) {
+      console.error("Undo failed");
     }
   };
 
@@ -162,28 +191,24 @@ export const TaskList = () => {
         </div>
 
         {/* Filter Bar */}
-        <div className="flex flex-col md:flex-row gap-4 mt-4 p-4 px-6 bg-white/50 backdrop-blur-sm rounded-[32px] border border-sand/20 sticky top-4 z-40 w-full shadow-sm">
-          <div className="flex-1 relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-sand-dark/40" />
+        <div className={styles.filterBar}>
+          <div className={styles.searchGroup}>
+            <Search className={styles.searchIcon} size={16} />
             <input 
               type="text"
               placeholder="Hledat úkoly..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-11 p-3 bg-white border-none rounded-2xl text-sm focus:ring-2 focus:ring-coral shadow-sm shadow-sand/10"
+              className={styles.searchInput}
             />
           </div>
           
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+          <div className={styles.filterGroup}>
             {["ALL", "TODO", "IN_PROGRESS", "DONE"].map(status => (
               <button
                 key={status}
                 onClick={() => setFilterStatus(status)}
-                className={`px-5 py-2.5 rounded-2xl text-xs font-bold transition-all whitespace-nowrap ${
-                  filterStatus === status 
-                    ? "bg-coral text-white shadow-lg shadow-coral/20" 
-                    : "bg-white text-sand-dark/60 hover:bg-sand/10 border border-sand/10"
-                }`}
+                className={`${styles.filterChip} ${filterStatus === status ? styles.chipActive : styles.chipInactive}`}
               >
                 {status === "ALL" ? "Vše" : status === "TODO" ? "K vyřízení" : status === "IN_PROGRESS" ? "V řešení" : "Hotovo"}
               </button>
@@ -193,17 +218,15 @@ export const TaskList = () => {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowOnlyRoot(!showOnlyRoot)}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold border transition-all ${
-                showOnlyRoot ? "bg-sand-dark text-white border-sand-dark shadow-md" : "bg-white text-sand-dark/60 border-sand/20 hover:bg-sand/5"
-              }`}
+              className={`${styles.filterChip} ${showOnlyRoot ? styles.chipActive : styles.chipInactive} flex items-center gap-1`}
             >
-              <Subtitles className="w-4 h-4" /> Root
+              <Subtitles size={14} /> Root
             </button>
             
             <select 
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              className="px-5 py-2.5 bg-white border border-sand/20 rounded-2xl text-xs font-bold text-sand-dark/60 focus:ring-2 focus:ring-coral cursor-pointer shadow-sm"
+              className={styles.sortSelect}
             >
               <option value="PRIORITY">Podle priority</option>
               <option value="PROGRESS">Podle progresu</option>
@@ -286,6 +309,20 @@ export const TaskList = () => {
           </AnimatePresence>
         </motion.div>
       )}
+      {/* Undo Toast */}
+      <AnimatePresence>
+        {showUndo && (
+          <motion.div 
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            className={styles.undoToast}
+          >
+            <span>Úkol byl smazán</span>
+            <button onClick={handleUndo} className={styles.undoBtn}>VRÁTIT (UNDO)</button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

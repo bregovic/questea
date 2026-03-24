@@ -101,7 +101,7 @@ export default function RegisterPage() {
         </button>
 
         <p className={styles.divider} style={{ marginTop: '2rem' }}>
-          Už máte účet? <Link href="/login" style={{ color: 'white', marginLeft: '0.5rem', textDecoration: 'none' }}>Přihlaste se</Link>
+          Už máte účet? <Link href="/login" style={{ color: '#ea580c', marginLeft: '0.5rem', textDecoration: 'none', fontWeight: 600 }}>Přihlaste se</Link>
         </p>
       </div>
     </div>

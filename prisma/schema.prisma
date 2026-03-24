@@ -52,6 +52,7 @@ model User {
   guaranteedTasks Task[]       @relation("GuaranteedTasks")
   approvedTasks   Task[]       @relation("ApprovedTasks")
   categories      Category[]
+  aliasEmails     AliasEmail[]
 }
 
 model VerificationToken {
@@ -152,5 +153,15 @@ model Attachment {
   type      String   // 'image', 'file', 'note'
   taskId    String
   task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model AliasEmail {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  verified  Boolean  @default(false)
+  allowAi   Boolean  @default(true) // Whether AI processing is on by default
   createdAt DateTime @default(now())
 }

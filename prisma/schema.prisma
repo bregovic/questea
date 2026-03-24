@@ -49,6 +49,8 @@ model User {
   // Questea Specific
   tasks           Task[]       @relation("UserTasks")
   delegatedTasks  Task[]       @relation("DelegatedTasks")
+  guaranteedTasks Task[]       @relation("GuaranteedTasks")
+  approvedTasks   Task[]       @relation("ApprovedTasks")
   categories      Category[]
 }
 
@@ -109,25 +111,46 @@ model Task {
   // Časování a plánování
   startDate   DateTime?    // Od kdy (začátek plnění)
   dueDate     DateTime?    // Kdy se má odevzdat (splatnost)
-  // (poznámka: Kolik je úkol "po splatnosti" se neukládá, ale dynamicky počítá a zobrazuje z dueDate)
   
   estimatedMinutes Int?    // Odhadovaný čas řešení v minutách
   spentMinutes     Int?    // Skutečně strávený/vykázaný čas v minutách
   
-  // Vazby (Kdo, Komu, Kam)
+  // Vazby (Kdo, Komu, Kam, Čí)
   userId      String       // Vlastník/Tvůrce (Kdo úkol založil)
   user        User     @relation("UserTasks", fields: [userId], references: [id], onDelete: Cascade)
   
   delegateId  String?      // Řešitel/Přiřazeno (Komu je to předáno)
   delegate    User?    @relation("DelegatedTasks", fields: [delegateId], references: [id], onDelete: SetNull)
 
-  categoryId  String?      // Kategorie/Oblast
+  guarantorId  String?     // Garant (Kdo za úkol ručí)
+  guarantor    User?    @relation("GuaranteedTasks", fields: [guarantorId], references: [id], onDelete: SetNull)
+
+  approverId   String?     // Schvalovatel (Kdo úkol schvaluje)
+  approver     User?    @relation("ApprovedTasks", fields: [approverId], references: [id], onDelete: SetNull)
+
+  // Hierarchie (Nadúkoly a Podúkoly)
+  parentId     String?
+  parent       Task?    @relation("SubTasks", fields: [parentId], references: [id], onDelete: SetNull)
+  subTasks     Task[]   @relation("SubTasks")
+
+  categoryId  String?      // Kategorie
   category    Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
 
-  // Přílohy
-  voiceNoteUrl String?     // Zvukový záznam (hlasová poznámka)
+  // Přílohy a hlasové poznámky
+  attachments  Attachment[]
+  voiceNoteUrl String?     
   
   // Systémové
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+model Attachment {
+  id        String   @id @default(cuid())
+  name      String
+  url       String
+  type      String   // 'image', 'file', 'note'
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
 }

@@ -14,12 +14,27 @@ export async function PATCH(
 
   try {
     const body = await req.json();
+    const { ownerEmail, ...rest } = body;
+
+    let updateData = { ...rest };
+
+    if (ownerEmail) {
+      const targetUser = await prisma.user.findUnique({
+        where: { email: ownerEmail }
+      });
+      if (targetUser) {
+        updateData.userId = targetUser.id;
+      } else {
+        return NextResponse.json({ error: "User not found" }, { status: 404 });
+      }
+    }
+
     const task = await prisma.task.update({
       where: { 
         id: id,
-        userId: session.user.id // Ensure owner
+        userId: session.user.id 
       },
-      data: body,
+      data: updateData,
     });
     return NextResponse.json(task);
   } catch (error) {

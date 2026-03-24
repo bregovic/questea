@@ -225,6 +225,51 @@
   border: 1px solid #f0ebe1;
 }
 
+.prioritySelect {
+  background: white;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.prioritySelect:focus {
+  border-color: var(--accent-primary);
+}
+
+.emailInput {
+  width: 100%;
+  border: none;
+  background: transparent;
+  font-size: 0.9rem;
+  font-family: inherit;
+  color: var(--text-main);
+  outline: none;
+  padding: 2px 0;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.2s;
+}
+
+.emailInput:focus {
+  border-bottom-color: var(--accent-primary);
+}
+
+.deleteBtn {
+  margin-left: auto;
+  color: #dc2626 !important;
+  border-color: rgba(220, 38, 38, 0.2) !important;
+}
+
+.deleteBtn:hover {
+  background: #fef2f2 !important;
+  border-color: #dc2626 !important;
+}
+
 @media (max-width: 640px) {
   .sidebar {
     width: 100%;

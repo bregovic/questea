@@ -2,18 +2,21 @@
 
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, User, FileText, Link as LinkIcon, Image as ImageIcon, Calendar, Shield, CheckCircle, Plus } from "lucide-react";
+import { X, User, FileText, Link as LinkIcon, Calendar, Shield, CheckCircle, Plus, Trash2, Mail } from "lucide-react";
 import styles from "./TaskDetail.module.css";
 
 interface TaskDetailProps {
   task: any;
   onClose: () => void;
   onUpdate: (id: string, data: any) => void;
+  onDelete: (id: string) => void;
 }
 
-export const TaskDetail: React.FC<TaskDetailProps> = ({ task, onClose, onUpdate }) => {
+export const TaskDetail: React.FC<TaskDetailProps> = ({ task, onClose, onUpdate, onDelete }) => {
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description || "");
+  const [priority, setPriority] = useState(task.priority);
+  const [ownerEmail, setOwnerEmail] = useState(task.user?.email || "");
   const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
 
   const handleSaveDescription = () => {
@@ -28,6 +31,24 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ task, onClose, onUpdate 
     }
   };
 
+  const handlePriorityChange = (newPriority: string) => {
+    setPriority(newPriority);
+    onUpdate(task.id, { priority: newPriority });
+  };
+
+  const handleOwnerChange = () => {
+    if (ownerEmail !== task.user?.email) {
+      onUpdate(task.id, { ownerEmail });
+    }
+  };
+
+  const handleDelete = () => {
+    if (confirm("Opravdu chcete tento úkol smazat?")) {
+      onDelete(task.id);
+      onClose();
+    }
+  };
+
   const handleSubtaskAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newSubtaskTitle.trim()) return;
@@ -39,7 +60,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ task, onClose, onUpdate 
         body: JSON.stringify({ 
           title: newSubtaskTitle,
           status: "TODO",
-          priority: "MEDIUM",
+          priority: task.priority,
           taskType: "TASK",
           parentId: task.id,
         }),
@@ -54,30 +75,6 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ task, onClose, onUpdate 
     }
   };
 
-  const handleSplitTask = async () => {
-    const lines = description.split('\n').filter((l: string) => l.trim());
-    if (lines.length <= 1) return;
-
-    const confirmSplit = confirm(`Rozdělit popis na ${lines.length} nových podúkolů?`);
-    if (!confirmSplit) return;
-
-    for (const line of lines) {
-      await fetch("/api/tasks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          title: line.substring(0, 50),
-          description: line,
-          status: "TODO",
-          priority: task.priority,
-          parentId: task.id,
-        }),
-      });
-    }
-    // Refresh task to show new subtasks (parent keeps state)
-    window.location.reload(); 
-  };
-
   return (
     <motion.div 
       initial={{ x: "100%" }}
@@ -88,12 +85,6 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ task, onClose, onUpdate 
     >
       <header className={styles.header}>
         <div className={styles.titleSection}>
-          {task.parent && (
-            <div className={styles.breadcrumbs}>
-              <span>{task.parent.title}</span>
-              <span className={styles.breadcrumbSeparator}>/</span>
-            </div>
-          )}
           <input 
             className={styles.titleInput}
             value={title}
@@ -102,9 +93,17 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ task, onClose, onUpdate 
           />
           <div className="flex gap-2">
             <span className={styles.typeBadge}>{task.taskType}</span>
-            <span className={styles.typeBadge} style={{ background: task.priority === 'URGENT' ? '#fee2e2' : '#f5f5f4' }}>
-              {task.priority}
-            </span>
+            <select 
+              value={priority}
+              onChange={(e) => handlePriorityChange(e.target.value)}
+              className={styles.prioritySelect}
+              style={{ color: priority === 'URGENT' ? '#dc2626' : 'inherit' }}
+            >
+              <option value="LOW">Low</option>
+              <option value="MEDIUM">Medium</option>
+              <option value="HIGH">High</option>
+              <option value="URGENT">Urgent</option>
+            </select>
           </div>
         </div>
         <button onClick={onClose} className={styles.closeBtn}>
@@ -115,11 +114,11 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ task, onClose, onUpdate 
       <div className={styles.content}>
         {/* Quick Actions */}
         <div className={styles.actionRow}>
-          <button onClick={handleSplitTask} className={`${styles.actionBtn} ${styles.splitBtn}`}>
-            <Shield size={14} /> Rozdělit úkol
-          </button>
           <button onClick={() => window.print()} className={styles.actionBtn}>
             <FileText size={14} /> Export
+          </button>
+          <button onClick={handleDelete} className={`${styles.actionBtn} ${styles.deleteBtn}`}>
+            <Trash2 size={14} /> Smazat úkol
           </button>
         </div>
 
@@ -127,25 +126,47 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ task, onClose, onUpdate 
         <section className={styles.section}>
           <div className={styles.sectionHeader}>
             <FileText size={18} />
-            <span>Popis požadavku</span>
+            <span>Popis</span>
           </div>
           <textarea 
             className={styles.textarea}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             onBlur={handleSaveDescription}
-            placeholder="Zadejte detailní popis... Tip: Každý řádek může být nový úkol!"
+            placeholder="Detailní popis..."
           />
+        </section>
+
+        {/* Roles Section */}
+        <section className={styles.labelsGrid}>
+          <div className={styles.labelItem}>
+            <div className={styles.labelHeader}><User size={14} /> Vlastník (Email)</div>
+            <div className="flex items-center gap-2 mt-1">
+              <Mail size={12} className="opacity-40" />
+              <input 
+                type="email"
+                value={ownerEmail}
+                onChange={(e) => setOwnerEmail(e.target.value)}
+                onBlur={handleOwnerChange}
+                className={styles.emailInput}
+                placeholder="email@example.com"
+              />
+            </div>
+          </div>
+          <div className={styles.labelItem}>
+            <div className={styles.labelHeader}><Calendar size={14} /> Termín</div>
+            <div className={styles.labelValue}>{task.dueDate ? new Date(task.dueDate).toLocaleDateString("cs-CZ") : "DNES"}</div>
+          </div>
         </section>
 
         {/* Subtasks Section */}
         <section className={styles.section}>
           <div className={styles.sectionHeader}>
             <LinkIcon size={18} />
-            <span>Struktura a podúkoly</span>
+            <span>Podúkolů ({task.subTasks?.length || 0})</span>
           </div>
           
-          <form onSubmit={handleSubtaskAdd} className="flex gap-2 mb-2">
+          <form onSubmit={handleSubtaskAdd} className="flex gap-2 mb-4">
             <input 
               type="text"
               placeholder="Nový podúkol..."
@@ -165,18 +186,6 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ task, onClose, onUpdate 
                 <span className="text-[10px] font-bold opacity-30 uppercase">{st.status}</span>
               </div>
             ))}
-          </div>
-        </section>
-
-        {/* Roles Section */}
-        <section className={styles.labelsGrid}>
-          <div className={styles.labelItem}>
-            <div className={styles.labelHeader}><User size={14} /> Vlastník</div>
-            <div className={styles.labelValue}>{task.user?.name || "Já"}</div>
-          </div>
-          <div className={styles.labelItem}>
-            <div className={styles.labelHeader}><Calendar size={14} /> Termín</div>
-            <div className={styles.labelValue}>{task.dueDate ? new Date(task.dueDate).toLocaleDateString("cs-CZ") : "DNES"}</div>
           </div>
         </section>
       </div>

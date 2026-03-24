@@ -196,6 +196,7 @@ export const TaskList = () => {
             task={selectedTask} 
             onClose={() => setSelectedTask(null)}
             onUpdate={handleUpdate}
+            onDelete={handleDelete}
           />
         )}
       </AnimatePresence>

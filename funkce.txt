@@ -41,3 +41,5 @@ Adresář přátel sdílené akce
 Sdílené úkoly bez vlasntíka
 
 Seznamy věcí s sebou 
+
+Šablona emailu s elementy, kterou si mohu poslat do emailů

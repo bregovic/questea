@@ -1,0 +1,39 @@
+# Questea - AI Context & Development Guidelines
+
+Tento dokument slouží jako centrální kontext a pravidla pro jakoukoliv další AI asistenci (Cursor, Windsurf, aj.) na projektu Questea.
+
+## 1. Technologický Stack
+- **Framework:** Next.js 15 (App Router)
+- **UI Knihovna:** React 19
+- **Databáze:** PostgreSQL (běžící na Railway)
+- **ORM:** Prisma
+- **Autentikace:** NextAuth (Credentials provider s bcryptjs pro hesla, JWT sessions)
+- **Stylování:** Čisté CSS Modules (`.module.css`) s využitím moderních CSS proměnných (žádný Tailwind, pokud si uživatel nevyžádá jinak).
+
+## 2. Design Philosophie & UI Vize (ZÁVAZNÉ)
+- **Téma:** Čistý, "Sand/Coral" Fresh Light Theme. Žádný tmavý (dark) režim s fialovou!
+- **Paleta Barev:**
+  - **Pozadí aplikace:** `#fbfaf9` (písková/krémová bílá)
+  - **Pozadí karet/modulů:** `#ffffff` (čistá bílá)
+  - **Hlavní text:** `#1c1917` (téměř černá, břidlicová šedá)
+  - **Tlumený text (Muted):** `#78716c`
+  - **Hlavní "Accent" barva:** Živá mandarinkově oranžová / korálová (`#ea580c` a `#f97316`)
+  - **Hranice (Borders):** Jemné šedé/pískové linky (`#e7e5e4`, `#f0ebe1`)
+- **Tvary a stíny:** 
+  - Velmi zakulacené rohy pro karty (`border-radius: 24px` nebo `16px`).
+  - Stíny jsou rozsáhlé, velmi jemné a slabé (např. `box-shadow: 0 20px 40px -10px rgba(0,0,0,0.05)`).
+- **Typografie:** `Inter` pro běžný text, `Outfit` pro nadpisy. Silné extrémní řezy (font-weight 800) pro obří nadpisy, čisté a tenké řezy pro popisky.
+
+## 3. Struktura aplikace
+- `/app/api/auth/*` - Autentikace a registrace s vlastními Next.js routes
+- `/app/login`, `/app/register` - Veřejné přihlašovací obrazovky (zcela světlý minimalistický layout)
+- `/app/dashboard` - Zabezpečená hlavní zóna. 
+- **Layout Dashboardu:** 
+  - Levý minimalistický boční panel (Sidebar) typu "Notion/Linear".
+  - Obsahuje sekce (Menu): **Úkoly**, **Číselníky**, **Nastavení**.
+  - Obaluje stránky pro čistý průchod.
+
+## 4. Konvence pro kód a AI Asistenty
+- **Jazyk komunikace s uživatelem:** Čeština.
+- **Komponenty:** Používej Server Components tam, kde to jde (čtení Prisma dat). Používej Client Components (`"use client"`) jen pro interaktivní části UI (tlačítka, formuláře, modaly).
+- **Minimalismus a "Wow" efekt:** Design musí uživatele nadchnout svou vizuální výjimečností, ne být jen funkčním MVP s "krabicoidním" UI. Udržuj rozestupy čisté (spousta ' whitespace / paddingu ').

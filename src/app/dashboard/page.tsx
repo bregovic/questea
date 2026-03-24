@@ -1,6 +1,8 @@
 import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
+import layoutStyles from "./layout.module.css";
+import styles from "./page.module.css";
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
@@ -10,14 +12,20 @@ export default async function DashboardPage() {
   }
 
   return (
-    <div style={{ padding: '2rem', color: '#e5e1f0', background: '#0f0d1a', minHeight: '100vh', fontFamily: 'Inter' }}>
-      <h1>Dashboard</h1>
-      <p>Vítej v zabezpečené zóně, {session.user?.email}!</p>
+    <>
+      <header className={layoutStyles.pageHeader}>
+        <h1 className={layoutStyles.pageTitle}>Dashboard</h1>
+        <p className={layoutStyles.pageSubtitle}>
+          Vítej zpět, <strong>{session.user?.name || session.user?.email || "cestovateli"}</strong>!
+        </p>
+      </header>
       
-      <div style={{ marginTop: '2rem', padding: '1rem', background: 'rgba(124, 58, 237, 0.1)', borderRadius: '12px', border: '1px solid rgba(124, 58, 237, 0.3)' }}>
-        <h2>Tvoje úkoly</h2>
-        <p style={{ color: '#9ca3af' }}>Zde brzy uvidíme seznam tvých úkolů ke splnění s možností je oddělit jako přes Tinder.</p>
+      <div className={styles.card}>
+        <h2 className={styles.cardHeader}>Tvoje úkoly</h2>
+        <p className={styles.cardBody}>
+          Zde brzy uvidíme seznam tvých úkolek ke splnění s možností je rychle oddělit (swipe) jako přes Tinder. Brzy přidáme i integraci na číselníky!
+        </p>
       </div>
-    </div>
+    </>
   );
 }

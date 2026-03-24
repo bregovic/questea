@@ -4,6 +4,10 @@ import { NextResponse } from "next/server";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
+export async function GET() {
+  return NextResponse.json({ status: "alive", message: "Questea Inbound Hook is active. Waiting for POST requests." });
+}
+
 export async function POST(req: Request) {
   try {
     const rawBody = await req.json();
@@ -42,7 +46,8 @@ export async function POST(req: Request) {
     // <deadline>2026-10-10</deadline>
     // <ai>true</ai>
     const extractTag = (tag: string) => {
-      const regex = new RegExp(`<${tag}>(.+?)<\/${tag}>`, "is");
+      // Use [\s\S] instead of 's' flag for cross-line matching compatibility
+      const regex = new RegExp(`<${tag}>([\\s\\S]+?)<\\/${tag}>`, "i");
       return textBody.match(regex)?.[1]?.trim();
     };
 
@@ -55,7 +60,8 @@ export async function POST(req: Request) {
     let useAi = manualAiTag === "true" || (fromAlias?.allowAi && manualAiTag !== "false");
 
     let finalTitle = subject;
-    let finalDesc = textBody.replace(/<[^>]*>.*?<[^>]*>/gs, "").trim(); 
+    // Use [\s\S] instead of 's' flag for cross-line matching compatibility
+    let finalDesc = textBody.replace(/<[^>]*>[\s\S]*?<[^>]*>/g, "").trim(); 
 
     // 3. AI Processing (if requested)
     if (useAi && process.env.GEMINI_API_KEY) {

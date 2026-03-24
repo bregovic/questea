@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
-import { Check, Trash2, Clock, AlertCircle, ChevronRight, MoreVertical } from "lucide-react";
+import { Check, Trash2, Clock, AlertCircle, ChevronRight, MoreVertical, Eye, Home } from "lucide-react";
 import styles from "./TaskCard.module.css";
 
 interface TaskCardProps {
@@ -116,9 +116,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
                   e.stopPropagation();
                   onOpenDetail?.();
                 }}
-                title="Otevřít detail"
+                title="Zobrazit detail"
               >
-                <AlertCircle size={18} />
+                <Eye size={18} />
               </button>
               {task.subTasks?.length > 0 && <ChevronRight size={14} className="opacity-30" />}
             </div>

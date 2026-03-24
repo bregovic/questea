@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { TaskCard } from "../TaskCard/TaskCard";
 import { TaskDetail } from "../TaskDetail/TaskDetail";
-import { Plus, Search, Grid, List as ListIcon, ChevronLeft } from "lucide-react";
+import { Search, Grid, List as ListIcon, Home, ChevronRight } from "lucide-react";
 import styles from "./TaskList.module.css";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -15,11 +15,11 @@ export const TaskList = () => {
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [selectedTask, setSelectedTask] = useState<any | null>(null);
 
-  // Filters & Sorting
+  // Navigation & Filtering
+  const [currentParentId, setCurrentParentId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
   const [sortBy, setSortBy] = useState<string>("PRIORITY");
-  const [currentParentId, setCurrentParentId] = useState<string | null>(null);
 
   const [lastDeletedTask, setLastDeletedTask] = useState<any | null>(null);
   const [showUndo, setShowUndo] = useState(false);
@@ -38,25 +38,45 @@ export const TaskList = () => {
     }
   };
 
+  const goUp = useCallback(() => {
+    if (!currentParentId) return;
+    const current = tasks.find(t => t.id === currentParentId);
+    setCurrentParentId(current?.parentId || null);
+  }, [currentParentId, tasks]);
+
   useEffect(() => {
     fetchTasks();
-  }, []);
+    
+    // Global event for adding task from sidebar
+    const handleAddTaskEvent = () => setIsAddingTask(true);
+    window.addEventListener("addTask", handleAddTaskEvent);
 
-  // Derived breadcrumbs for drill-down
-  const getBreadcrumbs = () => {
-    if (!currentParentId) return [];
-    const breadcrumbs: any[] = [];
-    let curr: any = tasks.find(t => t.id === currentParentId);
-    while (curr) {
-      breadcrumbs.unshift(curr);
-      curr = tasks.find(t => t.id === curr.parentId);
-    }
-    return breadcrumbs;
-  };
+    // Keyboard navigation (ESC to go up)
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (selectedTask) setSelectedTask(null);
+        else if (isAddingTask) setIsAddingTask(false);
+        else goUp();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("addTask", handleAddTaskEvent);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [goUp, selectedTask, isAddingTask]);
+
+  // Derived breadcrumbs
+  const breadcrumbs = [];
+  let curr: any = tasks.find(t => t.id === currentParentId);
+  while (curr) {
+    breadcrumbs.unshift(curr);
+    curr = tasks.find(t => t.id === curr.parentId);
+  }
 
   const handleUpdate = async (id: string, data: any) => {
     const originalTasks = [...tasks];
-    
     const updateTasksRecursively = (taskList: any[]): any[] => {
       return taskList.map(t => {
         if (t.id === id) return { ...t, ...data };
@@ -64,9 +84,7 @@ export const TaskList = () => {
         return t;
       });
     };
-
     setTasks(updateTasksRecursively(tasks));
-
     try {
       const res = await fetch(`/api/tasks/${id}`, {
         method: "PATCH",
@@ -86,10 +104,8 @@ export const TaskList = () => {
       setShowUndo(true);
       setTimeout(() => setShowUndo(false), 5000);
     }
-
     const originalTasks = [...tasks];
     setTasks(tasks.filter(t => t.id !== id));
-
     try {
       const res = await fetch(`/api/tasks/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error();
@@ -98,29 +114,9 @@ export const TaskList = () => {
     }
   };
 
-  const handleUndo = async () => {
-    if (!lastDeletedTask) return;
-    
-    try {
-      const res = await fetch("/api/tasks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(lastDeletedTask),
-      });
-      if (res.ok) {
-        const restored = await res.json();
-        setTasks([restored, ...tasks]);
-        setShowUndo(false);
-      }
-    } catch (error) {
-      console.error("Undo failed");
-    }
-  };
-
   const handleAddTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTaskTitle.trim()) return;
-
     try {
       const res = await fetch("/api/tasks", {
         method: "POST",
@@ -144,7 +140,6 @@ export const TaskList = () => {
     }
   };
 
-  // Derived filtered tasks for drill-down
   const filteredTasks = tasks.filter(task => {
     if (searchQuery && !task.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     if (filterStatus !== "ALL" && task.status !== filterStatus) return false;
@@ -154,15 +149,29 @@ export const TaskList = () => {
       const pMap: any = { URGENT: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
       return pMap[a.priority] - pMap[b.priority];
     }
-    if (sortBy === "PROGRESS") {
-      return (b.progress || 0) - (a.progress || 0);
-    }
+    if (sortBy === "PROGRESS") return (b.progress || 0) - (a.progress || 0);
     return 0;
   });
 
+  // Mobile swipe support (simple)
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const handleTouchStart = (e: React.TouchEvent) => setTouchStart(e.targetTouches[0].clientX);
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStart === null) return;
+    const touchEnd = e.changedTouches[0].clientX;
+    const distance = touchEnd - touchStart;
+    if (distance > 100) goUp(); // Swipe right to go up? OR Swipe left?
+    // User asked: "při svajp doleva mimo úkol taky vyskočit o úroveň ven" (swipe left outside task)
+    if (distance < -100) goUp();
+    setTouchStart(null);
+  };
+
   return (
-    <div className={styles.container}>
-      {/* Detail Drawer */}
+    <div 
+      className={styles.container}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
       <AnimatePresence>
         {selectedTask && (
           <TaskDetail 
@@ -174,62 +183,23 @@ export const TaskList = () => {
       </AnimatePresence>
 
       <header className={styles.header}>
-        <div className={styles.headerTop}>
-          <div className="flex items-center gap-4">
-            <button 
-              onClick={() => setIsAddingTask(true)}
-              className={styles.addButton}
-            >
-              <Plus size={20} />
-              <span>Nový úkol</span>
-            </button>
-            
-            {currentParentId && (
+        <div className={styles.breadcrumbContainer}>
+          <button onClick={() => setCurrentParentId(null)} className={styles.pathItem}>
+            <Home size={20} className={!currentParentId ? "text-coral" : ""} />
+          </button>
+          {breadcrumbs.map((b, idx) => (
+            <React.Fragment key={b.id}>
+              <ChevronRight size={14} className={styles.pathSeparator} />
               <button 
-                onClick={() => {
-                  const parent = tasks.find(t => t.id === currentParentId);
-                  setCurrentParentId(parent?.parentId || null);
-                }}
-                className="flex items-center gap-1 text-sm font-bold text-sand-dark opacity-40 hover:opacity-100 transition-opacity"
+                onClick={() => setCurrentParentId(b.id)}
+                className={`${styles.pathItem} ${idx === breadcrumbs.length - 1 ? styles.activePath : ""}`}
               >
-                <ChevronLeft size={16} /> Zpět
+                {b.title}
               </button>
-            )}
-          </div>
-
-          <div className="flex-1 px-4">
-            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
-              <button 
-                onClick={() => setCurrentParentId(null)}
-                className={`text-xs font-bold uppercase tracking-wider ${!currentParentId ? 'text-coral' : 'text-sand-dark/40'}`}
-              >
-                Root
-              </button>
-              {getBreadcrumbs().map((b: any) => (
-                <React.Fragment key={b.id}>
-                  <span className="text-sand-dark/20">/</span>
-                  <button 
-                    onClick={() => setCurrentParentId(b.id)}
-                    className="text-xs font-bold uppercase tracking-wider text-sand-dark/60 hover:text-coral whitespace-nowrap"
-                  >
-                    {b.title}
-                  </button>
-                </React.Fragment>
-              ))}
-            </div>
-          </div>
-
-          <div className={styles.headerActions}>
-            <button 
-              onClick={() => setViewMode(viewMode === "list" ? "grid" : "list")}
-              className={styles.iconButton}
-            >
-              {viewMode === "list" ? <ListIcon size={20} /> : <Grid size={20} />}
-            </button>
-          </div>
+            </React.Fragment>
+          ))}
         </div>
 
-        {/* Filter Bar */}
         <div className={styles.filterBar}>
           <div className={styles.searchGroup}>
             <Search className={styles.searchIcon} size={16} />
@@ -249,35 +219,33 @@ export const TaskList = () => {
                 onClick={() => setFilterStatus(status)}
                 className={`${styles.filterChip} ${filterStatus === status ? styles.chipActive : styles.chipInactive}`}
               >
-                {status === "ALL" ? "Vše" : status === "TODO" ? "Todo" : status === "IN_PROGRESS" ? "Progress" : "Done"}
+                {status === "ALL" ? "Vše" : status}
               </button>
             ))}
           </div>
 
-          <select 
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            className={styles.sortSelect}
-          >
+          <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className={styles.sortSelect}>
             <option value="PRIORITY">Priority</option>
             <option value="PROGRESS">Progress</option>
           </select>
+
+          <button onClick={() => setViewMode(viewMode === "list" ? "grid" : "list")} className="ml-auto opacity-40 hover:opacity-100 transition-opacity">
+            {viewMode === "list" ? <ListIcon size={20} /> : <Grid size={20} />}
+          </button>
         </div>
       </header>
 
-      {/* Quick Add Form */}
       <AnimatePresence>
         {isAddingTask && (
           <motion.form 
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
             onSubmit={handleAddTask} 
             className={styles.addForm}
           >
             <input 
               autoFocus
-              type="text" 
               placeholder={currentParentId ? "Nový podúkol..." : "Nový projekt..."} 
               value={newTaskTitle}
               onChange={(e) => setNewTaskTitle(e.target.value)}
@@ -288,60 +256,40 @@ export const TaskList = () => {
         )}
       </AnimatePresence>
 
-      {loading ? (
-        <div className={styles.loading}>Načítám...</div>
-      ) : (
-        <motion.div layout className={viewMode === "grid" ? styles.grid : styles.list}>
+      <main className={viewMode === "grid" ? styles.grid : styles.list}>
+        {loading ? (
+          <div className={styles.loading}>Načítám...</div>
+        ) : (
           <AnimatePresence mode="popLayout">
             {filteredTasks.length === 0 ? (
-              <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className={styles.empty}
-              >
+              <div className={styles.empty}>
                 <h3>Prázdno ✨</h3>
-                <p>Klikni na + přidat a vytvoř první úkol v této úrovni.</p>
-              </motion.div>
+                <p>Začni tím, že přidáš první položku v této úrovni.</p>
+              </div>
             ) : (
               filteredTasks.map(task => (
-                <motion.div 
+                <TaskCard 
                   key={task.id} 
-                  layout
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                >
-                  <TaskCard 
-                    task={task} 
-                    onUpdate={(data) => handleUpdate(task.id, data)}
-                    onDelete={() => handleDelete(task.id)}
-                    onOpen={() => {
-                      if (task.subTasks && task.subTasks.length > 0) {
-                        setCurrentParentId(task.id);
-                      } else {
-                        setSelectedTask(task);
-                      }
-                    }}
-                    onOpenDetail={() => setSelectedTask(task)}
-                  />
-                </motion.div>
+                  task={task} 
+                  onUpdate={(data) => handleUpdate(task.id, data)}
+                  onDelete={() => handleDelete(task.id)}
+                  onOpen={() => {
+                    if (task.subTasks?.length > 0) setCurrentParentId(task.id);
+                    else setSelectedTask(task);
+                  }}
+                  onOpenDetail={() => setSelectedTask(task)}
+                />
               ))
             )}
           </AnimatePresence>
-        </motion.div>
-      )}
+        )}
+      </main>
 
-      {/* Undo Toast */}
       <AnimatePresence>
         {showUndo && (
-          <motion.div 
-            initial={{ y: 100, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 100, opacity: 0 }}
-            className={styles.undoToast}
-          >
+          <motion.div initial={{ y: 50 }} animate={{ y: 0 }} exit={{ y: 50 }} className={styles.undoToast}>
             <span>Smazáno</span>
-            <button onClick={handleUndo} className={styles.undoBtn}>UNDO</button>
+            <button onClick={() => { handleUndo(); setShowUndo(false); }} className={styles.undoBtn}>UNDO</button>
           </motion.div>
         )}
       </AnimatePresence>

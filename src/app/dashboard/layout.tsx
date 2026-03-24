@@ -6,15 +6,19 @@ import { signOut, useSession } from "next-auth/react";
 import styles from "./layout.module.css";
 import React from "react";
 
-import { ChevronLeft, ChevronRight, CheckCircle, List, Settings, LogOut } from "lucide-react";
+import { ChevronLeft, ChevronRight, CheckCircle, List, Settings, LogOut, Plus } from "lucide-react";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { data: session } = useSession();
-  const [isCollapsed, setIsCollapsed] = React.useState(false);
+  const [isCollapsed, setIsCollapsed] = React.useState(true); // Default to collapsed
 
   const handleLogout = () => {
     signOut({ callbackUrl: "/login" });
+  };
+
+  const handleAddTask = () => {
+    window.dispatchEvent(new CustomEvent("addTask"));
   };
 
   return (
@@ -26,6 +30,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           className={styles.toggleBtn}
         >
           {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+        </button>
+
+        <button 
+          onClick={handleAddTask}
+          className={styles.sidebarAddBtn}
+          title="Nový úkol"
+        >
+          <Plus size={20} />
+          <span>Nový úkol</span>
         </button>
 
         <div className={styles.brand}>
@@ -58,7 +71,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className={styles.userSection}>
           <div className={styles.userInfo}>
             <span className={styles.userName}>{session?.user?.name || session?.user?.email || "Uživatel"}</span>
-            <span className={styles.userRole}>Vlastník</span>
           </div>
 
           <button onClick={handleLogout} className={styles.logoutBtn}>

@@ -12,7 +12,7 @@
   border-right: 1px solid var(--panel-border);
   display: flex;
   flex-direction: column;
-  padding: 1.5rem 1rem;
+  padding: 1rem;
   position: fixed;
   height: 100vh;
   z-index: 100;
@@ -21,20 +21,63 @@
 }
 
 .sidebar.collapsed {
-  width: 80px;
+  width: 72px;
+}
+
+.sidebarAddBtn {
+  width: 100%;
+  height: 48px;
+  background: var(--accent-primary);
+  color: white;
+  border: none;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  margin-bottom: 2rem;
+  box-shadow: 0 4px 15px rgba(234, 88, 12, 0.2);
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.sidebarAddBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(234, 88, 12, 0.3);
+}
+
+.sidebar.collapsed .sidebarAddBtn {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.sidebar.collapsed .sidebarAddBtn span {
+  display: none;
 }
 
 .brand {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0 1rem 2rem 1rem;
+  padding: 0 0.5rem 2rem 0.5rem;
   font-family: 'Outfit', sans-serif;
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   font-weight: 800;
   color: var(--text-main);
   letter-spacing: -0.03em;
   white-space: nowrap;
+}
+
+.sidebar.collapsed .brand {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
 }
 
 .sidebar.collapsed .brandText {
@@ -42,16 +85,15 @@
 }
 
 .brandIcon {
-  width: 32px;
-  height: 32px;
-  min-width: 32px;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
   background: var(--accent-gradient);
   border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
-  box-shadow: 0 4px 10px rgba(234, 88, 12, 0.3);
 }
 
 .nav {
@@ -65,7 +107,7 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.75rem 1rem;
+  padding: 0.75rem 0.75rem;
   border-radius: 12px;
   color: var(--text-muted);
   text-decoration: none;
@@ -73,6 +115,11 @@
   font-size: 0.95rem;
   transition: all 0.2s ease;
   white-space: nowrap;
+}
+
+.sidebar.collapsed .navItem {
+  justify-content: center;
+  padding: 0.75rem 0;
 }
 
 .sidebar.collapsed .navItem span {
@@ -106,6 +153,10 @@
   gap: 0.75rem;
 }
 
+.sidebar.collapsed .userSection {
+  align-items: center;
+}
+
 .sidebar.collapsed .userInfo,
 .sidebar.collapsed .logoutBtn span {
   display: none;
@@ -123,14 +174,14 @@
 .mainContent {
   flex: 1;
   margin-left: 260px;
-  padding: 2rem;
+  padding: 0;
   background-color: var(--bg-color);
   min-height: 100vh;
   transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .mainContent.collapsed {
-  margin-left: 80px;
+  margin-left: 72px;
 }
 
 .toggleBtn {

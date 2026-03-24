@@ -60,10 +60,31 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  WAITING
+  DONE
+  CANCELED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TaskType {
+  TASK
+  BUG
+  IDEA
+}
+
 model Category {
   id        String   @id @default(cuid())
   name      String
-  color     String   @default("#7c3aed")
+  color     String   @default("#ea580c") // Výchzí naše krásná oranžová
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   tasks     Task[]
@@ -74,23 +95,39 @@ model Category {
 
 model Task {
   id          String   @id @default(cuid())
-  title       String
-  description String?  @db.Text
-  isCompleted Boolean  @default(false)
-  dueDate     DateTime?
   
-  // Relations
-  userId      String
+  // Základní údaje (Zadání)
+  title       String       // Předmět
+  description String?  @db.Text // Detailní popis
+  
+  // Řízení stavu (HelpDesk & Agile parametry)
+  status      TaskStatus   @default(TODO) // Stav
+  priority    TaskPriority @default(MEDIUM) // Priorita
+  taskType    TaskType     @default(TASK) // Zdroj/Typ záznamu
+  progress    Int          @default(0) // Progress v procentech (0-100)
+  
+  // Časování a plánování
+  startDate   DateTime?    // Od kdy (začátek plnění)
+  dueDate     DateTime?    // Kdy se má odevzdat (splatnost)
+  // (poznámka: Kolik je úkol "po splatnosti" se neukládá, ale dynamicky počítá a zobrazuje z dueDate)
+  
+  estimatedMinutes Int?    // Odhadovaný čas řešení v minutách
+  spentMinutes     Int?    // Skutečně strávený/vykázaný čas v minutách
+  
+  // Vazby (Kdo, Komu, Kam)
+  userId      String       // Vlastník/Tvůrce (Kdo úkol založil)
   user        User     @relation("UserTasks", fields: [userId], references: [id], onDelete: Cascade)
   
-  delegateId  String?
+  delegateId  String?      // Řešitel/Přiřazeno (Komu je to předáno)
   delegate    User?    @relation("DelegatedTasks", fields: [delegateId], references: [id], onDelete: SetNull)
 
-  categoryId  String?
+  categoryId  String?      // Kategorie/Oblast
   category    Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
 
-  voiceNoteUrl String?
+  // Přílohy
+  voiceNoteUrl String?     // Zvukový záznam (hlasová poznámka)
   
+  // Systémové
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }

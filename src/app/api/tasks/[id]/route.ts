@@ -5,16 +5,18 @@ import { prisma } from "@/lib/prisma";
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id } = await params;
 
   try {
     const body = await req.json();
     const task = await prisma.task.update({
       where: { 
-        id: params.id,
+        id: id,
         userId: session.user.id // Ensure owner
       },
       data: body,
@@ -27,15 +29,17 @@ export async function PATCH(
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const { id } = await params;
+
   try {
     await prisma.task.delete({
       where: { 
-        id: params.id,
+        id: id,
         userId: session.user.id 
       },
     });

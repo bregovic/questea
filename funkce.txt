@@ -1,0 +1,43 @@
+přeposlat email na můj zpracovatelský. mápování na více accountů
+API chatgpt výcuc,
+přílohy, obrázky
+¨Možnost sledovat progrss bar
+Sub úkoly, jeslti jsou blokující nebo nejsou a přiřazovat jiným llidem
+Evidence času stráveného, automatické zaznamenávání
+
+zápujčky
+co mám vrátit
+události
+import a synchronizace kalendáře
+
+organizér akcí
+
+jako hlepdesk 
+kategorie, 
+priority
+termíny
+posouvání dragand drop
+vyhodnocoání úkolů co jsem já zadal
+platby žádost a dluhy
+plánování akcí doodle
+settleup 
+
+Nákupy věcí
+
+
+Agregovat pod sub Task- vlastní kategorie
+Mob App web
+
+Opakující se úkoly jako vzít si prášky
+Statistika splnění a historie
+Parametr úkolu, že třeba nejde zavřít, jako hlavičky
+Výchozí nastavení podle kategorie úkolu
+
+Barevně označené po splatnosti
+
+Společné akce, odeílání do kalendáře
+Adresář přátel sdílené akce
+
+Sdílené úkoly bez vlasntíka
+
+Seznamy věcí s sebou 

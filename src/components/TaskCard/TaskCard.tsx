@@ -7,12 +7,12 @@ import styles from "./TaskCard.module.css";
 
 interface TaskCardProps {
   task: any;
-  onStatusChange: (id: string, newStatus: string) => void;
+  onUpdate: (data: any) => void;
   onDelete: (id: string) => void;
   onOpen?: () => void;
 }
 
-export const TaskCard: React.FC<TaskCardProps> = ({ task, onStatusChange, onDelete, onOpen }) => {
+export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, onOpen }) => {
   const x = useMotionValue(0);
   
   // Swipe right (complete) - Green background
@@ -25,7 +25,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onStatusChange, onDele
 
   const handleDragEnd = (event: any, info: any) => {
     if (info.offset.x > 100) {
-      onStatusChange(task.id, task.status === "DONE" ? "TODO" : "DONE");
+      onUpdate({ status: task.status === "DONE" ? "TODO" : "DONE" });
     } else if (info.offset.x < -100) {
       onDelete(task.id);
     }

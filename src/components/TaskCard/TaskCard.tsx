@@ -14,6 +14,7 @@ interface TaskCardProps {
 
 export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, onOpen }) => {
   const x = useMotionValue(0);
+  const y = useMotionValue(0);
   
   // Swipe right (complete) - Green background
   const backgroundRight = useTransform(x, [0, 100], ["rgba(255,255,255,0)", "#ecfdf5"]);
@@ -23,11 +24,23 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
   const backgroundLeft = useTransform(x, [-100, 0], ["#fef2f2", "rgba(255,255,255,0)"]);
   const opacityTrash = useTransform(x, [-80, -20], [1, 0]);
 
+  // Swipe down (postpone) - Sand background
+  const backgroundDown = useTransform(y, [0, 80], ["rgba(255,255,255,0)", "#fff7ed"]);
+  const opacityDown = useTransform(y, [20, 60], [0, 1]);
+
   const handleDragEnd = (event: any, info: any) => {
-    if (info.offset.x > 100) {
-      onUpdate({ status: task.status === "DONE" ? "TODO" : "DONE" });
-    } else if (info.offset.x < -100) {
-      onDelete(task.id);
+    // Horizontal swipe
+    if (Math.abs(info.offset.x) > Math.abs(info.offset.y)) {
+      if (info.offset.x > 100) {
+        onUpdate({ status: task.status === "DONE" ? "TODO" : "DONE" });
+      } else if (info.offset.x < -100) {
+        onDelete(task.id);
+      }
+    } 
+    // Vertical swipe
+    else if (info.offset.y > 60) {
+      // "Move to bottom" -> set priority to LOW
+      onUpdate({ priority: "LOW" });
     }
   };
 
@@ -55,11 +68,16 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
         </motion.div>
       </motion.div>
 
+      <motion.div style={{ background: backgroundDown, opacity: opacityDown }} className="absolute inset-0 flex justify-center pt-8 z-0">
+        <Clock size={24} color="#ea580c" />
+      </motion.div>
+
       {/* Main Card Content */}
       <motion.div
-        drag="x"
-        dragConstraints={{ left: 0, right: 0 }}
-        style={{ x }}
+        drag
+        dragDirectionLock
+        dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
+        style={{ x, y }}
         onDragEnd={handleDragEnd}
         onClick={onOpen}
         className={`${styles.card} ${task.status === "DONE" ? styles.completed : ""}`}

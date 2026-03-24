@@ -9,6 +9,9 @@ import CredentialsProvider from "next-auth/providers/credentials";
 export const authOptions: NextAuthOptions = {
   // @ts-ignore - PrismaAdapter types can sometimes complain with different versions
   adapter: PrismaAdapter(prisma),
+  session: {
+    strategy: "jwt"
+  },
   providers: [
     CredentialsProvider({
       name: "credentials",
@@ -59,9 +62,15 @@ export const authOptions: NextAuthOptions = {
     signIn: "/login",
   },
   callbacks: {
-    async session({ session, user }) {
-      if (session.user) {
-        session.user.id = user.id;
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id;
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      if (session.user && token) {
+        session.user.id = token.id as string;
       }
       return session;
     },

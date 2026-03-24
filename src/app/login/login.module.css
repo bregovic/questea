@@ -4,30 +4,35 @@
   align-items: center;
   justify-content: center;
   padding: 2rem;
-  background: radial-gradient(circle at top right, rgba(124, 58, 237, 0.15), transparent 40%),
-              radial-gradient(circle at bottom left, rgba(16, 185, 129, 0.1), transparent 40%);
+  background: #0f0b1a; /* Dark background matching the screenshot */
 }
 
 .loginCard {
   width: 100%;
-  max-width: 480px;
+  max-width: 450px;
   padding: 3rem;
   text-align: center;
-  animation: slideUp 0.5s ease-out forwards;
+  background: #1b1a26;
+  border: 1px solid #2e2c38;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  animation: slideUp 0.4s ease-out forwards;
 }
 
 .title {
   font-size: 2.25rem;
-  font-weight: 700;
+  font-weight: 800;
   margin-bottom: 0.5rem;
-  color: white;
+  color: #ffffff;
   font-family: 'Outfit', sans-serif;
+  letter-spacing: -0.02em;
 }
 
 .subtitle {
-  color: var(--text-muted);
-  font-size: 1rem;
+  color: #8b8998;
+  font-size: 1.05rem;
   margin-bottom: 2.5rem;
+  line-height: 1.5;
 }
 
 .form {
@@ -45,52 +50,53 @@
 }
 
 .label {
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--text-main);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #ffffff;
 }
 
 .input {
   width: 100%;
   padding: 14px 16px;
-  border-radius: 12px;
-  border: 1px solid var(--panel-border);
-  background: rgba(0, 0, 0, 0.2);
-  color: white;
-  font-size: 1rem;
+  border-radius: 10px;
+  border: none;
+  background: #e6f0ff;
+  color: #111;
+  font-size: 1.05rem;
   font-family: 'Inter', sans-serif;
   transition: all 0.2s ease;
 }
 
+.input::placeholder {
+  color: rgba(17, 17, 17, 0.4);
+}
+
 .input:focus {
   outline: none;
-  border-color: var(--accent-primary);
-  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2);
+  box-shadow: 0 0 0 3px rgba(73, 53, 154, 0.4);
 }
 
 .submitBtn {
   width: 100%;
   padding: 14px;
-  background: var(--accent-gradient);
+  background: #49359a;
   color: white;
   border: none;
-  border-radius: 12px;
-  font-size: 1rem;
+  border-radius: 10px;
+  font-size: 1.05rem;
   font-weight: 600;
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: all 0.2s ease;
   margin-top: 0.5rem;
 }
 
 .submitBtn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(124, 58, 237, 0.4);
+  background: #5a42bd;
 }
 
 .submitBtn:disabled {
-  opacity: 0.6;
+  opacity: 0.7;
   cursor: not-allowed;
-  transform: none;
 }
 
 .divider {
@@ -98,14 +104,14 @@
   align-items: center;
   text-align: center;
   margin: 1.5rem 0;
-  color: var(--text-muted);
-  font-size: 0.9rem;
+  color: #8b8998;
+  font-size: 0.95rem;
 }
 
 .divider::before, .divider::after {
   content: '';
   flex: 1;
-  border-bottom: 1px solid var(--panel-border);
+  border-bottom: 1px solid #2e2c38;
 }
 
 .divider::before {
@@ -118,12 +124,12 @@
 
 .googleBtn {
   width: 100%;
-  padding: 14px;
-  background: white;
-  color: #1f2937;
+  padding: 12px;
+  background: #ffffff;
+  color: #111;
   border: none;
-  border-radius: 12px;
-  font-size: 1rem;
+  border-radius: 10px;
+  font-size: 1.05rem;
   font-weight: 600;
   cursor: pointer;
   display: flex;
@@ -134,15 +140,14 @@
 }
 
 .googleBtn:hover {
-  background: #f3f4f6;
-  transform: translateY(-2px);
+  background: #f0f0f0;
 }
 
 .message {
   padding: 1rem;
   border-radius: 8px;
   background: rgba(16, 185, 129, 0.1);
-  color: var(--success-color);
+  color: #10b981;
   border: 1px solid rgba(16, 185, 129, 0.2);
   margin-bottom: 1.5rem;
   font-size: 0.95rem;
@@ -152,13 +157,13 @@
   padding: 1rem;
   border-radius: 8px;
   background: rgba(239, 68, 68, 0.1);
-  color: var(--danger-color);
+  color: #ef4444;
   border: 1px solid rgba(239, 68, 68, 0.2);
   margin-bottom: 1.5rem;
   font-size: 0.95rem;
 }
 
 @keyframes slideUp {
-  from { opacity: 0; transform: translateY(20px); }
+  from { opacity: 0; transform: translateY(15px); }
   to { opacity: 1; transform: translateY(0); }
 }

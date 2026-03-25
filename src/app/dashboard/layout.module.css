@@ -186,20 +186,20 @@
 
 .toggleBtn {
   position: absolute;
-  top: 1.5rem;
   right: -12px;
-  width: 24px;
-  height: 24px;
+  top: 80px; /* Moved down to avoid collision */
   background: white;
   border: 1px solid var(--panel-border);
   border-radius: 50%;
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  z-index: 110;
+  z-index: 101;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   color: var(--text-muted);
-  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
 }
 
 .toggleBtn:hover {

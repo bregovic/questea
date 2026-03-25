@@ -1,22 +1,24 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, User, FileText, Link as LinkIcon, Calendar, Shield, CheckCircle, Plus, Trash2, Mail } from "lucide-react";
+import { X, User, FileText, Link as LinkIcon, Calendar, Shield, CheckCircle, Plus, Trash2, Mail, Layers } from "lucide-react";
 import styles from "./TaskDetail.module.css";
 
 interface TaskDetailProps {
   task: any;
+  allTasks: any[]; // New prop for parent selection
   onClose: () => void;
   onUpdate: (id: string, data: any) => void;
   onDelete: (id: string) => void;
 }
 
-export const TaskDetail: React.FC<TaskDetailProps> = ({ task, onClose, onUpdate, onDelete }) => {
+export const TaskDetail: React.FC<TaskDetailProps> = ({ task, allTasks, onClose, onUpdate, onDelete }) => {
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description || "");
   const [priority, setPriority] = useState(task.priority);
   const [ownerEmail, setOwnerEmail] = useState(task.user?.email || "");
+  const [parentId, setParentId] = useState(task.parentId || "");
   const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
 
   const handleSaveDescription = () => {
@@ -34,6 +36,12 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ task, onClose, onUpdate,
   const handlePriorityChange = (newPriority: string) => {
     setPriority(newPriority);
     onUpdate(task.id, { priority: newPriority });
+  };
+
+  const handleParentChange = (newParentId: string) => {
+      const pId = newParentId === "" ? null : newParentId;
+      setParentId(newParentId);
+      onUpdate(task.id, { parentId: pId });
   };
 
   const handleOwnerChange = () => {
@@ -121,6 +129,27 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ task, onClose, onUpdate,
             <Trash2 size={14} /> Smazat úkol
           </button>
         </div>
+
+        {/* Parent Selection */}
+        <section className={styles.section}>
+          <div className={styles.sectionHeader}>
+            <Layers size={18} />
+            <span>Nadřazený úkol (Hierarchie)</span>
+          </div>
+          <select 
+            className={styles.select}
+            value={parentId}
+            onChange={(e) => handleParentChange(e.target.value)}
+          >
+            <option value="">(Bez nadřazeného úkolu - ROOT)</option>
+            {allTasks
+                .filter(t => t.id !== task.id) // Can't be parent of itself
+                .map(t => (
+                  <option key={t.id} value={t.id}>{t.title}</option>
+                ))
+            }
+          </select>
+        </section>
 
         {/* Description Section */}
         <section className={styles.section}>

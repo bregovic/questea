@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
-import { Check, Trash2, Clock, AlertCircle, ChevronRight, MoreVertical, Eye, Home } from "lucide-react";
+import { motion, useMotionValue, useTransform } from "framer-motion";
+import { Check, Clock, ChevronRight, Eye, Home } from "lucide-react";
 import styles from "./TaskCard.module.css";
 
 interface TaskCardProps {
@@ -15,32 +15,20 @@ interface TaskCardProps {
 
 export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, onOpen, onOpenDetail }) => {
   const x = useMotionValue(0);
-  const y = useMotionValue(0);
   
   // Swipe right (complete) - Green background
   const backgroundRight = useTransform(x, [0, 100], ["rgba(255,255,255,0)", "#ecfdf5"]);
   const opacityCheck = useTransform(x, [20, 80], [0, 1]);
   
-  // Swipe left (delete) - Red background
-  const backgroundLeft = useTransform(x, [-100, 0], ["#fef2f2", "rgba(255,255,255,0)"]);
-  const opacityTrash = useTransform(x, [-80, -20], [1, 0]);
-
-  // Swipe down (postpone) - Sand background
-  const backgroundDown = useTransform(y, [0, 80], ["rgba(255,255,255,0)", "#fff7ed"]);
-  const opacityDown = useTransform(y, [20, 60], [0, 1]);
+  // Swipe left (postpone) - Sand background
+  const backgroundLeft = useTransform(x, [-100, 0], ["#fff7ed", "rgba(255,255,255,0)"]);
+  const opacityClock = useTransform(x, [-80, -20], [1, 0]);
 
   const handleDragEnd = (event: any, info: any) => {
-    // Horizontal swipe
-    if (Math.abs(info.offset.x) > Math.abs(info.offset.y)) {
-      if (info.offset.x > 100) {
-        onUpdate({ status: task.status === "DONE" ? "TODO" : "DONE" });
-      } else if (info.offset.x < -100) {
-        onDelete(task.id);
-      }
-    } 
-    // Vertical swipe
-    else if (info.offset.y > 60) {
-      // "Move to bottom" -> set priority to LOW
+    if (info.offset.x > 100) {
+      onUpdate({ status: task.status === "DONE" ? "TODO" : "DONE" });
+    } else if (info.offset.x < -100) {
+      // Postpone: set priority to LOW or update dueDate
       onUpdate({ priority: "LOW" });
     }
   };
@@ -64,21 +52,16 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
       </motion.div>
       
       <motion.div style={{ background: backgroundLeft }} className={`${styles.actionBackground} ${styles.left}`}>
-        <motion.div style={{ opacity: opacityTrash }}>
-          <Trash2 size={24} color="#dc2626" />
+        <motion.div style={{ opacity: opacityClock }}>
+          <Clock size={24} color="#f59e0b" />
         </motion.div>
-      </motion.div>
-
-      <motion.div style={{ background: backgroundDown, opacity: opacityDown }} className="absolute inset-0 flex justify-center pt-8 z-0">
-        <Clock size={24} color="#ea580c" />
       </motion.div>
 
       {/* Main Card Content */}
       <motion.div
-        drag
-        dragDirectionLock
-        dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
-        style={{ x, y }}
+        drag="x"
+        dragConstraints={{ left: 0, right: 0 }}
+        style={{ x }}
         onDragEnd={handleDragEnd}
         onClick={onOpen}
         className={`${styles.card} ${task.status === "DONE" ? styles.completed : ""}`}

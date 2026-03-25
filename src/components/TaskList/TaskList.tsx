@@ -85,12 +85,15 @@ export const TaskList = () => {
     }
   };
 
-  // Derived breadcrumbs
+  // Derived breadcrumbs (resilient to missing parent in flat list)
   const breadcrumbs: any[] = [];
   let curr: any = tasks.find(t => t.id === currentParentId);
   while (curr) {
     breadcrumbs.unshift(curr);
-    curr = tasks.find(t => t.id === curr.parentId);
+    // Try to find parent in current list, or use metadata from the task itself
+    const parentId = curr.parentId;
+    if (!parentId) break;
+    curr = tasks.find(t => t.id === parentId) || curr.parent;
   }
 
   const handleUpdate = async (id: string, data: any) => {
@@ -202,6 +205,7 @@ export const TaskList = () => {
         {selectedTask && (
           <TaskDetail 
             task={selectedTask} 
+            allTasks={tasks}
             onClose={() => setSelectedTask(null)}
             onUpdate={handleUpdate}
             onDelete={handleDelete}

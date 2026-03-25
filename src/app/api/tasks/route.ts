@@ -10,11 +10,17 @@ export async function GET() {
   try {
     const tasks = await prisma.task.findMany({
       where: { 
-        userId: session.user.id,
+        OR: [
+          { userId: session.user.id },
+          { delegateId: session.user.id },
+          { subTasks: { some: { userId: session.user.id } } }
+        ]
       },
       include: { 
         category: true,
-        parent: true,
+        parent: {
+          select: { id: true, title: true, parentId: true }
+        },
         subTasks: {
           include: { category: true }
         },

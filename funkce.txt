@@ -43,3 +43,11 @@ Sdílené úkoly bez vlasntíka
 Seznamy věcí s sebou 
 
 Šablona emailu s elementy, kterou si mohu poslat do emailů
+
+Kalendář, možnost swajpem jaké úkoly jsou v intervalu
+
+Můžeme přidat kategorii výchozí atuomaticky podle emailu původce. Když si pošlu z pracovního, nebo osobního
+
+Vykřičník Priorita Top, pořád navrhchu bez ohledu na kategorii
+
+

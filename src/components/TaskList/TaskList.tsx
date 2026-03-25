@@ -159,8 +159,16 @@ export const TaskList = () => {
   };
 
   const filteredTasks = tasks.filter(task => {
-    if (searchQuery && !task.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    // If searching, show all matches regardless of hierarchy
+    if (searchQuery) {
+      return task.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+             task.description?.toLowerCase().includes(searchQuery.toLowerCase());
+    }
+    
+    // Status filter (always applied)
     if (filterStatus !== "ALL" && task.status !== filterStatus) return false;
+    
+    // Normal drill-down navigation
     return task.parentId === currentParentId;
   }).sort((a, b) => {
     if (sortBy === "PRIORITY") {

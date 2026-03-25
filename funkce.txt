@@ -50,4 +50,19 @@ Můžeme přidat kategorii výchozí atuomaticky podle emailu původce. Když si
 
 Vykřičník Priorita Top, pořád navrhchu bez ohledu na kategorii
 
+Automaticky sdílené úkoly, výchozí nastavení kategorie, kdy je sdílené s více uživateli, parametr privátní
+
+Řadit podle priority a taky podle toho jak se blíží deadline
+
+Pokud nebude řečeno jinak, tak se datum termínu nastaví podle priority. 
+
+zavřít detail úkolem swajpem doleva
+
+Přidat do nastavení vytvoření, odeslání šablony, možá formou tabulky , nebo lookupů
+Přidat do nastavení možnost
+
+Překlady popisků
+
+Aplikace na mobil
+
 

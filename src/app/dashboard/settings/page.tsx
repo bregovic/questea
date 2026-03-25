@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { User, Mail, Plus, Trash2, HelpCircle, Save, CheckCircle, Sparkles } from "lucide-react";
+import { User, Mail, Plus, Trash2, HelpCircle, Save, CheckCircle, Sparkles, Smartphone, Download } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function SettingsPage() {
@@ -172,6 +172,54 @@ export default function SettingsPage() {
             >
               <Plus className="w-5 h-5" /> Přidat
             </button>
+          </div>
+        </section>
+
+        {/* PWA Installation Section */}
+        <section className="bg-white rounded-3xl p-6 shadow-sm border border-sand/30 overflow-hidden relative">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="p-3 bg-blue-50 rounded-2xl">
+              <Smartphone className="w-6 h-6 text-blue-500" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-sand-dark">Instalace do mobilu</h2>
+              <p className="text-sm text-sand-dark/60">Používejte Questea jako nativní aplikaci.</p>
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="p-5 bg-sand/5 rounded-2xl border border-sand/10">
+              <h3 className="font-bold text-sand-dark mb-3 flex items-center gap-2">
+                <span className="w-6 h-6 bg-white rounded-full flex items-center justify-center text-xs shadow-sm">1</span>
+                Pro iOS (Safari)
+              </h3>
+              <ul className="text-sm space-y-2 text-sand-dark/70">
+                <li className="flex gap-2">📱 Otevřete v prohlížeči <b>Safari</b></li>
+                <li className="flex gap-2">📤 Klikněte na ikonu <b>Sdílet</b> (čtvereček s šipkou)</li>
+                <li className="flex gap-2">➕ Vyberte <b>Přidat na plochu</b></li>
+              </ul>
+            </div>
+
+            <div className="p-5 bg-sand/5 rounded-2xl border border-sand/10">
+              <h3 className="font-bold text-sand-dark mb-3 flex items-center gap-2">
+                <span className="w-6 h-6 bg-white rounded-full flex items-center justify-center text-xs shadow-sm">2</span>
+                Pro Android (Chrome)
+              </h3>
+              <ul className="text-sm space-y-2 text-sand-dark/70">
+                <li className="flex gap-2">🤖 Otevřete v prohlížeči <b>Chrome</b></li>
+                <li className="flex gap-2">⋮ Klikněte na <b>tři tečky</b> vpravo nahoře</li>
+                <li className="flex gap-2">📥 Vyberte <b>Instalovat aplikaci</b></li>
+              </ul>
+            </div>
+          </div>
+          
+          <div className="mt-6 p-4 bg-orange-50 rounded-2xl border border-orange-100 flex items-center gap-3">
+             <div className="p-2 bg-white rounded-full shadow-sm text-orange-500">
+               <Download className="w-4 h-4" />
+             </div>
+             <p className="text-xs text-orange-800 leading-relaxed font-medium">
+                Po instalaci se Questea otevře v celoobrazovkovém režimu bez adresního řádku prohlížeče, stejně jako běžná aplikace z App Store/Google Play.
+             </p>
           </div>
         </section>
 

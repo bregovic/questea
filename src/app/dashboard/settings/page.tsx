@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { User, Mail, Plus, Trash2, HelpCircle, Save, CheckCircle, Sparkles, Smartphone, Download } from "lucide-react";
+import { User, Mail, Plus, Trash2, HelpCircle, Save, CheckCircle, Sparkles, Smartphone, Download, Monitor } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function SettingsPage() {
@@ -10,10 +10,33 @@ export default function SettingsPage() {
   const [newAlias, setNewAlias] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  
+  // PWA Install Prompt
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
   useEffect(() => {
     fetchSettings();
+
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    };
   }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === "accepted") {
+      setDeferredPrompt(null);
+    }
+  };
 
   const fetchSettings = async () => {
     const res = await fetch("/api/settings");
@@ -177,14 +200,25 @@ export default function SettingsPage() {
 
         {/* PWA Installation Section */}
         <section className="bg-white rounded-3xl p-6 shadow-sm border border-sand/30 overflow-hidden relative">
-          <div className="flex items-center gap-4 mb-6">
-            <div className="p-3 bg-blue-50 rounded-2xl">
-              <Smartphone className="w-6 h-6 text-blue-500" />
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-blue-50 rounded-2xl">
+                <Smartphone className="w-6 h-6 text-blue-500" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-sand-dark">Instalace do mobilu</h2>
+                <p className="text-sm text-sand-dark/60">Používejte Questea jako nativní aplikaci.</p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-xl font-bold text-sand-dark">Instalace do mobilu</h2>
-              <p className="text-sm text-sand-dark/60">Používejte Questea jako nativní aplikaci.</p>
-            </div>
+
+            {deferredPrompt && (
+              <button 
+                onClick={handleInstallClick}
+                className="p-4 px-6 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition-all flex items-center gap-3 font-bold shadow-lg shadow-blue-500/20"
+              >
+                <Monitor className="w-5 h-5" /> Zrychlená instalace
+              </button>
+            )}
           </div>
 
           <div className="grid md:grid-cols-2 gap-6">

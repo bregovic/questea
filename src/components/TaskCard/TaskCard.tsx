@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import { motion, useMotionValue, useTransform } from "framer-motion";
-import { Check, Clock, ChevronRight, Eye, Home } from "lucide-react";
+import { Check, Clock, ChevronRight, Eye, FolderOpen, AlertCircle } from "lucide-react";
 import styles from "./TaskCard.module.css";
 
 interface TaskCardProps {
@@ -16,19 +16,14 @@ interface TaskCardProps {
 export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, onOpen, onOpenDetail }) => {
   const x = useMotionValue(0);
   
-  // Swipe right (complete) - Green background
+  // Swipe colors
   const backgroundRight = useTransform(x, [0, 100], ["rgba(255,255,255,0)", "#ecfdf5"]);
-  const opacityCheck = useTransform(x, [20, 80], [0, 1]);
-  
-  // Swipe left (postpone) - Sand background
   const backgroundLeft = useTransform(x, [-100, 0], ["#fff7ed", "rgba(255,255,255,0)"]);
-  const opacityClock = useTransform(x, [-80, -20], [1, 0]);
-
+  
   const handleDragEnd = (event: any, info: any) => {
-    if (info.offset.x > 100) {
+    if (info.offset.x > 80) {
       onUpdate({ status: task.status === "DONE" ? "TODO" : "DONE" });
-    } else if (info.offset.x < -100) {
-      // Postpone: set priority to LOW or update dueDate
+    } else if (info.offset.x < -80) {
       onUpdate({ priority: "LOW" });
     }
   };
@@ -42,22 +37,20 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
     }
   };
 
+  // Circular progress calculation
+  const radius = 18;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (task.progress / 100) * circumference;
+
   return (
     <div className={styles.wrapper}>
-      {/* Background Actions */}
       <motion.div style={{ background: backgroundRight }} className={`${styles.actionBackground} ${styles.right}`}>
-        <motion.div style={{ opacity: opacityCheck }}>
-          <Check size={24} color="#059669" />
-        </motion.div>
+        <Check size={20} color="#059669" />
       </motion.div>
-      
       <motion.div style={{ background: backgroundLeft }} className={`${styles.actionBackground} ${styles.left}`}>
-        <motion.div style={{ opacity: opacityClock }}>
-          <Clock size={24} color="#f59e0b" />
-        </motion.div>
+        <Clock size={20} color="#f59e0b" />
       </motion.div>
 
-      {/* Main Card Content */}
       <motion.div
         drag="x"
         dragConstraints={{ left: 0, right: 0 }}
@@ -66,46 +59,55 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
         onClick={onOpen}
         className={`${styles.card} ${task.status === "DONE" ? styles.completed : ""}`}
       >
-        <div className={styles.statusIndicator} style={{ backgroundColor: getPriorityColor(task.priority) }} />
+        <div className={styles.leftIndicator} style={{ backgroundColor: getPriorityColor(task.priority) }} />
         
-        <div className={styles.content}>
-          <div className={styles.header}>
-            <span className={styles.typeBadge}>{task.taskType}</span>
+        <div className={styles.mainInfo}>
+          <div className={styles.titleRow}>
+            {task.subTasks?.length > 0 && <FolderOpen size={14} className="text-coral mr-1.5" />}
+            <h3 className={styles.title}>{task.title}</h3>
+          </div>
+          <div className={styles.metaRow}>
             {task.dueDate && (
-              <span className={styles.dueBadge}>
-                <Clock size={12} />
+              <span className={styles.dueInfo}>
+                <Clock size={10} />
                 {new Date(task.dueDate).toLocaleDateString("cs-CZ")}
               </span>
             )}
+            {task.priority === "URGENT" && <AlertCircle size={10} className="text-red-500" />}
           </div>
-          
-          <h3 className={styles.title}>{task.title}</h3>
-          
-          <div className={styles.footer}>
-            <div className={styles.progressContainer}>
-              {task.subTasks?.length > 0 && (
-                <span className="text-[10px] bg-sand/20 px-2 py-0.5 rounded-full font-bold text-sand-dark mr-2">FOLDER</span>
-              )}
-              <div className={styles.progressBar}>
-                <div className={styles.progressFill} style={{ width: `${task.progress}%` }} />
-              </div>
-              <span className={styles.progressText}>{task.progress}%</span>
-            </div>
-            
-            <div className="flex items-center gap-1">
-              <button 
-                className={styles.moreBtn}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onOpenDetail?.();
-                }}
-                title="Zobrazit detail"
-              >
-                <Eye size={18} />
-              </button>
-              {task.subTasks?.length > 0 && <ChevronRight size={14} className="opacity-30" />}
-            </div>
+        </div>
+
+        <div className={styles.rightActions}>
+          <div className={styles.gaugeWrapper}>
+            <svg width="44" height="44" className={styles.gauge}>
+              <circle cx="22" cy="22" r={radius} stroke="#f5f5f4" strokeWidth="3" fill="none" />
+              <motion.circle 
+                cx="22" cy="22" r={radius} 
+                stroke={task.status === "DONE" ? "#059669" : "#ea580c"} 
+                strokeWidth="3" 
+                fill="none"
+                strokeDasharray={circumference}
+                initial={{ strokeDashoffset: circumference }}
+                animate={{ strokeDashoffset: offset }}
+                transition={{ duration: 1, ease: "easeOut" }}
+                strokeLinecap="round"
+                transform="rotate(-90 22 22)"
+              />
+            </svg>
+            <span className={styles.gaugeText}>{task.progress}%</span>
           </div>
+
+          <button 
+            className={styles.eyeBtn}
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenDetail?.();
+            }}
+          >
+            <Eye size={18} />
+          </button>
+          
+          {task.subTasks?.length > 0 && <ChevronRight size={16} className="opacity-20" />}
         </div>
       </motion.div>
     </div>

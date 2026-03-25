@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { TaskCard } from "../TaskCard/TaskCard";
 import { TaskDetail } from "../TaskDetail/TaskDetail";
-import { Search, Grid, List as ListIcon, Home, ChevronRight } from "lucide-react";
+import { Search, Grid, List as ListIcon, Home, ChevronRight, Maximize2, Minimize2 } from "lucide-react";
 import styles from "./TaskList.module.css";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -23,6 +23,13 @@ export const TaskList = () => {
 
   const [lastDeletedTask, setLastDeletedTask] = useState<any | null>(null);
   const [showUndo, setShowUndo] = useState(false);
+  const [isZen, setIsZen] = useState(false);
+
+  const toggleZen = () => {
+    const nextZen = !isZen;
+    setIsZen(nextZen);
+    window.dispatchEvent(new CustomEvent("toggleZen", { detail: nextZen }));
+  };
 
   const fetchTasks = async () => {
     try {
@@ -85,16 +92,30 @@ export const TaskList = () => {
     }
   };
 
-  // Derived breadcrumbs (resilient to missing parent in flat list)
+  // Derived breadcrumbs (resilient even if parent is not in the list)
   const breadcrumbs: any[] = [];
   let curr: any = tasks.find(t => t.id === currentParentId);
+  if (!curr && currentParentId) {
+    // If parent is transferred/missing, find a child that knows about it
+    const sampleChild = tasks.find(t => t.parentId === currentParentId);
+    if (sampleChild) curr = sampleChild.parent;
+  }
+  
   while (curr) {
     breadcrumbs.unshift(curr);
-    // Try to find parent in current list, or use metadata from the task itself
-    const parentId = curr.parentId;
-    if (!parentId) break;
-    curr = tasks.find(t => t.id === parentId) || curr.parent;
+    const pId = curr.parentId;
+    if (!pId) break;
+    curr = tasks.find(t => t.id === pId) || curr.parent;
   }
+
+  // Auto-calculate progress based on subtasks if not set manually
+  const getTaskProgress = (task: any) => {
+    if (task.subTasks && task.subTasks.length > 0) {
+      const doneCount = task.subTasks.filter((st: any) => st.status === "DONE").length;
+      return Math.round((doneCount / task.subTasks.length) * 100);
+    }
+    return task.progress || 0;
+  };
 
   const handleUpdate = async (id: string, data: any) => {
     const originalTasks = [...tasks];
@@ -213,58 +234,70 @@ export const TaskList = () => {
         )}
       </AnimatePresence>
 
-      <header className={styles.header}>
-        <div className={styles.breadcrumbContainer}>
-          <button onClick={() => setCurrentParentId(null)} className={styles.pathItem}>
-            <Home size={20} className={!currentParentId ? "text-coral" : ""} />
-          </button>
-          {breadcrumbs.map((b, idx) => (
-            <React.Fragment key={b.id}>
-              <ChevronRight size={14} className={styles.pathSeparator} />
-              <button 
-                onClick={() => setCurrentParentId(b.id)}
-                className={`${styles.pathItem} ${idx === breadcrumbs.length - 1 ? styles.activePath : ""}`}
-              >
-                {b.title}
+      {!isZen ? (
+        <header className={styles.header}>
+          <div className={styles.breadcrumbHeader}>
+            <div className={styles.breadcrumbContainer}>
+              <button onClick={() => setCurrentParentId(null)} className={styles.pathItem}>
+                <Home size={20} className={!currentParentId ? "text-coral" : ""} />
               </button>
-            </React.Fragment>
-          ))}
-        </div>
-
-        <div className={styles.filterBar}>
-          <div className={styles.searchGroup}>
-            <Search className={styles.searchIcon} size={16} />
-            <input 
-              type="text"
-              placeholder="Hledat..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className={styles.searchInput}
-            />
-          </div>
-          
-          <div className={styles.filterGroup}>
-            {["ALL", "TODO", "IN_PROGRESS", "DONE"].map(status => (
-              <button
-                key={status}
-                onClick={() => setFilterStatus(status)}
-                className={`${styles.filterChip} ${filterStatus === status ? styles.chipActive : styles.chipInactive}`}
-              >
-                {status === "ALL" ? "Vše" : status}
-              </button>
-            ))}
+              {breadcrumbs.map((b, idx) => (
+                <React.Fragment key={b.id}>
+                  <ChevronRight size={14} className={styles.pathSeparator} />
+                  <button 
+                    onClick={() => setCurrentParentId(b.id)}
+                    className={`${styles.pathItem} ${idx === breadcrumbs.length - 1 ? styles.activePath : ""}`}
+                  >
+                    {b.title}
+                  </button>
+                </React.Fragment>
+              ))}
+            </div>
+            
+            <button onClick={toggleZen} className={styles.zenToggle}>
+              <Maximize2 size={18} />
+            </button>
           </div>
 
-          <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className={styles.sortSelect}>
-            <option value="PRIORITY">Priority</option>
-            <option value="PROGRESS">Progress</option>
-          </select>
+          <div className={styles.filterBar}>
+            <div className={styles.searchGroup}>
+              <Search className={styles.searchIcon} size={16} />
+              <input 
+                type="text"
+                placeholder="Hledat..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className={styles.searchInput}
+              />
+            </div>
+            
+            <div className={styles.filterGroup}>
+              {["ALL", "TODO", "IN_PROGRESS", "DONE"].map(status => (
+                <button
+                  key={status}
+                  onClick={() => setFilterStatus(status)}
+                  className={`${styles.filterChip} ${filterStatus === status ? styles.chipActive : styles.chipInactive}`}
+                >
+                  {status === "ALL" ? "Vše" : status}
+                </button>
+              ))}
+            </div>
 
-          <button onClick={() => setViewMode(viewMode === "list" ? "grid" : "list")} className="ml-auto opacity-40 hover:opacity-100 transition-opacity">
-            {viewMode === "list" ? <ListIcon size={20} /> : <Grid size={20} />}
-          </button>
-        </div>
-      </header>
+            <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className={styles.sortSelect}>
+              <option value="PRIORITY">Priority</option>
+              <option value="PROGRESS">Progress</option>
+            </select>
+
+            <button onClick={() => setViewMode(viewMode === "list" ? "grid" : "list")} className="ml-2 opacity-40 hover:opacity-100 transition-opacity">
+              {viewMode === "list" ? <ListIcon size={20} /> : <Grid size={20} />}
+            </button>
+          </div>
+        </header>
+      ) : (
+        <button onClick={toggleZen} className={styles.zenRestore}>
+          <Minimize2 size={18} />
+        </button>
+      )}
 
       <AnimatePresence>
         {isAddingTask && (
@@ -301,13 +334,10 @@ export const TaskList = () => {
               filteredTasks.map(task => (
                 <TaskCard 
                   key={task.id} 
-                  task={task} 
-                  onUpdate={(data) => handleUpdate(task.id, data)}
-                  onDelete={() => handleDelete(task.id)}
-                  onOpen={() => {
-                    if (task.subTasks?.length > 0) setCurrentParentId(task.id);
-                    else setSelectedTask(task);
-                  }}
+                  task={{ ...task, progress: getTaskProgress(task) }}
+                  onUpdate={(data: any) => handleUpdate(task.id, data)}
+                  onDelete={handleDelete}
+                  onOpen={() => task.subTasks?.length > 0 && setCurrentParentId(task.id)}
                   onOpenDetail={() => setSelectedTask(task)}
                 />
               ))

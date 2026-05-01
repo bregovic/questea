@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { TaskCard } from "../TaskCard/TaskCard";
 import { TaskDetail } from "../TaskDetail/TaskDetail";
 import { QuickExpenseModal } from "../QuickExpenseModal/QuickExpenseModal";
@@ -17,8 +18,12 @@ export const TaskList = () => {
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [selectedTask, setSelectedTask] = useState<any | null>(null);
 
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  
   // Navigation & Filtering
-  const [currentParentId, setCurrentParentId] = useState<string | null>(null);
+  const [currentParentId, setCurrentParentId] = useState<string | null>(searchParams.get("parentId"));
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("ACTIVE");
   const [sortBy, setSortBy] = useState<string>("PRIORITY");
@@ -60,11 +65,32 @@ export const TaskList = () => {
   const goUp = useCallback(() => {
     if (!currentParentId) return;
     const current = tasks.find(t => t.id === currentParentId);
-    setCurrentParentId(current?.parentId || null);
-  }, [currentParentId, tasks]);
+    const pId = current?.parentId || null;
+    
+    const params = new URLSearchParams(searchParams);
+    if (pId) params.set("parentId", pId);
+    else params.delete("parentId");
+    router.push(`${pathname}?${params.toString()}`);
+    
+    setCurrentParentId(pId);
+  }, [currentParentId, tasks, router, pathname, searchParams]);
+
+  const goToFolder = (id: string | null) => {
+    const params = new URLSearchParams(searchParams);
+    if (id) params.set("parentId", id);
+    else params.delete("parentId");
+    router.push(`${pathname}?${params.toString()}`);
+    setCurrentParentId(id);
+  };
 
   useEffect(() => {
     fetchTasks();
+    
+    // Sync state if URL changes (back button support)
+    const pId = searchParams.get("parentId");
+    if (pId !== currentParentId) {
+      setCurrentParentId(pId);
+    }
     
     // Global event for adding task from sidebar
     const handleAddTaskEvent = () => setIsAddingTask(true);
@@ -262,13 +288,26 @@ export const TaskList = () => {
     
     navigator.geolocation.getCurrentPosition(async (pos) => {
       const { latitude, longitude } = pos.coords;
+      let address = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+      let placeName = `Záznam polohy ${new Date().toLocaleTimeString("cs-CZ")}`;
+
+      try {
+        const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`, { headers: { "Accept-Language": "cs" } });
+        if (geoRes.ok) {
+          const geoData = await geoRes.json();
+          address = geoData.display_name;
+          placeName = geoData.address.road || geoData.address.suburb || geoData.address.city || placeName;
+        }
+      } catch (err) {}
+
       try {
         // 1. Create a subtask for this location
         const taskRes = await fetch("/api/tasks", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            title: `Záznam polohy ${new Date().toLocaleTimeString("cs-CZ")}`,
+            title: placeName,
+            description: address,
             status: "DONE",
             priority: "LOW",
             taskType: "TASK",
@@ -286,6 +325,8 @@ export const TaskList = () => {
           body: JSON.stringify({
             latitude,
             longitude,
+            address,
+            placeName,
             taskId: newSubtask.id,
             note: "Automatický záznam z karty"
           })
@@ -293,7 +334,7 @@ export const TaskList = () => {
 
         // 3. Refresh tasks to show the new subtask
         fetchTasks();
-        alert("Poloha uložena jako záznam trasy ✨");
+        alert(`Uloženo: ${placeName} ✨`);
       } catch (err) {
         console.error(err);
       }
@@ -412,14 +453,14 @@ export const TaskList = () => {
           <header className={styles.header}>
             <div className={styles.breadcrumbHeader}>
               <div className={styles.breadcrumbContainer}>
-                <button onClick={() => { setCurrentParentId(null); }} className={styles.pathItem}>
+                <button onClick={() => goToFolder(null)} className={styles.pathItem}>
                   <Home size={20} className={!currentParentId ? "text-coral" : ""} />
                 </button>
                 {breadcrumbs.map((b, idx) => (
                   <React.Fragment key={b.id}>
                     <ChevronRight size={14} className={styles.pathSeparator} />
                     <button 
-                      onClick={() => setCurrentParentId(b.id)}
+                      onClick={() => goToFolder(b.id)}
                       className={`${styles.pathItem} ${idx === breadcrumbs.length - 1 ? styles.activePath : ""}`}
                     >
                       {b.title}
@@ -518,7 +559,7 @@ export const TaskList = () => {
                   task={{ ...task, progress: getTaskProgress(task) }}
                   onUpdate={(data: any) => handleUpdate(task.id, data)}
                   onDelete={handleDelete}
-                  onOpen={() => task.subTasks?.length > 0 && setCurrentParentId(task.id)}
+                  onOpen={() => goToFolder(task.id)}
                   onOpenDetail={() => setSelectedTask(task)}
                 />
               ))

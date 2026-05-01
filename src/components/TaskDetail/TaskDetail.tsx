@@ -493,12 +493,13 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
             {task.subTasks?.map((st: any) => (
               <div key={st.id} className={styles.subtaskItem}>
                 <div className="flex flex-col">
-                  <span className={st.status === 'DONE' ? 'line-through opacity-50' : ''}>{st.title}</span>
+                  <span className={st.status === 'DONE' ? 'line-through opacity-50 font-medium' : 'font-medium'}>{st.title}</span>
                   {st.taskType === 'EXPENSE' && st.amount && (
-                    <span className="text-[10px] font-bold text-green-600">
-                      {st.amount} {st.currency}
+                    <span className="text-[11px] font-extrabold text-green-600 mt-0.5">
+                      {st.amount.toLocaleString("cs-CZ")} {st.currency}
                     </span>
                   )}
+                  {st.description && <span className="text-[10px] opacity-40 truncate max-w-[200px]">{st.description}</span>}
                 </div>
                 <span className="text-[10px] font-bold opacity-30 uppercase">{st.status}</span>
               </div>

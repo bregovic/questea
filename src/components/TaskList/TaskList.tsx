@@ -366,12 +366,29 @@ export const TaskList = () => {
             onClose={() => setQuickActionTask(null)}
             onSave={async (data: any) => {
               try {
+                let catId = data.categoryId;
+                
+                // If new category name provided, create it first
+                if (!catId && data.categoryName) {
+                  const catRes = await fetch("/api/categories", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name: data.categoryName, color: "#3b82f6" })
+                  });
+                  if (catRes.ok) {
+                    const newCat = await catRes.json();
+                    catId = newCat.id;
+                    setCategories([...categories, newCat]);
+                  }
+                }
+
                 // Create a SUBTASK of type EXPENSE under the folder
                 const res = await fetch("/api/tasks", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
                     ...data,
+                    categoryId: catId,
                     taskType: "EXPENSE",
                     parentId: quickActionTask.id,
                     status: "DONE"

@@ -111,6 +111,50 @@
   box-shadow: 0 0 0 4px rgba(234, 88, 12, 0.05);
 }
 
+.categorySearch {
+  position: relative;
+}
+
+.suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+  z-index: 10;
+  margin-top: 0.5rem;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.suggestionItem {
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+  transition: background 0.2s;
+}
+
+.suggestionItem:hover {
+  background: #fdfaf5;
+}
+
+.colorDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.newCat {
+  border-top: 1px solid var(--panel-border);
+  color: var(--accent-primary);
+}
+
 .amountRow {
   display: flex;
   gap: 0.75rem;

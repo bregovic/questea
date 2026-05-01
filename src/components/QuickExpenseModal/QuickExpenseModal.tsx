@@ -16,6 +16,8 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({ task, cate
   const [amount, setAmount] = useState(task.amount || "");
   const [currency, setCurrency] = useState(task.currency || "CZK");
   const [categoryId, setCategoryId] = useState(task.categoryId || "");
+  const [categorySearch, setCategorySearch] = useState("");
+  const [showCatSuggestions, setShowCatSuggestions] = useState(false);
   const [payee, setPayee] = useState(task.payee || "");
   const [title, setTitle] = useState(task.title || "");
 
@@ -34,6 +36,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({ task, cate
       amount: parseFloat(amount as string),
       currency,
       categoryId: categoryId || null,
+      categoryName: categoryId ? null : categorySearch, // Pass name if no ID selected
       payee,
       title
     });
@@ -85,12 +88,48 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({ task, cate
 
           <div className={styles.inputGroup}>
             <label><Tag size={14} /> Kategorie</label>
-            <select value={categoryId} onChange={e => setCategoryId(e.target.value)}>
-              <option value="">Bez kategorie</option>
-              {categories.map(cat => (
-                <option key={cat.id} value={cat.id}>{cat.name}</option>
-              ))}
-            </select>
+            <div className={styles.categorySearch}>
+              <input 
+                type="text" 
+                placeholder="Hledat nebo vytvořit kategorii..." 
+                value={categorySearch}
+                onChange={e => {
+                  setCategorySearch(e.target.value);
+                  setShowCatSuggestions(true);
+                }}
+                onFocus={() => setShowCatSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowCatSuggestions(false), 200)}
+              />
+              {showCatSuggestions && (
+                <div className={styles.suggestions}>
+                  {categories
+                    .filter(c => c.name.toLowerCase().includes(categorySearch.toLowerCase()))
+                    .map(c => (
+                      <div 
+                        key={c.id} 
+                        className={styles.suggestionItem}
+                        onClick={() => {
+                          setCategorySearch(c.name);
+                          setCategoryId(c.id);
+                          setShowCatSuggestions(false);
+                        }}
+                      >
+                        <div className={styles.colorDot} style={{ background: c.color }} />
+                        {c.name}
+                      </div>
+                    ))
+                  }
+                  {categorySearch && !categories.some(c => c.name.toLowerCase() === categorySearch.toLowerCase()) && (
+                    <div 
+                      className={`${styles.suggestionItem} ${styles.newCat}`}
+                      onClick={() => setShowCatSuggestions(false)}
+                    >
+                      Vytvořit novou: <strong>{categorySearch}</strong>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className={styles.inputGroup}>

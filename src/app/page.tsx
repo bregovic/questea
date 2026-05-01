@@ -10,17 +10,6 @@ export default function Home() {
       <div className={styles.orb2} />
       
       <div className={styles.contentWrapper}>
-        <section className={styles.heroSection}>
-          <div className={styles.badge}>✨ Nová éra produktivity</div>
-          <h1 className={styles.title}>
-            Questea <br/> <span className={styles.highlight}>Reimagined.</span>
-          </h1>
-          <p className={styles.subtitle}>
-            Zahoďte nudné to-do listy. Questea je váš dynamický prostor pro 
-            úkoly, myšlenky a projekty, obohacený o moderní řízení s kalendářem, 
-            hlasovými úkoly a přehledným swipováním.
-          </p>
-        </section>
 
         <section className={styles.actionSection}>
           <div className={styles.glassCard}>

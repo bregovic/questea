@@ -244,14 +244,16 @@ export const TaskList = () => {
              task.description?.toLowerCase().includes(searchQuery.toLowerCase());
     }
     
+    // Normal drill-down navigation (must match parentId unless searching)
+    if (task.parentId !== currentParentId) return false;
+
     // Status filter
     if (filterStatus === "ACTIVE") {
       return task.status !== "DONE" && task.status !== "CANCELED";
     }
     if (filterStatus !== "ALL" && task.status !== filterStatus) return false;
     
-    // Normal drill-down navigation
-    return task.parentId === currentParentId;
+    return true;
   }).sort((a, b) => {
     if (sortBy === "PRIORITY") {
       const pMap: any = { URGENT: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
@@ -296,47 +298,22 @@ export const TaskList = () => {
         <header className={styles.header}>
           <div className={styles.breadcrumbHeader}>
             <div className={styles.breadcrumbContainer}>
-              <button onClick={() => { setCurrentParentId(null); setActiveView("tasks"); }} className={styles.pathItem}>
-                <Home size={20} className={!currentParentId && activeView === "tasks" ? "text-coral" : ""} />
+              <button onClick={() => { setCurrentParentId(null); }} className={styles.pathItem}>
+                <Home size={20} className={!currentParentId ? "text-coral" : ""} />
               </button>
-              {activeView === "tasks" ? (
-                breadcrumbs.map((b, idx) => (
-                  <React.Fragment key={b.id}>
-                    <ChevronRight size={14} className={styles.pathSeparator} />
-                    <button 
-                      onClick={() => setCurrentParentId(b.id)}
-                      className={`${styles.pathItem} ${idx === breadcrumbs.length - 1 ? styles.activePath : ""}`}
-                    >
-                      {b.title}
-                    </button>
-                  </React.Fragment>
-                ))
-              ) : (
-                <>
+              {breadcrumbs.map((b, idx) => (
+                <React.Fragment key={b.id}>
                   <ChevronRight size={14} className={styles.pathSeparator} />
-                  <span className={`${styles.pathItem} ${styles.activePath}`}>Moje poloha</span>
-                </>
-              )}
+                  <button 
+                    onClick={() => setCurrentParentId(b.id)}
+                    className={`${styles.pathItem} ${idx === breadcrumbs.length - 1 ? styles.activePath : ""}`}
+                  >
+                    {b.title}
+                  </button>
+                </React.Fragment>
+              ))}
             </div>
 
-            <div className="flex items-center gap-4">
-               <div className={styles.viewNav}>
-                  <button 
-                    onClick={() => setActiveView("tasks")} 
-                    className={`${styles.navBtn} ${activeView === "tasks" ? styles.navActive : ""}`}
-                  >
-                    <CheckSquare size={18} />
-                    <span>Úkoly</span>
-                  </button>
-                  <button 
-                    onClick={() => setActiveView("location")} 
-                    className={`${styles.navBtn} ${activeView === "location" ? styles.navActive : ""}`}
-                  >
-                    <MapPin size={18} />
-                    <span>Poloha</span>
-                  </button>
-               </div>
-              
               <button onClick={toggleZen} className={styles.zenToggle}>
                 <Maximize2 size={18} />
               </button>
@@ -413,32 +390,28 @@ export const TaskList = () => {
       </AnimatePresence>
 
       <main className={viewMode === "grid" ? styles.grid : styles.list}>
-        {activeView === "tasks" ? (
-          loading ? (
-            <div className={styles.loading}>Načítám...</div>
-          ) : (
-            <AnimatePresence mode="popLayout">
-              {filteredTasks.length === 0 ? (
-                <div className={styles.empty}>
-                  <h3>Prázdno ✨</h3>
-                  <p>Začni tím, že přidáš první položku v této úrovni.</p>
-                </div>
-              ) : (
-                filteredTasks.map(task => (
-                  <TaskCard 
-                    key={task.id} 
-                    task={{ ...task, progress: getTaskProgress(task) }}
-                    onUpdate={(data: any) => handleUpdate(task.id, data)}
-                    onDelete={handleDelete}
-                    onOpen={() => task.subTasks?.length > 0 && setCurrentParentId(task.id)}
-                    onOpenDetail={() => setSelectedTask(task)}
-                  />
-                ))
-              )}
-            </AnimatePresence>
-          )
+        {loading ? (
+          <div className={styles.loading}>Načítám...</div>
         ) : (
-          <LocationTracker />
+          <AnimatePresence mode="popLayout">
+            {filteredTasks.length === 0 ? (
+              <div className={styles.empty}>
+                <h3>Prázdno ✨</h3>
+                <p>Začni tím, že přidáš první položku v této úrovni.</p>
+              </div>
+            ) : (
+              filteredTasks.map(task => (
+                <TaskCard 
+                  key={task.id} 
+                  task={{ ...task, progress: getTaskProgress(task) }}
+                  onUpdate={(data: any) => handleUpdate(task.id, data)}
+                  onDelete={handleDelete}
+                  onOpen={() => task.subTasks?.length > 0 && setCurrentParentId(task.id)}
+                  onOpenDetail={() => setSelectedTask(task)}
+                />
+              ))
+            )}
+          </AnimatePresence>
         )}
       </main>
 

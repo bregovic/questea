@@ -424,11 +424,12 @@ export const TaskList = () => {
                 }
 
                 // Create a SUBTASK of type EXPENSE under the folder
+                const { categoryName, ...cleanData } = data;
                 const res = await fetch("/api/tasks", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
-                    ...data,
+                    ...cleanData,
                     categoryId: catId,
                     taskType: "EXPENSE",
                     parentId: quickActionTask.id,

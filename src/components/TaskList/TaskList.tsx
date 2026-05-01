@@ -25,7 +25,6 @@ export const TaskList = () => {
   const [lastDeletedTask, setLastDeletedTask] = useState<any | null>(null);
   const [showUndo, setShowUndo] = useState(false);
   const [isZen, setIsZen] = useState(false);
-  const [isZen, setIsZen] = useState(false);
 
   const toggleZen = () => {
     const nextZen = !isZen;

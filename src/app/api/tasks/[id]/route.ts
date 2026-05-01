@@ -30,12 +30,24 @@ export async function PATCH(
     }
 
     const task = await prisma.task.update({
-      where: { 
+      where: {
         id: id,
-        userId: session.user.id 
+        userId: session.user.id
       },
-      data: updateData,
+      data: {
+        ...updateData, // Use updateData which might include userId from ownerEmail
+        // No special logic needed for direct fields like lockStatus, isDeleted
+      },
     });
+
+    // Recursive logic: If status became DONE, set all children to DONE
+    if (body.status === "DONE") {
+      await prisma.task.updateMany({
+        where: { parentId: id },
+        data: { status: "DONE" }
+      });
+    }
+
     return NextResponse.json(task);
   } catch (error) {
     return NextResponse.json({ error: "Failed to update task" }, { status: 500 });

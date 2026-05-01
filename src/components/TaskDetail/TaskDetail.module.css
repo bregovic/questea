@@ -118,6 +118,41 @@
   border: 1px dashed var(--panel-border);
 }
 
+.actionBtn.restoreBtn {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.lockToggle {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  border: 1px solid var(--panel-border);
+  background: white;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.lockToggle.locked {
+  background: #fff7ed;
+  border-color: #fbd38d;
+  color: #ea580c;
+}
+
+.lockToggle:hover {
+  background: #fafaf9;
+}
+
+.lockToggle.locked:hover {
+  background: #fff3e0;
+}
+
 .labelItem {
   display: flex;
   flex-direction: column;

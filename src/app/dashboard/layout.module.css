@@ -173,11 +173,21 @@
 
 .mainContent {
   flex: 1;
-  margin-left: 260px;
-  padding: 0;
-  background-color: var(--bg-color);
+  margin-left: 280px;
   min-height: 100vh;
-  transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  width: calc(100% - 280px); /* Fill the rest */
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    display: none; /* Hide sidebar on mobile entirely */
+  }
+  .mainContent {
+    margin-left: 0 !important;
+    width: 100% !important;
+  }
 }
 
 .mainContent.zenMain {
@@ -187,6 +197,7 @@
 
 .mainContent.collapsed {
   margin-left: 80px;
+  width: calc(100% - 80px);
 }
 
 .toggleBtn {

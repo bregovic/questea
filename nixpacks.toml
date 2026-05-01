@@ -1,0 +1,10 @@
+[phases.setup]
+nixPkgs = ["nodejs"]
+
+[phases.build]
+dependsOn = ["setup"]
+cmds = ["npx prisma generate", "npm run build"]
+
+[phases.start]
+dependsOn = ["build"]
+cmd = "npx prisma db push --accept-data-loss && npm run start"

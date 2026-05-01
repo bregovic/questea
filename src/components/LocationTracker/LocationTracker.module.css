@@ -1,0 +1,339 @@
+.container {
+  padding: 2rem 2.5rem;
+  max-width: 900px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.titleRow h1 {
+  font-size: 2.25rem;
+  margin: 0;
+}
+
+.subtitle {
+  color: var(--text-muted);
+  font-size: 1.1rem;
+}
+
+.trackerCard {
+  background: white;
+  border: 1px solid var(--panel-border);
+  border-radius: 24px;
+  padding: 2rem;
+  box-shadow: var(--shadow-md);
+  position: relative;
+  overflow: hidden;
+}
+
+.gpsBtn {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 3rem 2rem;
+  background: var(--accent-soft);
+  color: var(--accent-primary);
+  border: 2px dashed rgba(234, 88, 12, 0.2);
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+  font-size: 1.25rem;
+}
+
+.gpsBtn:hover {
+  background: rgba(234, 88, 12, 0.12);
+  border-color: var(--accent-primary);
+  transform: translateY(-2px);
+}
+
+.gpsBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.spin {
+  animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.details {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.placeHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 1px solid var(--panel-border);
+  padding-bottom: 1rem;
+}
+
+.placeInfo h3 {
+  font-size: 1.5rem;
+  margin-bottom: 0.25rem;
+  color: var(--text-main);
+}
+
+.placeInfo p {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  max-width: 500px;
+}
+
+.cancelBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.inputGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.inputGroup label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-main);
+  opacity: 0.6;
+}
+
+.inputGroup textarea {
+  width: 100%;
+  padding: 1rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  min-height: 80px;
+  font-family: inherit;
+  outline: none;
+}
+
+.photoInputRow, .mileageInputRow {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  background: #fbfaf9;
+}
+
+.photoInputRow input, .mileageInputRow input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 0.9rem;
+}
+
+.mileageInputRow span {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.saveBtn {
+  background: var(--accent-gradient);
+  color: white;
+  border: none;
+  border-radius: 14px;
+  padding: 1rem;
+  font-weight: 700;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 8px 20px rgba(234, 88, 12, 0.2);
+}
+
+.saveBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 25px rgba(234, 88, 12, 0.3);
+}
+
+.error {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #fef2f2;
+  color: #dc2626;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.history {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--text-muted);
+}
+
+.sectionHeader h2 {
+  font-size: 1.25rem;
+  flex: 1;
+}
+
+.totalBadge {
+  background: var(--accent-soft);
+  color: var(--accent-primary);
+  padding: 0.4rem 0.8rem;
+  border-radius: 10px;
+  font-size: 0.85rem;
+}
+
+.historyList {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.historyItem {
+  background: white;
+  border: 1px solid var(--panel-border);
+  border-radius: 20px;
+  padding: 1.25rem;
+  display: flex;
+  gap: 1.5rem;
+  transition: transform 0.2s;
+}
+
+.historyItem:hover {
+  transform: translateX(5px);
+  border-color: var(--accent-primary);
+}
+
+.historyMeta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 80px;
+  padding-right: 1.5rem;
+  border-right: 1px solid var(--panel-border);
+}
+
+.date {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--text-main);
+}
+
+.time {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.historyContent {
+  flex: 1;
+}
+
+.itemHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.25rem;
+}
+
+.mileageLabel {
+  font-weight: 800;
+  color: var(--accent-primary);
+  font-size: 0.9rem;
+  background: #fff;
+  border: 1px solid var(--panel-border);
+  padding: 0.2rem 0.6rem;
+  border-radius: 8px;
+}
+
+.historyContent h4 {
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.addr {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
+}
+
+.note {
+  font-size: 0.9rem;
+  background: #fbfaf9;
+  padding: 0.75rem;
+  border-radius: 10px;
+  margin-bottom: 0.75rem;
+}
+
+.historyPhoto {
+  width: 100%;
+  max-width: 300px;
+  border-radius: 12px;
+  object-fit: cover;
+}
+
+.emptyHistory {
+  padding: 3rem;
+  text-align: center;
+  color: var(--text-muted);
+  background: rgba(0,0,0,0.02);
+  border-radius: 20px;
+  border: 1px dashed var(--panel-border);
+}
+
+@media (max-width: 768px) {
+  .container { padding: 1rem; }
+  .historyItem { flex-direction: column; gap: 1rem; }
+  .historyMeta { 
+    flex-direction: row; 
+    border-right: none; 
+    border-bottom: 1px solid var(--panel-border); 
+    padding-right: 0; 
+    padding-bottom: 0.5rem;
+    width: 100%;
+    justify-content: flex-start;
+    gap: 1rem;
+  }
+}

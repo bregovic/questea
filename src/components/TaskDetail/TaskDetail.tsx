@@ -1,24 +1,31 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { X, User, FileText, Link as LinkIcon, Calendar, Shield, CheckCircle, Plus, Trash2, Mail, Layers } from "lucide-react";
+import React, { useState } from "react";
+import { motion } from "framer-motion";
+import { 
+  X, User, FileText, Link as LinkIcon, Calendar, 
+  Plus, Trash2, Mail, Layers, Lock, Unlock, RotateCcw 
+} from "lucide-react";
 import styles from "./TaskDetail.module.css";
 
 interface TaskDetailProps {
   task: any;
-  allTasks: any[]; // New prop for parent selection
+  allTasks: any[];
   onClose: () => void;
   onUpdate: (id: string, data: any) => void;
   onDelete: (id: string) => void;
+  onRestore?: (id: string) => void;
 }
 
-export const TaskDetail: React.FC<TaskDetailProps> = ({ task, allTasks, onClose, onUpdate, onDelete }) => {
+export const TaskDetail: React.FC<TaskDetailProps> = ({ 
+  task, allTasks, onClose, onUpdate, onDelete, onRestore 
+}) => {
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description || "");
   const [priority, setPriority] = useState(task.priority);
   const [ownerEmail, setOwnerEmail] = useState(task.user?.email || "");
   const [parentId, setParentId] = useState(task.parentId || "");
+  const [lockStatus, setLockStatus] = useState(task.lockStatus || false);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
 
   const handleSaveDescription = () => {
@@ -42,6 +49,11 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ task, allTasks, onClose,
       const pId = newParentId === "" ? null : newParentId;
       setParentId(newParentId);
       onUpdate(task.id, { parentId: pId });
+  };
+
+  const handleLockStatusChange = (newLock: boolean) => {
+    setLockStatus(newLock);
+    onUpdate(task.id, { lockStatus: newLock });
   };
 
   const handleOwnerChange = () => {
@@ -125,30 +137,46 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ task, allTasks, onClose,
           <button onClick={() => window.print()} className={styles.actionBtn}>
             <FileText size={14} /> Export
           </button>
-          <button onClick={handleDelete} className={`${styles.actionBtn} ${styles.deleteBtn}`}>
-            <Trash2 size={14} /> Smazat úkol
-          </button>
+          
+          {task.isDeleted ? (
+            <button 
+              onClick={() => { onRestore?.(task.id); onClose(); }} 
+              className={`${styles.actionBtn} ${styles.restoreBtn}`}
+            >
+              <RotateCcw size={14} /> Obnovit
+            </button>
+          ) : (
+            <button onClick={handleDelete} className={`${styles.actionBtn} ${styles.deleteBtn}`}>
+              <Trash2 size={14} /> Smazat úkol
+            </button>
+          )}
         </div>
 
-        {/* Parent Selection */}
+        {/* Parent Selection & Lock */}
         <section className={styles.section}>
-          <div className={styles.sectionHeader}>
-            <Layers size={18} />
-            <span>Nadřazený úkol (Hierarchie)</span>
+          <h4 className={styles.sectionTitle}>
+             <Layers className={styles.sectionIcon} size={14} /> Hierarchie & Ochrana
+          </h4>
+          <div className="flex flex-col gap-3">
+            <select 
+              className={styles.select}
+              value={parentId} 
+              onChange={(e) => handleParentChange(e.target.value)}
+            >
+              <option value="">(Bez nadřazeného úkolu / ROOT)</option>
+              {allTasks.filter(t => t.id !== task.id).map(t => (
+                <option key={t.id} value={t.id}>{t.title}</option>
+              ))}
+            </select>
+            
+            <button 
+              className={`${styles.lockToggle} ${lockStatus ? styles.locked : ""}`}
+              onClick={() => handleLockStatusChange(!lockStatus)}
+            >
+              {lockStatus ? <Lock size={14} /> : <Unlock size={14} />}
+              <span>{lockStatus ? "Status uzamčen (nelze uzavřít)" : "Status volný"}</span>
+            </button>
           </div>
-          <select 
-            className={styles.select}
-            value={parentId}
-            onChange={(e) => handleParentChange(e.target.value)}
-          >
-            <option value="">(Bez nadřazeného úkolu - ROOT)</option>
-            {allTasks
-                .filter(t => t.id !== task.id) // Can't be parent of itself
-                .map(t => (
-                  <option key={t.id} value={t.id}>{t.title}</option>
-                ))
-            }
-          </select>
         </section>
 
         {/* Description Section */}
@@ -195,18 +223,20 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ task, allTasks, onClose,
             <span>Podúkolů ({task.subTasks?.length || 0})</span>
           </div>
           
-          <form onSubmit={handleSubtaskAdd} className="flex gap-2 mb-4">
-            <input 
-              type="text"
-              placeholder="Nový podúkol..."
-              value={newSubtaskTitle}
-              onChange={(e) => setNewSubtaskTitle(e.target.value)}
-              className="flex-1 p-2 bg-sand/5 border border-sand/20 rounded-xl text-sm"
-            />
-            <button type="submit" className="p-2 bg-coral text-white rounded-xl">
-              <Plus size={16} />
-            </button>
-          </form>
+          {!task.isDeleted && (
+            <form onSubmit={handleSubtaskAdd} className="flex gap-2 mb-4">
+              <input 
+                type="text"
+                placeholder="Nový podúkol..."
+                value={newSubtaskTitle}
+                onChange={(e) => setNewSubtaskTitle(e.target.value)}
+                className="flex-1 p-2 bg-sand/5 border border-sand/20 rounded-xl text-sm"
+              />
+              <button type="submit" className="p-2 bg-coral text-white rounded-xl">
+                <Plus size={16} />
+              </button>
+            </form>
+          )}
 
           <div className={styles.subtaskList}>
             {task.subTasks?.map((st: any) => (

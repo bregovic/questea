@@ -3,7 +3,8 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { TaskCard } from "../TaskCard/TaskCard";
 import { TaskDetail } from "../TaskDetail/TaskDetail";
-import { Search, Grid, List as ListIcon, Home, ChevronRight, Maximize2, Minimize2 } from "lucide-react";
+import { LocationTracker } from "../LocationTracker/LocationTracker";
+import { Search, Grid, List as ListIcon, Home, ChevronRight, Maximize2, Minimize2, MapPin, CheckSquare } from "lucide-react";
 import styles from "./TaskList.module.css";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -18,12 +19,13 @@ export const TaskList = () => {
   // Navigation & Filtering
   const [currentParentId, setCurrentParentId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterStatus, setFilterStatus] = useState<string>("ALL");
+  const [filterStatus, setFilterStatus] = useState<string>("ACTIVE");
   const [sortBy, setSortBy] = useState<string>("PRIORITY");
 
   const [lastDeletedTask, setLastDeletedTask] = useState<any | null>(null);
   const [showUndo, setShowUndo] = useState(false);
   const [isZen, setIsZen] = useState(false);
+  const [activeView, setActiveView] = useState<"tasks" | "location">("tasks");
 
   const toggleZen = () => {
     const nextZen = !isZen;
@@ -118,15 +120,37 @@ export const TaskList = () => {
   };
 
   const handleUpdate = async (id: string, data: any) => {
+    const taskToUpdate = tasks.find(t => t.id === id);
+    if (!taskToUpdate) return;
+
+    // Lock check: Cannot close if lockStatus is true
+    if (data.status === "DONE" && taskToUpdate.lockStatus) {
+      alert("Tento úkol je uzamčený a nelze jej uzavřít.");
+      return;
+    }
+
     const originalTasks = [...tasks];
-    const updateTasksRecursively = (taskList: any[]): any[] => {
-      return taskList.map(t => {
-        if (t.id === id) return { ...t, ...data };
-        if (t.subTasks) return { ...t, subTasks: updateTasksRecursively(t.subTasks) };
-        return t;
-      });
-    };
-    setTasks(updateTasksRecursively(tasks));
+    
+    // Recursive close: If marking parent as DONE, close all subtasks
+    let updatedData = { ...data };
+    const newTasks = tasks.map(t => {
+      if (t.id === id) {
+        const updated = { ...t, ...data };
+        // If this is a parent being finished, recursively update children in local state
+        if (data.status === "DONE" && t.subTasks) {
+          // This is a bit complex for flat list, but we can do it via parentId
+        }
+        return updated;
+      }
+      // Recursive logic for flat list: if parentId matches the updated task and it's being closed
+      if (data.status === "DONE" && t.parentId === id) {
+        return { ...t, status: "DONE" };
+      }
+      return t;
+    });
+
+    setTasks(newTasks);
+
     try {
       const res = await fetch(`/api/tasks/${id}`, {
         method: "PATCH",
@@ -134,6 +158,12 @@ export const TaskList = () => {
         body: JSON.stringify(data),
       });
       if (!res.ok) throw new Error();
+      
+      // If we closed a parent, we should also update children on backend
+      if (data.status === "DONE") {
+         // The backend should handle recursive status update
+      }
+
     } catch (error) {
       setTasks(originalTasks);
     }
@@ -146,11 +176,32 @@ export const TaskList = () => {
       setShowUndo(true);
       setTimeout(() => setShowUndo(false), 5000);
     }
+    
+    // Use SOFT DELETE
     const originalTasks = [...tasks];
-    setTasks(tasks.filter(t => t.id !== id));
+    setTasks(tasks.map(t => t.id === id ? { ...t, isDeleted: true } : t));
+    
     try {
-      const res = await fetch(`/api/tasks/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/tasks/${id}`, { 
+        method: "PATCH", 
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isDeleted: true }) 
+      });
       if (!res.ok) throw new Error();
+    } catch (error) {
+      setTasks(originalTasks);
+    }
+  };
+
+  const handleRestore = async (id: string) => {
+    const originalTasks = [...tasks];
+    setTasks(tasks.map(t => t.id === id ? { ...t, isDeleted: false } : t));
+    try {
+      await fetch(`/api/tasks/${id}`, { 
+        method: "PATCH", 
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isDeleted: false }) 
+      });
     } catch (error) {
       setTasks(originalTasks);
     }
@@ -183,13 +234,20 @@ export const TaskList = () => {
   };
 
   const filteredTasks = tasks.filter(task => {
+    // Trash view
+    if (filterStatus === "TRASH") return task.isDeleted;
+    if (task.isDeleted) return false;
+
     // If searching, show all matches regardless of hierarchy
     if (searchQuery) {
       return task.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
              task.description?.toLowerCase().includes(searchQuery.toLowerCase());
     }
     
-    // Status filter (always applied)
+    // Status filter
+    if (filterStatus === "ACTIVE") {
+      return task.status !== "DONE" && task.status !== "CANCELED";
+    }
     if (filterStatus !== "ALL" && task.status !== filterStatus) return false;
     
     // Normal drill-down navigation
@@ -238,60 +296,94 @@ export const TaskList = () => {
         <header className={styles.header}>
           <div className={styles.breadcrumbHeader}>
             <div className={styles.breadcrumbContainer}>
-              <button onClick={() => setCurrentParentId(null)} className={styles.pathItem}>
-                <Home size={20} className={!currentParentId ? "text-coral" : ""} />
+              <button onClick={() => { setCurrentParentId(null); setActiveView("tasks"); }} className={styles.pathItem}>
+                <Home size={20} className={!currentParentId && activeView === "tasks" ? "text-coral" : ""} />
               </button>
-              {breadcrumbs.map((b, idx) => (
-                <React.Fragment key={b.id}>
+              {activeView === "tasks" ? (
+                breadcrumbs.map((b, idx) => (
+                  <React.Fragment key={b.id}>
+                    <ChevronRight size={14} className={styles.pathSeparator} />
+                    <button 
+                      onClick={() => setCurrentParentId(b.id)}
+                      className={`${styles.pathItem} ${idx === breadcrumbs.length - 1 ? styles.activePath : ""}`}
+                    >
+                      {b.title}
+                    </button>
+                  </React.Fragment>
+                ))
+              ) : (
+                <>
                   <ChevronRight size={14} className={styles.pathSeparator} />
+                  <span className={`${styles.pathItem} ${styles.activePath}`}>Moje poloha</span>
+                </>
+              )}
+            </div>
+
+            <div className="flex items-center gap-4">
+               <div className={styles.viewNav}>
                   <button 
-                    onClick={() => setCurrentParentId(b.id)}
-                    className={`${styles.pathItem} ${idx === breadcrumbs.length - 1 ? styles.activePath : ""}`}
+                    onClick={() => setActiveView("tasks")} 
+                    className={`${styles.navBtn} ${activeView === "tasks" ? styles.navActive : ""}`}
                   >
-                    {b.title}
+                    <CheckSquare size={18} />
+                    <span>Úkoly</span>
                   </button>
-                </React.Fragment>
-              ))}
+                  <button 
+                    onClick={() => setActiveView("location")} 
+                    className={`${styles.navBtn} ${activeView === "location" ? styles.navActive : ""}`}
+                  >
+                    <MapPin size={18} />
+                    <span>Poloha</span>
+                  </button>
+               </div>
+              
+              <button onClick={toggleZen} className={styles.zenToggle}>
+                <Maximize2 size={18} />
+              </button>
             </div>
-            
-            <button onClick={toggleZen} className={styles.zenToggle}>
-              <Maximize2 size={18} />
-            </button>
           </div>
 
-          <div className={styles.filterBar}>
-            <div className={styles.searchGroup}>
-              <Search className={styles.searchIcon} size={16} />
-              <input 
-                type="text"
-                placeholder="Hledat..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className={styles.searchInput}
-              />
-            </div>
-            
-            <div className={styles.filterGroup}>
-              {["ALL", "TODO", "IN_PROGRESS", "DONE"].map(status => (
-                <button
-                  key={status}
-                  onClick={() => setFilterStatus(status)}
-                  className={`${styles.filterChip} ${filterStatus === status ? styles.chipActive : styles.chipInactive}`}
-                >
-                  {status === "ALL" ? "Vše" : status}
-                </button>
-              ))}
-            </div>
+          {activeView === "tasks" && (
+            <div className={styles.filterBar}>
+              <div className={styles.searchGroup}>
+                <Search className={styles.searchIcon} size={16} />
+                <input 
+                  type="text"
+                  placeholder="Hledat..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className={styles.searchInput}
+                />
+              </div>
+              
+              <div className={styles.filterGroup}>
+                {[
+                  { id: "ACTIVE", label: "Aktivní" },
+                  { id: "ALL", label: "Vše" },
+                  { id: "TODO", label: "K řešení" },
+                  { id: "DONE", label: "Hotovo" },
+                  { id: "TRASH", label: "Koš" }
+                ].map(f => (
+                  <button
+                    key={f.id}
+                    onClick={() => setFilterStatus(f.id)}
+                    className={`${styles.filterChip} ${filterStatus === f.id ? styles.chipActive : styles.chipInactive}`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
 
-            <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className={styles.sortSelect}>
-              <option value="PRIORITY">Priority</option>
-              <option value="PROGRESS">Progress</option>
-            </select>
+              <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className={styles.sortSelect}>
+                <option value="PRIORITY">Priority</option>
+                <option value="PROGRESS">Progress</option>
+              </select>
 
-            <button onClick={() => setViewMode(viewMode === "list" ? "grid" : "list")} className="ml-2 opacity-40 hover:opacity-100 transition-opacity">
-              {viewMode === "list" ? <ListIcon size={20} /> : <Grid size={20} />}
-            </button>
-          </div>
+              <button onClick={() => setViewMode(viewMode === "list" ? "grid" : "list")} className="ml-2 opacity-40 hover:opacity-100 transition-opacity">
+                {viewMode === "list" ? <ListIcon size={20} /> : <Grid size={20} />}
+              </button>
+            </div>
+          )}
         </header>
       ) : (
         <button onClick={toggleZen} className={styles.zenRestore}>
@@ -321,28 +413,32 @@ export const TaskList = () => {
       </AnimatePresence>
 
       <main className={viewMode === "grid" ? styles.grid : styles.list}>
-        {loading ? (
-          <div className={styles.loading}>Načítám...</div>
+        {activeView === "tasks" ? (
+          loading ? (
+            <div className={styles.loading}>Načítám...</div>
+          ) : (
+            <AnimatePresence mode="popLayout">
+              {filteredTasks.length === 0 ? (
+                <div className={styles.empty}>
+                  <h3>Prázdno ✨</h3>
+                  <p>Začni tím, že přidáš první položku v této úrovni.</p>
+                </div>
+              ) : (
+                filteredTasks.map(task => (
+                  <TaskCard 
+                    key={task.id} 
+                    task={{ ...task, progress: getTaskProgress(task) }}
+                    onUpdate={(data: any) => handleUpdate(task.id, data)}
+                    onDelete={handleDelete}
+                    onOpen={() => task.subTasks?.length > 0 && setCurrentParentId(task.id)}
+                    onOpenDetail={() => setSelectedTask(task)}
+                  />
+                ))
+              )}
+            </AnimatePresence>
+          )
         ) : (
-          <AnimatePresence mode="popLayout">
-            {filteredTasks.length === 0 ? (
-              <div className={styles.empty}>
-                <h3>Prázdno ✨</h3>
-                <p>Začni tím, že přidáš první položku v této úrovni.</p>
-              </div>
-            ) : (
-              filteredTasks.map(task => (
-                <TaskCard 
-                  key={task.id} 
-                  task={{ ...task, progress: getTaskProgress(task) }}
-                  onUpdate={(data: any) => handleUpdate(task.id, data)}
-                  onDelete={handleDelete}
-                  onOpen={() => task.subTasks?.length > 0 && setCurrentParentId(task.id)}
-                  onOpenDetail={() => setSelectedTask(task)}
-                />
-              ))
-            )}
-          </AnimatePresence>
+          <LocationTracker />
         )}
       </main>
 

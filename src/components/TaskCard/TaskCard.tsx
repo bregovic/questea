@@ -68,12 +68,21 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
           </div>
           <div className={styles.metaRow}>
             {task.dueDate && (
-              <span className={styles.dueInfo}>
-                <Clock size={10} />
+              <span className={`${styles.dueInfo} ${new Date(task.dueDate) < new Date() ? styles.overdue : ""}`}>
+                <Clock size={12} />
                 {new Date(task.dueDate).toLocaleDateString("cs-CZ")}
               </span>
             )}
-            {task.priority === "URGENT" && <AlertCircle size={10} className="text-red-500" />}
+            <span className={styles.typeBadge}>{task.taskType}</span>
+            {task.priority === "URGENT" && (
+              <motion.span 
+                animate={{ scale: [1, 1.1, 1] }} 
+                transition={{ repeat: Infinity, duration: 2 }}
+                className={styles.urgentBadge}
+              >
+                <AlertCircle size={12} /> Naléhavé
+              </motion.span>
+            )}
           </div>
         </div>
 

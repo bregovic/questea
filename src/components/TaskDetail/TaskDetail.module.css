@@ -35,16 +35,24 @@
   line-height: 1.2;
 }
 
-.typeBadge {
+.typeSelect {
   font-size: 0.7rem;
   font-weight: 700;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--accent-primary);
   letter-spacing: 0.05em;
-  background: #f5f5f4;
+  background: #fff7ed;
   padding: 2px 8px;
   border-radius: 6px;
+  border: 1px solid #ffedd5;
   width: fit-content;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.typeSelect:hover {
+  background: #ffedd5;
 }
 
 .closeBtn {
@@ -303,6 +311,78 @@
 .deleteBtn:hover {
   background: #fef2f2 !important;
   border-color: #dc2626 !important;
+}
+
+.expenseGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+  background: #f0f9ff;
+  padding: 1.5rem;
+  border-radius: 16px;
+  border: 1px solid #e0f2fe;
+}
+
+.amountInput, .currencyInput, .payeeInput {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #bae6fd;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  background: white;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.amountInput:focus, .currencyInput:focus, .payeeInput:focus {
+  border-color: #0ea5e9;
+}
+
+.currencyInput {
+  width: 80px;
+  text-align: center;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #bae6fd;
+  border-radius: 10px;
+  margin-top: 4px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+  overflow: hidden;
+}
+
+.suggestionItem {
+  padding: 0.75rem 1rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.suggestionItem:hover {
+  background: #f0f9ff;
+  color: #0369a1;
+}
+
+.sectionTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 0.5rem;
+}
+
+.sectionIcon {
+  color: var(--accent-primary);
 }
 
 @media (max-width: 640px) {

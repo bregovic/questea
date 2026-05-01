@@ -14,9 +14,28 @@ export async function PATCH(
 
   try {
     const body = await req.json();
-    const { ownerEmail, ...rest } = body;
+    const { ownerEmail, payee, ...rest } = body;
 
     let updateData = { ...rest };
+
+    if (payee !== undefined) {
+      updateData.payee = payee;
+      if (payee && payee.trim() !== "") {
+        await prisma.payee.upsert({
+          where: {
+            name_userId: {
+              name: payee.trim(),
+              userId: session.user.id
+            }
+          },
+          update: {},
+          create: {
+            name: payee.trim(),
+            userId: session.user.id
+          }
+        });
+      }
+    }
 
     if (ownerEmail) {
       const targetUser = await prisma.user.findUnique({

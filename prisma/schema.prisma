@@ -83,6 +83,7 @@ enum TaskType {
   TASK
   BUG
   IDEA
+  EXPENSE
 }
 
 model Category {
@@ -142,12 +143,27 @@ model Task {
   attachments  Attachment[]
   voiceNoteUrl String?     
   
+  // Expense fields (only if taskType == EXPENSE)
+  amount      Float?
+  currency    String?      @default("CZK")
+  payee       String?      // Komu se platilo
+  
   // Systémové
   isDeleted   Boolean  @default(false)
   lockStatus  Boolean  @default(false) // If true, cannot be closed/DONE manually
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+model Payee {
+  id        String   @id @default(cuid())
+  name      String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([name, userId])
 }
 
 model Attachment {

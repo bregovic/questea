@@ -40,9 +40,29 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
+    const { payee, ...rest } = body;
+
+    // Pokud je zadán příjemce, přidáme ho do číselníku
+    if (payee && payee.trim() !== "") {
+      await prisma.payee.upsert({
+        where: {
+          name_userId: {
+            name: payee.trim(),
+            userId: session.user.id
+          }
+        },
+        update: {},
+        create: {
+          name: payee.trim(),
+          userId: session.user.id
+        }
+      });
+    }
+
     const task = await prisma.task.create({
       data: {
-        ...body,
+        ...rest,
+        payee: payee,
         userId: session.user.id,
       },
     });

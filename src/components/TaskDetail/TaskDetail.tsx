@@ -4,7 +4,8 @@ import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { 
   X, User, FileText, Link as LinkIcon, Calendar, 
-  Plus, Trash2, Mail, Layers, Lock, Unlock, RotateCcw 
+  Plus, Trash2, Mail, Layers, Lock, Unlock, RotateCcw, 
+  Wallet, DollarSign, Building 
 } from "lucide-react";
 import styles from "./TaskDetail.module.css";
 
@@ -26,7 +27,22 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
   const [ownerEmail, setOwnerEmail] = useState(task.user?.email || "");
   const [parentId, setParentId] = useState(task.parentId || "");
   const [lockStatus, setLockStatus] = useState(task.lockStatus || false);
+  const [taskType, setTaskType] = useState(task.taskType);
+  const [amount, setAmount] = useState(task.amount || "");
+  const [currency, setCurrency] = useState(task.currency || "CZK");
+  const [payee, setPayee] = useState(task.payee || "");
   const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
+  const [payees, setPayees] = useState<any[]>([]);
+  const [showPayeeSuggestions, setShowPayeeSuggestions] = useState(false);
+
+  // Fetch payees for codelist
+  React.useEffect(() => {
+    fetch("/api/payees")
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) setPayees(data);
+      });
+  }, []);
 
   const handleSaveDescription = () => {
     if (description !== task.description) {
@@ -60,6 +76,19 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
     if (ownerEmail !== task.user?.email) {
       onUpdate(task.id, { ownerEmail });
     }
+  };
+
+  const handleTaskTypeChange = (newType: string) => {
+    setTaskType(newType);
+    onUpdate(task.id, { taskType: newType });
+  };
+
+  const handleExpenseUpdate = () => {
+    onUpdate(task.id, { 
+      amount: amount === "" ? null : parseFloat(amount.toString()), 
+      currency, 
+      payee 
+    });
   };
 
   const handleDelete = () => {
@@ -112,7 +141,16 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
             onBlur={handleSaveTitle}
           />
           <div className="flex gap-2">
-            <span className={styles.typeBadge}>{task.taskType}</span>
+            <select 
+              value={taskType}
+              onChange={(e) => handleTaskTypeChange(e.target.value)}
+              className={styles.typeSelect}
+            >
+              <option value="TASK">Úkol</option>
+              <option value="BUG">Bug</option>
+              <option value="IDEA">Nápad</option>
+              <option value="EXPENSE">Náklady</option>
+            </select>
             <select 
               value={priority}
               onChange={(e) => handlePriorityChange(e.target.value)}
@@ -178,6 +216,81 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
             </button>
           </div>
         </section>
+
+        {/* Expense Details (Conditional) */}
+        {taskType === "EXPENSE" && (
+          <section className={styles.section}>
+            <h4 className={styles.sectionTitle}>
+              <Wallet className={styles.sectionIcon} size={14} /> Detaily nákladů
+            </h4>
+            <div className={styles.expenseGrid}>
+              <div className={styles.labelItem}>
+                <div className={styles.labelHeader}><DollarSign size={14} /> Částka & Měna</div>
+                <div className="flex gap-2 mt-1">
+                  <input 
+                    type="number" 
+                    placeholder="0.00"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    onBlur={handleExpenseUpdate}
+                    className={styles.amountInput}
+                  />
+                  <input 
+                    type="text" 
+                    placeholder="CZK"
+                    value={currency}
+                    onChange={(e) => setCurrency(e.target.value)}
+                    onBlur={handleExpenseUpdate}
+                    className={styles.currencyInput}
+                  />
+                </div>
+              </div>
+              
+              <div className={styles.labelItem}>
+                <div className={styles.labelHeader}><Building size={14} /> Komu se platilo (Příjemce)</div>
+                <div className="relative mt-1">
+                  <input 
+                    type="text" 
+                    placeholder="Název firmy / jméno..."
+                    value={payee}
+                    onChange={(e) => {
+                      setPayee(e.target.value);
+                      setShowPayeeSuggestions(true);
+                    }}
+                    onBlur={() => {
+                      handleExpenseUpdate();
+                      // Timeout to allow clicking a suggestion
+                      setTimeout(() => setShowPayeeSuggestions(false), 200);
+                    }}
+                    onFocus={() => setShowPayeeSuggestions(true)}
+                    className={styles.payeeInput}
+                  />
+                  {showPayeeSuggestions && payees.length > 0 && (
+                    <div className={styles.suggestions}>
+                      {payees
+                        .filter(p => p.name.toLowerCase().includes(payee.toLowerCase()))
+                        .slice(0, 5)
+                        .map(p => (
+                          <div 
+                            key={p.id} 
+                            className={styles.suggestionItem}
+                            onMouseDown={() => {
+                              setPayee(p.name);
+                              setShowPayeeSuggestions(false);
+                              onUpdate(task.id, { payee: p.name });
+                            }}
+                          >
+                            {p.name}
+                          </div>
+                        ))
+                      }
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* Description Section */}
         <section className={styles.section}>

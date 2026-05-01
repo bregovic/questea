@@ -73,7 +73,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
                 {new Date(task.dueDate).toLocaleDateString("cs-CZ")}
               </span>
             )}
-            <span className={styles.typeBadge}>{task.taskType}</span>
+            <span className={styles.typeBadge} data-type={task.taskType}>{task.taskType}</span>
+            {task.taskType === "EXPENSE" && task.amount && (
+              <span className={styles.expenseBadge}>
+                {task.amount} {task.currency || "CZK"}
+                {task.payee && <span className={styles.payeeSmall}> • {task.payee}</span>}
+              </span>
+            )}
             {task.priority === "URGENT" && (
               <motion.span 
                 animate={{ scale: [1, 1.1, 1] }} 

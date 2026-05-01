@@ -3,8 +3,9 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { TaskCard } from "../TaskCard/TaskCard";
 import { TaskDetail } from "../TaskDetail/TaskDetail";
+import { QuickExpenseModal } from "../QuickExpenseModal/QuickExpenseModal";
 import { LocationTracker } from "../LocationTracker/LocationTracker";
-import { Search, Grid, List as ListIcon, Home, ChevronRight, Maximize2, Minimize2 } from "lucide-react";
+import { Search, Grid, List as ListIcon, Home, ChevronRight, Maximize2, Minimize2, Wallet, Tag, Building, X, Save } from "lucide-react";
 import styles from "./TaskList.module.css";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -25,6 +26,8 @@ export const TaskList = () => {
   const [lastDeletedTask, setLastDeletedTask] = useState<any | null>(null);
   const [showUndo, setShowUndo] = useState(false);
   const [isZen, setIsZen] = useState(false);
+  const [quickActionTask, setQuickActionTask] = useState<any | null>(null);
+  const [categories, setCategories] = useState<any[]>([]);
 
   const toggleZen = () => {
     const nextZen = !isZen;
@@ -46,6 +49,14 @@ export const TaskList = () => {
     }
   };
 
+  const fetchCategories = async () => {
+    try {
+      const res = await fetch("/api/categories");
+      const data = await res.json();
+      if (Array.isArray(data)) setCategories(data);
+    } catch (err) {}
+  };
+
   const goUp = useCallback(() => {
     if (!currentParentId) return;
     const current = tasks.find(t => t.id === currentParentId);
@@ -59,18 +70,32 @@ export const TaskList = () => {
     const handleAddTaskEvent = () => setIsAddingTask(true);
     window.addEventListener("addTask", handleAddTaskEvent);
 
-    // Keyboard navigation (ESC to go up)
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         if (selectedTask) setSelectedTask(null);
+        else if (quickActionTask) setQuickActionTask(null);
         else if (isAddingTask) setIsAddingTask(false);
         else goUp();
       }
     };
+
+    // Quick Action listener
+    const handleQuickActionEvent = (e: any) => {
+      const task = e.detail.task;
+      if (task.taskType === "LOCATION_HISTORY") {
+        handleQuickLocation(task);
+      } else {
+        setQuickActionTask(task);
+      }
+    };
+    window.addEventListener("quickAction", handleQuickActionEvent as any);
+
     window.addEventListener("keydown", handleKeyDown);
+    fetchCategories();
 
     return () => {
       window.removeEventListener("addTask", handleAddTaskEvent);
+      window.removeEventListener("quickAction", handleQuickActionEvent as any);
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [goUp, selectedTask, isAddingTask]);
@@ -232,6 +257,31 @@ export const TaskList = () => {
     }
   };
 
+  const handleQuickLocation = async (task: any) => {
+    if (!navigator.geolocation) return alert("GPS není k dispozici");
+    
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      const { latitude, longitude } = pos.coords;
+      try {
+        const res = await fetch("/api/locations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            latitude,
+            longitude,
+            taskId: task.id,
+            note: "Rychlý záznam z karty"
+          })
+        });
+        if (res.ok) {
+          alert("Poloha zaznamenána ✨");
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    });
+  };
+
   const filteredTasks = tasks.filter(task => {
     // Trash view
     if (filterStatus === "TRASH") return task.isDeleted;
@@ -289,6 +339,17 @@ export const TaskList = () => {
             onClose={() => setSelectedTask(null)}
             onUpdate={handleUpdate}
             onDelete={handleDelete}
+          />
+        )}
+        {quickActionTask && (
+          <QuickExpenseModal 
+            task={quickActionTask} 
+            categories={categories}
+            onClose={() => setQuickActionTask(null)}
+            onSave={(data: any) => {
+              handleUpdate(quickActionTask.id, data);
+              setQuickActionTask(null);
+            }}
           />
         )}
       </AnimatePresence>

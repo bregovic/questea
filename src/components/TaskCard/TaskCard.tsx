@@ -2,7 +2,7 @@
 
 import React from "react";
 import { motion, useMotionValue, useTransform } from "framer-motion";
-import { Check, Clock, ChevronRight, Eye, FolderOpen, AlertCircle } from "lucide-react";
+import { Check, Clock, ChevronRight, Eye, FolderOpen, AlertCircle, MapPin, Plus, Wallet } from "lucide-react";
 import styles from "./TaskCard.module.css";
 
 interface TaskCardProps {
@@ -93,24 +93,40 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
         </div>
 
         <div className={styles.rightActions}>
-          <div className={styles.gaugeWrapper}>
-            <svg width="44" height="44" className={styles.gauge}>
-              <circle cx="22" cy="22" r={radius} stroke="#f5f5f4" strokeWidth="3" fill="none" />
-              <motion.circle 
-                cx="22" cy="22" r={radius} 
-                stroke={task.status === "DONE" ? "#059669" : "#ea580c"} 
-                strokeWidth="3" 
-                fill="none"
-                strokeDasharray={circumference}
-                initial={{ strokeDashoffset: circumference }}
-                animate={{ strokeDashoffset: offset }}
-                transition={{ duration: 1, ease: "easeOut" }}
-                strokeLinecap="round"
-                transform="rotate(-90 22 22)"
-              />
-            </svg>
-            <span className={styles.gaugeText}>{task.progress}%</span>
-          </div>
+          {task.taskType === "EXPENSE" || task.taskType === "LOCATION_HISTORY" ? (
+            <button 
+              className={styles.quickActionBtn}
+              data-type={task.taskType}
+              onClick={(e) => {
+                e.stopPropagation();
+                // We'll define onQuickAction prop soon
+                (window as any).dispatchEvent(new CustomEvent("quickAction", { 
+                  detail: { task } 
+                }));
+              }}
+            >
+              {task.taskType === "EXPENSE" ? <Plus size={18} /> : <MapPin size={18} />}
+            </button>
+          ) : (
+            <div className={styles.gaugeWrapper}>
+              <svg width="44" height="44" className={styles.gauge}>
+                <circle cx="22" cy="22" r={radius} stroke="#f5f5f4" strokeWidth="3" fill="none" />
+                <motion.circle 
+                  cx="22" cy="22" r={radius} 
+                  stroke={task.status === "DONE" ? "#059669" : "#ea580c"} 
+                  strokeWidth="3" 
+                  fill="none"
+                  strokeDasharray={circumference}
+                  initial={{ strokeDashoffset: circumference }}
+                  animate={{ strokeDashoffset: offset }}
+                  transition={{ duration: 1, ease: "easeOut" }}
+                  strokeLinecap="round"
+                  transform="rotate(-90 22 22)"
+                />
+              </svg>
+              <span className={styles.gaugeText}>{task.progress}%</span>
+            </div>
+          )}
 
           <button 
             className={styles.eyeBtn}

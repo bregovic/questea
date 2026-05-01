@@ -54,6 +54,7 @@ model User {
   categories      Category[]
   aliasEmails     AliasEmail[]
   locations       LocationCheckIn[]
+  payees          Payee[]
 }
 
 model VerificationToken {

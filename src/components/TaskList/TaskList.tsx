@@ -4,7 +4,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { TaskCard } from "../TaskCard/TaskCard";
 import { TaskDetail } from "../TaskDetail/TaskDetail";
 import { LocationTracker } from "../LocationTracker/LocationTracker";
-import { Search, Grid, List as ListIcon, Home, ChevronRight, Maximize2, Minimize2, MapPin, CheckSquare } from "lucide-react";
+import { Search, Grid, List as ListIcon, Home, ChevronRight, Maximize2, Minimize2 } from "lucide-react";
 import styles from "./TaskList.module.css";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -25,7 +25,7 @@ export const TaskList = () => {
   const [lastDeletedTask, setLastDeletedTask] = useState<any | null>(null);
   const [showUndo, setShowUndo] = useState(false);
   const [isZen, setIsZen] = useState(false);
-  const [activeView, setActiveView] = useState<"tasks" | "location">("tasks");
+  const [isZen, setIsZen] = useState(false);
 
   const toggleZen = () => {
     const nextZen = !isZen;
@@ -295,73 +295,72 @@ export const TaskList = () => {
       </AnimatePresence>
 
       {!isZen ? (
-        <header className={styles.header}>
-          <div className={styles.breadcrumbHeader}>
-            <div className={styles.breadcrumbContainer}>
-              <button onClick={() => { setCurrentParentId(null); }} className={styles.pathItem}>
-                <Home size={20} className={!currentParentId ? "text-coral" : ""} />
-              </button>
-              {breadcrumbs.map((b, idx) => (
-                <React.Fragment key={b.id}>
-                  <ChevronRight size={14} className={styles.pathSeparator} />
-                  <button 
-                    onClick={() => setCurrentParentId(b.id)}
-                    className={`${styles.pathItem} ${idx === breadcrumbs.length - 1 ? styles.activePath : ""}`}
-                  >
-                    {b.title}
-                  </button>
-                </React.Fragment>
-              ))}
-            </div>
+        <>
+          <header className={styles.header}>
+            <div className={styles.breadcrumbHeader}>
+              <div className={styles.breadcrumbContainer}>
+                <button onClick={() => { setCurrentParentId(null); }} className={styles.pathItem}>
+                  <Home size={20} className={!currentParentId ? "text-coral" : ""} />
+                </button>
+                {breadcrumbs.map((b, idx) => (
+                  <React.Fragment key={b.id}>
+                    <ChevronRight size={14} className={styles.pathSeparator} />
+                    <button 
+                      onClick={() => setCurrentParentId(b.id)}
+                      className={`${styles.pathItem} ${idx === breadcrumbs.length - 1 ? styles.activePath : ""}`}
+                    >
+                      {b.title}
+                    </button>
+                  </React.Fragment>
+                ))}
+              </div>
 
               <button onClick={toggleZen} className={styles.zenToggle}>
                 <Maximize2 size={18} />
               </button>
             </div>
-          </div>
+          </header>
 
-          {activeView === "tasks" && (
-            <div className={styles.filterBar}>
-              <div className={styles.searchGroup}>
-                <Search className={styles.searchIcon} size={16} />
-                <input 
-                  type="text"
-                  placeholder="Hledat..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className={styles.searchInput}
-                />
-              </div>
-              
-              <div className={styles.filterGroup}>
-                {[
-                  { id: "ACTIVE", label: "Aktivní" },
-                  { id: "ALL", label: "Vše" },
-                  { id: "TODO", label: "K řešení" },
-                  { id: "DONE", label: "Hotovo" },
-                  { id: "TRASH", label: "Koš" }
-                ].map(f => (
-                  <button
-                    key={f.id}
-                    onClick={() => setFilterStatus(f.id)}
-                    className={`${styles.filterChip} ${filterStatus === f.id ? styles.chipActive : styles.chipInactive}`}
-                  >
-                    {f.label}
-                  </button>
-                ))}
-              </div>
-
-              <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className={styles.sortSelect}>
-                <option value="PRIORITY">Priority</option>
-                <option value="PROGRESS">Progress</option>
-              </select>
-
-              <button onClick={() => setViewMode(viewMode === "list" ? "grid" : "list")} className="ml-2 opacity-40 hover:opacity-100 transition-opacity">
-                {viewMode === "list" ? <ListIcon size={20} /> : <Grid size={20} />}
-              </button>
+          <div className={styles.filterBar}>
+            <div className={styles.searchGroup}>
+              <Search className={styles.searchIcon} size={16} />
+              <input 
+                type="text"
+                placeholder="Hledat..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className={styles.searchInput}
+              />
             </div>
-          )}
-        </header>
+            
+            <div className={styles.filterGroup}>
+              {[
+                { id: "ACTIVE", label: "Aktivní" },
+                { id: "ALL", label: "Vše" },
+                { id: "TODO", label: "K řešení" },
+                { id: "DONE", label: "Hotovo" },
+                { id: "TRASH", label: "Koš" }
+              ].map(f => (
+                <button
+                  key={f.id}
+                  onClick={() => setFilterStatus(f.id)}
+                  className={`${styles.filterChip} ${filterStatus === f.id ? styles.chipActive : styles.chipInactive}`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+
+            <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className={styles.sortSelect}>
+              <option value="PRIORITY">Priority</option>
+              <option value="PROGRESS">Progress</option>
+            </select>
+
+            <button onClick={() => setViewMode(viewMode === "list" ? "grid" : "list")} className="ml-2 opacity-40 hover:opacity-100 transition-opacity">
+              {viewMode === "list" ? <ListIcon size={20} /> : <Grid size={20} />}
+            </button>
+          </div>
+        </>
       ) : (
         <button onClick={toggleZen} className={styles.zenRestore}>
           <Minimize2 size={18} />

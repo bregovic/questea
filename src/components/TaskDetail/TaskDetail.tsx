@@ -522,7 +522,6 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
             </label>
           </div>
         </section>
-        </section>
       </div>
     </motion.div>
   );

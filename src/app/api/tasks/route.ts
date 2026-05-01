@@ -24,7 +24,10 @@ export async function GET() {
         subTasks: {
           include: { category: true }
         },
-        attachments: true
+        attachments: true,
+        locations: {
+          orderBy: { createdAt: "desc" }
+        }
       },
       orderBy: { createdAt: "desc" },
     });

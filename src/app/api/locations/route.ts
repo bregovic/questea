@@ -3,12 +3,18 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
-export async function GET() {
+export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const { searchParams } = new URL(req.url);
+  const taskId = searchParams.get("taskId");
+
   const locations = await prisma.locationCheckIn.findMany({
-    where: { userId: session.user.id },
+    where: { 
+      userId: session.user.id,
+      ...(taskId ? { taskId } : {})
+    },
     orderBy: { createdAt: "desc" }
   });
   return NextResponse.json(locations);
@@ -23,6 +29,7 @@ export async function POST(req: Request) {
     const location = await prisma.locationCheckIn.create({
       data: {
         userId: session.user.id,
+        taskId: data.taskId || null,
         latitude: data.latitude,
         longitude: data.longitude,
         address: data.address,

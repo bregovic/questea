@@ -385,6 +385,162 @@
   color: var(--accent-primary);
 }
 
+.trackerMini {
+  background: #fdfaf5;
+  border: 1px solid #f0ebe1;
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.gpsBtn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: white;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.gpsBtn:hover {
+  background: #fafaf9;
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
+.locConfirm {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.miniTextarea {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  font-size: 0.8rem;
+  min-height: 50px;
+  resize: none;
+}
+
+.miniSaveBtn, .miniCancelBtn {
+  flex: 1;
+  padding: 0.4rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.miniSaveBtn {
+  background: var(--accent-primary);
+  color: white;
+  border: none;
+}
+
+.miniCancelBtn {
+  background: #f5f5f4;
+  border: 1px solid var(--panel-border);
+  color: var(--text-muted);
+}
+
+.locHistory {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-left: 0.5rem;
+  border-left: 2px solid #f5f5f4;
+}
+
+.locItem {
+  position: relative;
+  padding-left: 1.25rem;
+}
+
+.locDot {
+  position: absolute;
+  left: -1.35rem;
+  top: 0.25rem;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  border: 2px solid white;
+}
+
+.locInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+.attachmentGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+}
+
+.attachmentItem {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--panel-border);
+}
+
+.attachmentItem img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.attDelete {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: rgba(0,0,0,0.5);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  padding: 4px;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+}
+
+.uploadBtn {
+  aspect-ratio: 1;
+  border: 2px dashed var(--panel-border);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.uploadBtn:hover {
+  background: #fafaf9;
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 @media (max-width: 640px) {
   .sidebar {
     width: 100%;

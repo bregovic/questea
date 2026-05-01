@@ -85,6 +85,7 @@ enum TaskType {
   BUG
   IDEA
   EXPENSE
+  LOCATION_HISTORY
 }
 
 model Category {
@@ -149,6 +150,9 @@ model Task {
   currency    String?      @default("CZK")
   payee       String?      // Komu se platilo
   
+  // Location History (only if taskType == LOCATION_HISTORY)
+  locations   LocationCheckIn[]
+  
   // Systémové
   isDeleted   Boolean  @default(false)
   lockStatus  Boolean  @default(false) // If true, cannot be closed/DONE manually
@@ -199,5 +203,9 @@ model LocationCheckIn {
   photoUrl  String?  // URL nahrané fotky
   mileage   Float?   // Stav tachometru / ujeté km
   
+  // Vazba na úkol (pokud je to součást historie cesty)
+  taskId    String?
+  task      Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now())
 }

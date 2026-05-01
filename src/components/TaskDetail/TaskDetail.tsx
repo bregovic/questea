@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { 
   X, User, FileText, Link as LinkIcon, Calendar, 
   Plus, Trash2, Mail, Layers, Lock, Unlock, RotateCcw, 
-  Wallet, DollarSign, Building 
+  Wallet, DollarSign, Building, MapPin, Loader2, Navigation, Camera 
 } from "lucide-react";
 import styles from "./TaskDetail.module.css";
 
@@ -35,6 +35,15 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
   const [payees, setPayees] = useState<any[]>([]);
   const [showPayeeSuggestions, setShowPayeeSuggestions] = useState(false);
 
+  // Location logic in task
+  const [loadingLoc, setLoadingLoc] = useState(false);
+  const [currentLoc, setCurrentLoc] = useState<any>(null);
+  const [locNote, setLocNote] = useState("");
+  const [locHistory, setLocHistory] = useState(task.locations || []);
+
+  // Attachments logic
+  const [attachments, setAttachments] = useState(task.attachments || []);
+
   // Fetch payees for codelist
   React.useEffect(() => {
     fetch("/api/payees")
@@ -43,6 +52,82 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
         if (Array.isArray(data)) setPayees(data);
       });
   }, []);
+
+  const getGPS = () => {
+    setLoadingLoc(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`, { headers: { "Accept-Language": "cs" } });
+          const data = await res.json();
+          setCurrentLoc({ lat: latitude, lng: longitude, address: data.display_name, placeName: data.address.amenity || data.address.shop || data.address.road });
+        } catch (err) {
+          setCurrentLoc({ lat: latitude, lng: longitude, address: `${latitude}, ${longitude}`, placeName: "Neznámé místo" });
+        } finally { setLoadingLoc(false); }
+      },
+      () => { alert("Povolte prosím GPS."); setLoadingLoc(false); },
+      { enableHighAccuracy: true }
+    );
+  };
+
+  const handleSaveLoc = async () => {
+    if (!currentLoc) return;
+    try {
+      const res = await fetch("/api/locations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          taskId: task.id,
+          latitude: currentLoc.lat,
+          longitude: currentLoc.lng,
+          address: currentLoc.address,
+          placeName: currentLoc.placeName,
+          note: locNote
+        }),
+      });
+      if (res.ok) {
+        const saved = await res.json();
+        setLocHistory([saved, ...locHistory]);
+        setCurrentLoc(null);
+        setLocNote("");
+      }
+    } catch (err) { console.error(err); }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // For now, we simulate upload by converting to base64
+    // In production, you'd upload to S3/Cloudinary and get a URL
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const base64 = reader.result as string;
+      try {
+        const res = await fetch(`/api/tasks/${task.id}/attachments`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: file.name, url: base64, type: "image" })
+        });
+        if (res.ok) {
+          const newAtt = await res.json();
+          setAttachments([...attachments, newAtt]);
+        }
+      } catch (err) { console.error(err); }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleDeleteAttachment = async (attId: string) => {
+    if (!confirm("Smazat tuto přílohu?")) return;
+    try {
+      const res = await fetch(`/api/tasks/${task.id}/attachments/${attId}`, { method: "DELETE" });
+      if (res.ok) {
+        setAttachments(attachments.filter((a: any) => a.id !== attId));
+      }
+    } catch (err) { console.error(err); }
+  };
 
   const handleSaveDescription = () => {
     if (description !== task.description) {
@@ -150,6 +235,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
               <option value="BUG">Bug</option>
               <option value="IDEA">Nápad</option>
               <option value="EXPENSE">Náklady</option>
+              <option value="LOCATION_HISTORY">Historie cesty</option>
             </select>
             <select 
               value={priority}
@@ -359,6 +445,83 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
               </div>
             ))}
           </div>
+        </section>
+
+        {/* Location History Section (Conditional) */}
+        {taskType === "LOCATION_HISTORY" && (
+          <section className={styles.section}>
+            <h4 className={styles.sectionTitle}>
+              <Navigation className={styles.sectionIcon} size={14} /> Záznam trasy
+            </h4>
+            <div className={styles.trackerMini}>
+              {!currentLoc ? (
+                <button onClick={getGPS} disabled={loadingLoc} className={styles.gpsBtn}>
+                  {loadingLoc ? <Loader2 className={styles.spin} size={14} /> : <MapPin size={14} />}
+                  <span>{loadingLoc ? "Zaměřuji..." : "Zapsat aktuální polohu"}</span>
+                </button>
+              ) : (
+                <div className={styles.locConfirm}>
+                   <p className="text-xs font-bold truncate">{currentLoc.placeName || currentLoc.address}</p>
+                   <textarea 
+                     placeholder="Poznámka k místu..." 
+                     value={locNote} 
+                     onChange={(e) => setLocNote(e.target.value)}
+                     className={styles.miniTextarea}
+                   />
+                   <div className="flex gap-2">
+                     <button onClick={handleSaveLoc} className={styles.miniSaveBtn}>Uložit</button>
+                     <button onClick={() => setCurrentLoc(null)} className={styles.miniCancelBtn}>Zrušit</button>
+                   </div>
+                </div>
+              )}
+            </div>
+
+            <div className={styles.locHistory}>
+              {locHistory.map((loc: any) => (
+                <div key={loc.id} className={styles.locItem}>
+                  <div className={styles.locDot} />
+                  <div className={styles.locInfo}>
+                    <div className="flex justify-between items-start">
+                      <span className="font-bold text-xs">{loc.placeName || "Místo"}</span>
+                      <span className="text-[10px] opacity-40">{new Date(loc.createdAt).toLocaleTimeString("cs-CZ", { hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
+                    <p className="text-[10px] opacity-60 truncate">{loc.address}</p>
+                    {loc.note && <p className="text-[10px] italic mt-1">{loc.note}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Photos / Attachments Section */}
+        <section className={styles.section}>
+          <div className={styles.sectionHeader}>
+            <Camera size={18} />
+            <span>Přílohy & Účtenky</span>
+          </div>
+          
+          <div className={styles.attachmentGrid}>
+            {attachments.map((att: any) => (
+              <div key={att.id} className={styles.attachmentItem}>
+                <img src={att.url} alt={att.name} />
+                <button onClick={() => handleDeleteAttachment(att.id)} className={styles.attDelete}>
+                  <X size={10} />
+                </button>
+              </div>
+            ))}
+            <label className={styles.uploadBtn}>
+              <Plus size={20} />
+              <input 
+                type="file" 
+                accept="image/*" 
+                capture="environment" 
+                onChange={handleFileUpload}
+                hidden 
+              />
+            </label>
+          </div>
+        </section>
         </section>
       </div>
     </motion.div>

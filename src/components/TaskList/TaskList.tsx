@@ -263,19 +263,37 @@ export const TaskList = () => {
     navigator.geolocation.getCurrentPosition(async (pos) => {
       const { latitude, longitude } = pos.coords;
       try {
-        const res = await fetch("/api/locations", {
+        // 1. Create a subtask for this location
+        const taskRes = await fetch("/api/tasks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: `Záznam polohy ${new Date().toLocaleTimeString("cs-CZ")}`,
+            status: "DONE",
+            priority: "LOW",
+            taskType: "TASK",
+            parentId: task.id,
+          })
+        });
+        
+        if (!taskRes.ok) throw new Error("Failed to create subtask");
+        const newSubtask = await taskRes.json();
+
+        // 2. Attach location data to this subtask
+        await fetch("/api/locations", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             latitude,
             longitude,
-            taskId: task.id,
-            note: "Rychlý záznam z karty"
+            taskId: newSubtask.id,
+            note: "Automatický záznam z karty"
           })
         });
-        if (res.ok) {
-          alert("Poloha zaznamenána ✨");
-        }
+
+        // 3. Refresh tasks to show the new subtask
+        fetchTasks();
+        alert("Poloha uložena jako záznam trasy ✨");
       } catch (err) {
         console.error(err);
       }
@@ -346,9 +364,27 @@ export const TaskList = () => {
             task={quickActionTask} 
             categories={categories}
             onClose={() => setQuickActionTask(null)}
-            onSave={(data: any) => {
-              handleUpdate(quickActionTask.id, data);
-              setQuickActionTask(null);
+            onSave={async (data: any) => {
+              try {
+                // Create a SUBTASK of type EXPENSE under the folder
+                const res = await fetch("/api/tasks", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    ...data,
+                    taskType: "EXPENSE",
+                    parentId: quickActionTask.id,
+                    status: "DONE"
+                  })
+                });
+                if (res.ok) {
+                  fetchTasks();
+                  setQuickActionTask(null);
+                  alert("Výdaj byl přidán do seznamu ✨");
+                }
+              } catch (err) {
+                console.error(err);
+              }
             }}
           />
         )}

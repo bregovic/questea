@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { 
   X, User, FileText, Link as LinkIcon, Calendar, 
   Plus, Trash2, Mail, Layers, Lock, Unlock, RotateCcw, 
-  Wallet, DollarSign, Building, MapPin, Loader2, Navigation, Camera 
+  Wallet, DollarSign, Building, MapPin, Loader2, Navigation, Camera, Mic, Square, Play, Pause 
 } from "lucide-react";
 import styles from "./TaskDetail.module.css";
 
@@ -43,6 +43,9 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
 
   // Attachments logic
   const [attachments, setAttachments] = useState(task.attachments || []);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recorder, setRecorder] = useState<MediaRecorder | null>(null);
+  const [recordingTime, setRecordingTime] = useState(0);
 
   // Fetch payees for codelist
   React.useEffect(() => {
@@ -117,6 +120,55 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
       } catch (err) { console.error(err); }
     };
     reader.readAsDataURL(file);
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      const chunks: Blob[] = [];
+
+      mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
+      mediaRecorder.onstop = async () => {
+        const blob = new Blob(chunks, { type: "audio/webm" });
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          const base64 = reader.result as string;
+          try {
+            const res = await fetch(`/api/tasks/${task.id}/attachments`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ name: `Hlasová poznámka ${new Date().toLocaleTimeString()}`, url: base64, type: "audio" })
+            });
+            if (res.ok) {
+              const newAtt = await res.json();
+              setAttachments([...attachments, newAtt]);
+            }
+          } catch (err) { console.error(err); }
+        };
+        reader.readAsDataURL(blob);
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorder.start();
+      setRecorder(mediaRecorder);
+      setIsRecording(true);
+      
+      const timer = setInterval(() => setRecordingTime(prev => prev + 1), 1000);
+      (mediaRecorder as any)._timer = timer;
+
+    } catch (err) {
+      alert("Nepodařilo se přistoupit k mikrofonu.");
+    }
+  };
+
+  const stopRecording = () => {
+    if (recorder) {
+      recorder.stop();
+      clearInterval((recorder as any)._timer);
+      setIsRecording(false);
+      setRecordingTime(0);
+    }
   };
 
   const handleDeleteAttachment = async (attId: string) => {
@@ -504,22 +556,42 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
           <div className={styles.attachmentGrid}>
             {attachments.map((att: any) => (
               <div key={att.id} className={styles.attachmentItem}>
-                <img src={att.url} alt={att.name} />
+                {att.type === 'image' ? (
+                  <img src={att.url} alt={att.name} />
+                ) : (
+                  <div className={styles.audioPlaceholder}>
+                    <Mic size={20} className="text-coral" />
+                    <audio src={att.url} controls className={styles.audioControl} />
+                  </div>
+                )}
                 <button onClick={() => handleDeleteAttachment(att.id)} className={styles.attDelete}>
                   <X size={10} />
                 </button>
               </div>
             ))}
-            <label className={styles.uploadBtn}>
-              <Plus size={20} />
-              <input 
-                type="file" 
-                accept="image/*" 
-                capture="environment" 
-                onChange={handleFileUpload}
-                hidden 
-              />
-            </label>
+            
+            {!isRecording ? (
+              <div className="flex gap-2">
+                <label className={styles.uploadBtn}>
+                  <Camera size={20} />
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    capture="environment" 
+                    onChange={handleFileUpload}
+                    hidden 
+                  />
+                </label>
+                <button onClick={startRecording} className={styles.uploadBtn}>
+                  <Mic size={20} />
+                </button>
+              </div>
+            ) : (
+              <button onClick={stopRecording} className={`${styles.uploadBtn} ${styles.recording}`}>
+                <Square size={20} fill="currentColor" />
+                <span className={styles.recordTimer}>{Math.floor(recordingTime / 60)}:{(recordingTime % 60).toString().padStart(2, '0')}</span>
+              </button>
+            )}
           </div>
         </section>
       </div>

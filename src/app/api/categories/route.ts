@@ -8,13 +8,32 @@ export async function GET() {
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    const payees = await prisma.payee.findMany({
+    const categories = await prisma.category.findMany({
       where: { userId: session.user.id },
       orderBy: { name: "asc" }
     });
-    return NextResponse.json(payees);
+    return NextResponse.json(categories);
   } catch (error) {
-    return NextResponse.json({ error: "Failed to fetch payees" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to fetch categories" }, { status: 500 });
+  }
+}
+
+export async function POST(req: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  try {
+    const { name, color } = await req.json();
+    const category = await prisma.category.create({
+      data: {
+        name,
+        color: color || "#3b82f6",
+        userId: session.user.id
+      }
+    });
+    return NextResponse.json(category);
+  } catch (error) {
+    return NextResponse.json({ error: "Failed to create category" }, { status: 500 });
   }
 }
 
@@ -27,14 +46,14 @@ export async function DELETE(req: Request) {
     const id = searchParams.get("id");
     if (!id) return NextResponse.json({ error: "Missing ID" }, { status: 400 });
 
-    await prisma.payee.delete({
+    await prisma.category.delete({
       where: { 
         id,
-        userId: session.user.id // Security check
+        userId: session.user.id 
       }
     });
     return NextResponse.json({ success: true });
   } catch (error) {
-    return NextResponse.json({ error: "Failed to delete payee" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to delete category" }, { status: 500 });
   }
 }

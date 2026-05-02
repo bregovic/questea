@@ -126,6 +126,23 @@ export const TaskList = () => {
     };
   }, [goUp, selectedTask, isAddingTask]);
 
+  // Restore last parent on mount
+  useEffect(() => {
+    const last = localStorage.getItem("questea_last_parent");
+    if (last && !searchParams.has("parentId")) {
+      const params = new URLSearchParams(searchParams);
+      params.set("parentId", last);
+      router.replace(`${pathname}?${params.toString()}`);
+    }
+  }, []);
+
+  // Save last parent on change
+  useEffect(() => {
+    if (currentParentId) {
+      localStorage.setItem("questea_last_parent", currentParentId);
+    }
+  }, [currentParentId]);
+
   const handleUndo = async () => {
     if (!lastDeletedTask) return;
     try {

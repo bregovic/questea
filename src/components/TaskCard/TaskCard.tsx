@@ -71,7 +71,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
         dragConstraints={{ left: 0, right: 0 }}
         style={{ x }}
         onDragEnd={handleDragEnd}
-        onClick={onOpen}
+        onClick={() => {
+          if (task.subTasks?.length > 0) {
+            onOpen?.();
+          } else {
+            onOpenDetail?.();
+          }
+        }}
         className={`${styles.card} ${task.status === "DONE" && task.taskType === "TASK" ? styles.completed : ""} ${isLogRecord ? styles.logCard : ""}`}
       >
         <div className={styles.leftIndicator} style={{ backgroundColor: getPriorityColor(task.priority) }} />
@@ -126,37 +132,41 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
                   )}
                 </button>
               ) : (
-                <div className={styles.gaugeWrapper}>
-                  <svg width="44" height="44" className={styles.gauge}>
-                    <circle cx="22" cy="22" r={radius} stroke="#f5f5f4" strokeWidth="3" fill="none" />
-                    <motion.circle 
-                      cx="22" cy="22" r={radius} 
-                      stroke={task.status === "DONE" ? "#059669" : "#ea580c"} 
-                      strokeWidth="3" 
-                      fill="none"
-                      strokeDasharray={circumference}
-                      initial={{ strokeDashoffset: circumference }}
-                      animate={{ strokeDashoffset: offset }}
-                      transition={{ duration: 1, ease: "easeOut" }}
-                      strokeLinecap="round"
-                      transform="rotate(-90 22 22)"
-                    />
-                  </svg>
-                  <span className={styles.gaugeText}>{task.progress}%</span>
-                </div>
+                task.subTasks?.length > 0 && (
+                  <div className={styles.gaugeWrapper}>
+                    <svg width="44" height="44" className={styles.gauge}>
+                      <circle cx="22" cy="22" r={radius} stroke="#f5f5f4" strokeWidth="3" fill="none" />
+                      <motion.circle 
+                        cx="22" cy="22" r={radius} 
+                        stroke={task.status === "DONE" ? "#059669" : "#ea580c"} 
+                        strokeWidth="3" 
+                        fill="none"
+                        strokeDasharray={circumference}
+                        initial={{ strokeDashoffset: circumference }}
+                        animate={{ strokeDashoffset: offset }}
+                        transition={{ duration: 1, ease: "easeOut" }}
+                        strokeLinecap="round"
+                        transform="rotate(-90 22 22)"
+                      />
+                    </svg>
+                    <span className={styles.gaugeText}>{task.progress}%</span>
+                  </div>
+                )
               )}
 
-              <button 
-                className={styles.eyeBtn}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onOpenDetail?.();
-                }}
-              >
-                <Eye size={18} />
-              </button>
-              
-              {task.subTasks?.length > 0 && <ChevronRight size={16} className="opacity-20" />}
+              {task.subTasks?.length > 0 ? (
+                <button 
+                  className={styles.detailArrowBtn}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenDetail?.();
+                  }}
+                >
+                  <ChevronRight size={18} />
+                </button>
+              ) : (
+                <ChevronRight size={16} className="opacity-20" />
+              )}
             </div>
           </>
         ) : (
@@ -180,15 +190,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
               </div>
 
               <div className="flex gap-2">
-                <button 
-                  className={styles.eyeBtn}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onOpenDetail?.();
-                  }}
-                >
-                  <Eye size={18} />
-                </button>
+                {/* Removed eye button from log items as well */}
               </div>
             </div>
           </div>

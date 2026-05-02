@@ -61,89 +61,116 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
         style={{ x }}
         onDragEnd={handleDragEnd}
         onClick={onOpen}
-        className={`${styles.card} ${task.status === "DONE" && task.taskType === "TASK" ? styles.completed : ""}`}
+        className={`${styles.card} ${task.status === "DONE" && task.taskType === "TASK" ? styles.completed : ""} ${task.taskType !== "TASK" ? styles.logCard : ""}`}
       >
         <div className={styles.leftIndicator} style={{ backgroundColor: getPriorityColor(task.priority) }} />
         
-        <div className={styles.mainInfo}>
-          <div className={styles.titleRow}>
-            {task.subTasks?.length > 0 && <FolderOpen size={14} className="text-coral mr-1.5" />}
-            <h3 className={styles.title}>{task.title}</h3>
-          </div>
-          <div className={styles.metaRow}>
-            {task.dueDate && (
-              <span className={`${styles.dueInfo} ${new Date(task.dueDate) < new Date() ? styles.overdue : ""}`}>
-                <Clock size={12} />
-                {new Date(task.dueDate).toLocaleDateString("cs-CZ")}
-              </span>
-            )}
-            <span className={styles.typeBadge} data-type={task.taskType}>{task.taskType}</span>
-            {task.taskType === "EXPENSE" && task.amount && (
-              <span className={styles.expenseBadge}>
-                {task.amount} {task.currency || "CZK"}
-                {task.payee && <span className={styles.payeeSmall}> • {task.payee}</span>}
-              </span>
-            )}
-            {task.priority === "URGENT" && (
-              <motion.span 
-                animate={{ scale: [1, 1.1, 1] }} 
-                transition={{ repeat: Infinity, duration: 2 }}
-                className={styles.urgentBadge}
-              >
-                <AlertCircle size={12} /> Naléhavé
-              </motion.span>
-            )}
-          </div>
-        </div>
-
-        <div className={styles.rightActions}>
-          {task.taskType === "EXPENSE" || task.taskType === "LOCATION_HISTORY" ? (
-            <button 
-              className={styles.quickActionBtn}
-              data-type={task.taskType}
-              onClick={(e) => {
-                e.stopPropagation();
-                // We'll define onQuickAction prop soon
-                (window as any).dispatchEvent(new CustomEvent("quickAction", { 
-                  detail: { task } 
-                }));
-              }}
-            >
-              {task.taskType === "EXPENSE" ? <Plus size={18} /> : <MapPin size={18} />}
-            </button>
-          ) : (
-            <div className={styles.gaugeWrapper}>
-              <svg width="44" height="44" className={styles.gauge}>
-                <circle cx="22" cy="22" r={radius} stroke="#f5f5f4" strokeWidth="3" fill="none" />
-                <motion.circle 
-                  cx="22" cy="22" r={radius} 
-                  stroke={task.status === "DONE" ? "#059669" : "#ea580c"} 
-                  strokeWidth="3" 
-                  fill="none"
-                  strokeDasharray={circumference}
-                  initial={{ strokeDashoffset: circumference }}
-                  animate={{ strokeDashoffset: offset }}
-                  transition={{ duration: 1, ease: "easeOut" }}
-                  strokeLinecap="round"
-                  transform="rotate(-90 22 22)"
-                />
-              </svg>
-              <span className={styles.gaugeText}>{task.progress}%</span>
+        {task.taskType === "TASK" ? (
+          <>
+            <div className={styles.mainInfo}>
+              <div className={styles.titleRow}>
+                {task.subTasks?.length > 0 && <FolderOpen size={14} className="text-coral mr-1.5" />}
+                <h3 className={styles.title}>{task.title}</h3>
+              </div>
+              <div className={styles.metaRow}>
+                {task.dueDate && (
+                  <span className={`${styles.dueInfo} ${new Date(task.dueDate) < new Date() ? styles.overdue : ""}`}>
+                    <Clock size={12} />
+                    {new Date(task.dueDate).toLocaleDateString("cs-CZ")}
+                  </span>
+                )}
+                <span className={styles.typeBadge} data-type={task.taskType}>{task.taskType}</span>
+                {task.priority === "URGENT" && (
+                  <motion.span 
+                    animate={{ scale: [1, 1.1, 1] }} 
+                    transition={{ repeat: Infinity, duration: 2 }}
+                    className={styles.urgentBadge}
+                  >
+                    <AlertCircle size={12} /> Naléhavé
+                  </motion.span>
+                )}
+              </div>
             </div>
-          )}
 
-          <button 
-            className={styles.eyeBtn}
-            onClick={(e) => {
-              e.stopPropagation();
-              onOpenDetail?.();
-            }}
-          >
-            <Eye size={18} />
-          </button>
-          
-          {task.subTasks?.length > 0 && <ChevronRight size={16} className="opacity-20" />}
-        </div>
+            <div className={styles.rightActions}>
+              <div className={styles.gaugeWrapper}>
+                <svg width="44" height="44" className={styles.gauge}>
+                  <circle cx="22" cy="22" r={radius} stroke="#f5f5f4" strokeWidth="3" fill="none" />
+                  <motion.circle 
+                    cx="22" cy="22" r={radius} 
+                    stroke={task.status === "DONE" ? "#059669" : "#ea580c"} 
+                    strokeWidth="3" 
+                    fill="none"
+                    strokeDasharray={circumference}
+                    initial={{ strokeDashoffset: circumference }}
+                    animate={{ strokeDashoffset: offset }}
+                    transition={{ duration: 1, ease: "easeOut" }}
+                    strokeLinecap="round"
+                    transform="rotate(-90 22 22)"
+                  />
+                </svg>
+                <span className={styles.gaugeText}>{task.progress}%</span>
+              </div>
+
+              <button 
+                className={styles.eyeBtn}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenDetail?.();
+                }}
+              >
+                <Eye size={18} />
+              </button>
+              
+              {task.subTasks?.length > 0 && <ChevronRight size={16} className="opacity-20" />}
+            </div>
+          </>
+        ) : (
+          <div className={styles.logMain}>
+            <h3 className={styles.logTitle}>{task.title}</h3>
+            {task.description && <p className={styles.logAddress}>{task.description}</p>}
+            
+            <div className={styles.logFooter}>
+              <div className="flex gap-2">
+                {task.taskType === "EXPENSE" && task.amount && (
+                  <span className={styles.expenseBadge}>
+                    {task.amount} {task.currency || "CZK"}
+                  </span>
+                )}
+                <span className={styles.logTime}>
+                  <Clock size={10} />
+                  {new Date(task.recordedAt || task.createdAt).toLocaleDateString("cs-CZ")} {new Date(task.recordedAt || task.createdAt).toLocaleTimeString("cs-CZ", { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </div>
+
+              <div className="flex gap-2">
+                <button 
+                  className={styles.eyeBtn}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenDetail?.();
+                  }}
+                >
+                  <Eye size={18} />
+                </button>
+                {task.taskType === "EXPENSE" || task.taskType === "LOCATION_HISTORY" ? (
+                  <button 
+                    className={styles.quickActionBtn}
+                    data-type={task.taskType}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      (window as any).dispatchEvent(new CustomEvent("quickAction", { 
+                        detail: { task } 
+                      }));
+                    }}
+                  >
+                    {task.taskType === "EXPENSE" ? <Plus size={18} /> : <MapPin size={18} />}
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        )}
       </motion.div>
     </div>
   );

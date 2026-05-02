@@ -32,6 +32,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
   const [amount, setAmount] = useState(task.amount || "");
   const [currency, setCurrency] = useState(task.currency || "CZK");
   const [payee, setPayee] = useState(task.payee || "");
+  const [recordedAt, setRecordedAt] = useState(task.recordedAt ? new Date(task.recordedAt).toISOString().slice(0, 16) : "");
   const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
   const [payees, setPayees] = useState<any[]>([]);
   const [showPayeeSuggestions, setShowPayeeSuggestions] = useState(false);
@@ -89,7 +90,8 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
           longitude: currentLoc.lng,
           address: currentLoc.address,
           placeName: currentLoc.placeName,
-          note: locNote
+          note: locNote,
+          recordedAt: recordedAt ? new Date(recordedAt).toISOString() : new Date().toISOString()
         }),
       });
       if (res.ok) {
@@ -231,6 +233,11 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
     });
   };
 
+  const handleRecordedAtChange = (newVal: string) => {
+    setRecordedAt(newVal);
+    onUpdate(task.id, { recordedAt: newVal ? new Date(newVal).toISOString() : null });
+  };
+
   const handleDelete = () => {
     if (confirm("Opravdu chcete tento úkol smazat?")) {
       onDelete(task.id);
@@ -342,6 +349,15 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
               <option value="HIGH">High</option>
               <option value="URGENT">Urgent</option>
             </select>
+          </div>
+          <div className="flex items-center gap-2 mt-1">
+             <Clock size={12} className="opacity-40" />
+             <input 
+               type="datetime-local" 
+               className={styles.recordedAtInput}
+               value={recordedAt}
+               onChange={(e) => handleRecordedAtChange(e.target.value)}
+             />
           </div>
         </div>
         <button onClick={onClose} className={styles.closeBtn}>

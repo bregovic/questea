@@ -664,3 +664,18 @@
   max-height: 200px;
   overflow-y: auto;
 }
+
+.recordedAtInput {
+  border: none;
+  background: transparent;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  outline: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.recordedAtInput:focus {
+  color: var(--accent-primary);
+}

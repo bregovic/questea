@@ -246,3 +246,55 @@
   color: white;
   transform: rotate(15deg);
 }
+.card.logCard {
+  padding: 1.25rem 1.5rem;
+  background: #fdfaf5;
+  border-color: #f0ebe1;
+}
+
+.logMain {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.logTitle {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--text-main);
+  line-height: 1.1;
+  font-family: 'Outfit', sans-serif;
+}
+
+.logAddress {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  opacity: 0.8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.logFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.5rem;
+  border-top: 1px dashed rgba(0,0,0,0.05);
+  padding-top: 0.5rem;
+}
+
+.logTime {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--accent-primary);
+  background: #fff7ed;
+  padding: 2px 8px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}

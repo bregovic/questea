@@ -157,6 +157,7 @@ model Task {
   isDeleted   Boolean  @default(false)
   lockStatus  Boolean  @default(false) // If true, cannot be closed/DONE manually
   orderIndex  Int      @default(0)
+  recordedAt  DateTime? // Kdy se to skutečně stalo (pro historii)
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

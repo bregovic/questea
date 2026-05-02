@@ -592,3 +592,75 @@
   50% { transform: scale(1.05); }
   100% { transform: scale(1); }
 }
+.reorderBtns {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-right: 0.75rem;
+  opacity: 0.3;
+  transition: opacity 0.2s;
+}
+
+.subtaskItem:hover .reorderBtns {
+  opacity: 1;
+}
+
+.reorderBtns button {
+  background: none;
+  border: none;
+  padding: 2px;
+  cursor: pointer;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+
+.reorderBtns button:hover {
+  background: #f0ebe1;
+  color: var(--accent-primary);
+}
+
+.searchWrapper {
+  position: relative;
+  flex: 1;
+}
+
+.locInput {
+  width: 100%;
+  padding: 0.75rem 0.75rem 0.75rem 2.25rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  font-size: 0.85rem;
+  background: white;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.locInput:focus {
+  border-color: var(--accent-primary);
+}
+
+.searchIcon {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+}
+
+.locSuggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  margin-top: 4px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+  z-index: 20;
+  max-height: 200px;
+  overflow-y: auto;
+}

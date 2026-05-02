@@ -22,7 +22,8 @@ export async function GET() {
           select: { id: true, title: true, parentId: true }
         },
         subTasks: {
-          include: { category: true }
+          include: { category: true },
+          orderBy: { orderIndex: "asc" }
         },
         attachments: true,
         locations: {

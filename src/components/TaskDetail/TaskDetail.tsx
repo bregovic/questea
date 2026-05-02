@@ -5,7 +5,8 @@ import { motion } from "framer-motion";
 import { 
   X, User, FileText, Link as LinkIcon, Calendar, 
   Plus, Trash2, Mail, Layers, Lock, Unlock, RotateCcw, 
-  Wallet, DollarSign, Building, MapPin, Loader2, Navigation, Camera, Mic, Square, Play, Pause 
+  Wallet, DollarSign, Building, MapPin, Loader2, Navigation, Camera, Mic, Square, Play, Pause,
+  ChevronUp, ChevronDown, Search
 } from "lucide-react";
 import styles from "./TaskDetail.module.css";
 
@@ -39,6 +40,8 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
   const [loadingLoc, setLoadingLoc] = useState(false);
   const [currentLoc, setCurrentLoc] = useState<any>(null);
   const [locNote, setLocNote] = useState("");
+  const [locSearch, setLocSearch] = useState("");
+  const [locSuggestions, setLocSuggestions] = useState<any[]>([]);
   const [locHistory, setLocHistory] = useState(task.locations || []);
 
   // Attachments logic
@@ -235,11 +238,49 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
     }
   };
 
+  const handleMoveSubtask = async (stId: string, direction: 'up' | 'down') => {
+    const subtasks = [...(task.subTasks || [])].sort((a, b) => a.orderIndex - b.orderIndex);
+    const idx = subtasks.findIndex(s => s.id === stId);
+    if (idx === -1) return;
+    if (direction === 'up' && idx === 0) return;
+    if (direction === 'down' && idx === subtasks.length - 1) return;
+
+    const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
+    const temp = subtasks[idx].orderIndex;
+    subtasks[idx].orderIndex = subtasks[targetIdx].orderIndex;
+    subtasks[targetIdx].orderIndex = temp;
+
+    // Persist changes
+    try {
+      await Promise.all([
+        fetch(`/api/tasks/${subtasks[idx].id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderIndex: subtasks[idx].orderIndex }) }),
+        fetch(`/api/tasks/${subtasks[targetIdx].id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderIndex: subtasks[targetIdx].orderIndex }) })
+      ]);
+      onUpdate(task.id, { subTasks: subtasks });
+    } catch (err) {}
+  };
+
+  const searchLocations = async (query: string) => {
+    if (query.length < 3) return;
+    setLoadingLoc(true);
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&addressdetails=1&limit=5`, { headers: { "Accept-Language": "cs" } });
+      const data = await res.json();
+      setLocSuggestions(data.map((d: any) => ({
+        lat: parseFloat(d.lat),
+        lng: parseFloat(d.lon),
+        address: d.display_name,
+        placeName: d.address.road || d.address.suburb || d.address.city || d.display_name.split(',')[0]
+      })));
+    } catch (err) {} finally { setLoadingLoc(false); }
+  };
+
   const handleSubtaskAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newSubtaskTitle.trim()) return;
 
     try {
+      const nextOrder = (task.subTasks?.length || 0);
       const res = await fetch("/api/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -249,6 +290,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
           priority: task.priority,
           taskType: "TASK",
           parentId: task.id,
+          orderIndex: nextOrder
         }),
       });
       if (res.ok) {
@@ -490,9 +532,13 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
           )}
 
           <div className={styles.subtaskList}>
-            {task.subTasks?.map((st: any) => (
+            {(task.subTasks || []).sort((a: any, b: any) => a.orderIndex - b.orderIndex).map((st: any) => (
               <div key={st.id} className={styles.subtaskItem}>
-                <div className="flex flex-col">
+                <div className={styles.reorderBtns}>
+                  <button onClick={() => handleMoveSubtask(st.id, 'up')}><ChevronUp size={12} /></button>
+                  <button onClick={() => handleMoveSubtask(st.id, 'down')}><ChevronDown size={12} /></button>
+                </div>
+                <div className="flex flex-col flex-1">
                   <span className={st.status === 'DONE' ? 'line-through opacity-50 font-medium' : 'font-medium'}>{st.title}</span>
                   {st.taskType === 'EXPENSE' && st.amount && (
                     <span className="text-[11px] font-extrabold text-green-600 mt-0.5">
@@ -514,26 +560,63 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
               <Navigation className={styles.sectionIcon} size={14} /> Záznam trasy
             </h4>
             <div className={styles.trackerMini}>
-              {!currentLoc ? (
-                <button onClick={getGPS} disabled={loadingLoc} className={styles.gpsBtn}>
-                  {loadingLoc ? <Loader2 className={styles.spin} size={14} /> : <MapPin size={14} />}
-                  <span>{loadingLoc ? "Zaměřuji..." : "Zapsat aktuální polohu"}</span>
-                </button>
-              ) : (
-                <div className={styles.locConfirm}>
-                   <p className="text-xs font-bold truncate">{currentLoc.placeName || currentLoc.address}</p>
-                   <textarea 
-                     placeholder="Poznámka k místu..." 
-                     value={locNote} 
-                     onChange={(e) => setLocNote(e.target.value)}
-                     className={styles.miniTextarea}
-                   />
-                   <div className="flex gap-2">
-                     <button onClick={handleSaveLoc} className={styles.miniSaveBtn}>Uložit</button>
-                     <button onClick={() => setCurrentLoc(null)} className={styles.miniCancelBtn}>Zrušit</button>
-                   </div>
+              <div className="flex flex-col gap-2 w-full">
+                <div className="flex gap-2">
+                  {!currentLoc ? (
+                    <button onClick={getGPS} disabled={loadingLoc} className={styles.gpsBtn}>
+                      {loadingLoc ? <Loader2 className={styles.spin} size={14} /> : <MapPin size={14} />}
+                      <span>GPS</span>
+                    </button>
+                  ) : (
+                    <div className={styles.locConfirm}>
+                      <p className="text-xs font-bold truncate">{currentLoc.placeName || currentLoc.address}</p>
+                      <div className="flex gap-2">
+                        <button onClick={handleSaveLoc} className={styles.miniSaveBtn}>Uložit</button>
+                        <button onClick={() => setCurrentLoc(null)} className={styles.miniCancelBtn}>Zrušit</button>
+                      </div>
+                    </div>
+                  )}
+                  <div className={styles.searchWrapper}>
+                    <Search size={14} className={styles.searchIcon} />
+                    <input 
+                      type="text" 
+                      placeholder="Hledat adresu..." 
+                      className={styles.locInput}
+                      value={locSearch}
+                      onChange={(e) => {
+                        setLocSearch(e.target.value);
+                        searchLocations(e.target.value);
+                      }}
+                    />
+                    {locSuggestions.length > 0 && (
+                      <div className={styles.locSuggestions}>
+                        {locSuggestions.map((s, i) => (
+                          <div 
+                            key={i} 
+                            className={styles.suggestionItem}
+                            onClick={() => {
+                              setCurrentLoc(s);
+                              setLocSuggestions([]);
+                              setLocSearch("");
+                            }}
+                          >
+                            <span className="font-bold block">{s.placeName}</span>
+                            <span className="text-[10px] opacity-60 truncate block">{s.address}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              )}
+                {currentLoc && (
+                  <textarea 
+                    placeholder="Poznámka k místu..." 
+                    value={locNote} 
+                    onChange={(e) => setLocNote(e.target.value)}
+                    className={styles.miniTextarea}
+                  />
+                )}
+              </div>
             </div>
 
             <div className={styles.locHistory}>

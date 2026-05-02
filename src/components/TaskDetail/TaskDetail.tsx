@@ -539,7 +539,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
                   <button onClick={() => handleMoveSubtask(st.id, 'down')}><ChevronDown size={12} /></button>
                 </div>
                 <div className="flex flex-col flex-1">
-                  <span className={st.status === 'DONE' ? 'line-through opacity-50 font-medium' : 'font-medium'}>{st.title}</span>
+                  <span className={st.status === 'DONE' && st.taskType === 'TASK' ? 'line-through opacity-50 font-medium' : 'font-medium'}>{st.title}</span>
                   {st.taskType === 'EXPENSE' && st.amount && (
                     <span className="text-[11px] font-extrabold text-green-600 mt-0.5">
                       {st.amount.toLocaleString("cs-CZ")} {st.currency}

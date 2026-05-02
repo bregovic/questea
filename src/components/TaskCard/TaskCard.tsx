@@ -44,20 +44,24 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
 
   return (
     <div className={styles.wrapper}>
-      <motion.div style={{ background: backgroundRight }} className={`${styles.actionBackground} ${styles.right}`}>
-        <Check size={20} color="#059669" />
-      </motion.div>
-      <motion.div style={{ background: backgroundLeft }} className={`${styles.actionBackground} ${styles.left}`}>
-        <Clock size={20} color="#f59e0b" />
-      </motion.div>
+      {task.taskType === "TASK" && (
+        <>
+          <motion.div style={{ background: backgroundRight }} className={`${styles.actionBackground} ${styles.right}`}>
+            <Check size={20} color="#059669" />
+          </motion.div>
+          <motion.div style={{ background: backgroundLeft }} className={`${styles.actionBackground} ${styles.left}`}>
+            <Clock size={20} color="#f59e0b" />
+          </motion.div>
+        </>
+      )}
 
       <motion.div
-        drag="x"
+        drag={task.taskType === "TASK" ? "x" : false}
         dragConstraints={{ left: 0, right: 0 }}
         style={{ x }}
         onDragEnd={handleDragEnd}
         onClick={onOpen}
-        className={`${styles.card} ${task.status === "DONE" ? styles.completed : ""}`}
+        className={`${styles.card} ${task.status === "DONE" && task.taskType === "TASK" ? styles.completed : ""}`}
       >
         <div className={styles.leftIndicator} style={{ backgroundColor: getPriorityColor(task.priority) }} />
         

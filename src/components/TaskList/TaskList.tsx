@@ -470,22 +470,33 @@ export const TaskList = () => {
         <>
           <header className={styles.header}>
             <div className={styles.breadcrumbHeader}>
-              <div className={styles.breadcrumbContainer}>
-                <button onClick={() => goToFolder(null)} className={styles.pathItem}>
-                  <Home size={20} className={!currentParentId ? "text-coral" : ""} />
-                </button>
-                {breadcrumbs.map((b, idx) => (
-                  <React.Fragment key={b.id}>
-                    <ChevronRight size={14} className={styles.pathSeparator} />
-                    <button 
-                      onClick={() => goToFolder(b.id)}
-                      className={`${styles.pathItem} ${idx === breadcrumbs.length - 1 ? styles.activePath : ""}`}
-                    >
-                      {b.title}
-                    </button>
-                  </React.Fragment>
-                ))}
-              </div>
+              {currentParentId ? (
+                <div className="flex items-center gap-2 overflow-hidden">
+                  <button onClick={goUp} className={styles.backBtn}>
+                    <ChevronRight size={22} style={{ transform: 'rotate(180deg)' }} />
+                  </button>
+                  <h2 className={styles.currentFolderTitle}>
+                    {tasks.find(t => t.id === currentParentId)?.title || "Zpět"}
+                  </h2>
+                </div>
+              ) : (
+                <div className={styles.breadcrumbContainer}>
+                  <button onClick={() => goToFolder(null)} className={styles.pathItem}>
+                    <Home size={20} className={!currentParentId ? "text-coral" : ""} />
+                  </button>
+                  {breadcrumbs.map((b, idx) => (
+                    <React.Fragment key={b.id}>
+                      <ChevronRight size={14} className={styles.pathSeparator} />
+                      <button 
+                        onClick={() => goToFolder(b.id)}
+                        className={`${styles.pathItem} ${idx === breadcrumbs.length - 1 ? styles.activePath : ""}`}
+                      >
+                        {b.title}
+                      </button>
+                    </React.Fragment>
+                  ))}
+                </div>
+              )}
 
               <div className={styles.headerActions}>
                 {currentFolder?.taskType === "LOCATION_HISTORY" && (
@@ -534,7 +545,7 @@ export const TaskList = () => {
             </div>
           </header>
 
-          {tasks.filter(t => t.parentId === currentParentId && !t.isDeleted).some(t => !t.subTasks || t.subTasks.length === 0) && (
+          {tasks.filter(t => t.parentId === currentParentId && !t.isDeleted).length > 8 && (
             <div className={styles.filterBar}>
             <div className={styles.searchGroup}>
               <Search className={styles.searchIcon} size={16} />

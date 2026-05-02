@@ -493,13 +493,55 @@ export const TaskList = () => {
                 ))}
               </div>
 
-              <button onClick={toggleZen} className={styles.zenToggle}>
-                <Maximize2 size={18} />
-              </button>
+              <div className={styles.headerActions}>
+                {currentFolder?.taskType === "LOCATION_HISTORY" && (
+                  <div className={styles.quickActionGroup}>
+                    <button 
+                      onClick={() => handleQuickLocation(currentFolder)} 
+                      className={styles.headerActionBtn}
+                      title="Zaznamenat GPS"
+                    >
+                      <MapPin size={18} />
+                    </button>
+                    <button 
+                      onClick={async () => {
+                        try {
+                          const res = await fetch("/api/tasks", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ 
+                              title: "Nové místo",
+                              status: "DONE",
+                              taskType: "LOCATION_HISTORY",
+                              parentId: currentFolder.id,
+                              recordedAt: new Date().toISOString()
+                            }),
+                          });
+                          if (res.ok) {
+                            const newTask = await res.json();
+                            setTasks((prev) => [...prev, newTask]);
+                            setSelectedTask(newTask);
+                          }
+                        } catch (err) {
+                          console.error("Failed to create manual location", err);
+                        }
+                      }}
+                      className={styles.headerActionBtn}
+                      title="Přidat ručně"
+                    >
+                      <Search size={18} />
+                    </button>
+                  </div>
+                )}
+                <button onClick={toggleZen} className={styles.zenToggle}>
+                  <Maximize2 size={18} />
+                </button>
+              </div>
             </div>
           </header>
 
-          <div className={styles.filterBar}>
+          {tasks.filter(t => t.parentId === currentParentId && !t.isDeleted).length > 0 && (
+            <div className={styles.filterBar}>
             <div className={styles.searchGroup}>
               <Search className={styles.searchIcon} size={16} />
               <input 
@@ -541,7 +583,8 @@ export const TaskList = () => {
             <button onClick={() => setViewMode(viewMode === "list" ? "grid" : "list")} className="ml-2 opacity-40 hover:opacity-100 transition-opacity">
               {viewMode === "list" ? <ListIcon size={20} /> : <Grid size={20} />}
             </button>
-          </div>
+            </div>
+          )}
         </>
       ) : (
         <button onClick={toggleZen} className={styles.zenRestore}>
@@ -579,43 +622,7 @@ export const TaskList = () => {
               <div className={styles.empty}>
                 <h3>Prázdno ✨</h3>
                 <p>Začni tím, že přidáš první položku v této úrovni.</p>
-                {currentFolder?.taskType === "LOCATION_HISTORY" && (
-                  <div className="flex flex-col gap-3 mt-4 w-full max-w-xs mx-auto">
-                    <button 
-                      onClick={() => handleQuickLocation(currentFolder)}
-                      className="flex items-center justify-center gap-2 bg-emerald-600 text-white p-3 rounded-xl font-medium shadow-sm hover:bg-emerald-700 transition-colors"
-                    >
-                      <MapPin size={18} /> Zaznamenat polohu (GPS)
-                    </button>
-                    <button 
-                      onClick={async () => {
-                        try {
-                          const res = await fetch("/api/tasks", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ 
-                              title: "Nové místo",
-                              status: "DONE",
-                              taskType: "LOCATION_HISTORY",
-                              parentId: currentFolder.id,
-                              recordedAt: new Date().toISOString()
-                            }),
-                          });
-                          if (res.ok) {
-                            const newTask = await res.json();
-                            setTasks((prev) => [...prev, newTask]);
-                            setSelectedTask(newTask);
-                          }
-                        } catch (err) {
-                          console.error("Failed to create manual location", err);
-                        }
-                      }}
-                      className="flex items-center justify-center gap-2 bg-white text-stone-700 border border-stone-200 p-3 rounded-xl font-medium shadow-sm hover:bg-stone-50 transition-colors"
-                    >
-                      <Search size={18} /> Přidat ručně
-                    </button>
-                  </div>
-                )}
+                {/* Buttons moved to header */}
               </div>
             ) : (
               filteredTasks.map(task => (

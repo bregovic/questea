@@ -174,7 +174,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
             <h3 className={styles.logTitle}>
               {task.taskType === "EXPENSE" && task.payee ? task.payee : task.title}
             </h3>
-            {task.description && <p className={styles.logAddress}>{task.description}</p>}
+            {task.description && (!task.subTasks || task.subTasks.length === 0) && (
+              <p className={styles.logAddress}>{task.description}</p>
+            )}
             
             <div className={styles.logFooter}>
               <div className="flex gap-2">

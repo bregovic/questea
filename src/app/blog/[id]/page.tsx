@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
-import { MapPin, Clock, Navigation, Calendar, ChevronDown, Quote } from "lucide-react";
+import { MapPin, Clock, Navigation, Calendar, ChevronDown, Quote, Camera } from "lucide-react";
 import { Reveal, RevealImage, FloatingHeader, BlogStyles } from "@/components/Blog/BlogClient";
 
 export const dynamic = "force-dynamic";

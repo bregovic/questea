@@ -170,6 +170,50 @@ export const TaskList = () => {
   // Derived breadcrumbs (resilient even if parent is not in the list)
   const currentFolder = tasks.find(t => t.id === currentParentId);
   const isEvidenceView = currentFolder?.taskType === "EXPENSE" || currentFolder?.taskType === "LOCATION_HISTORY";
+  const isLocationHistoryFolder = currentFolder?.taskType === "LOCATION_HISTORY" || currentFolder?.title.toLowerCase().includes("místa");
+
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371; 
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  };
+
+  const getJourneyStats = () => {
+    if (!isLocationHistoryFolder || filteredTasks.length < 1) return null;
+    
+    // Sort tasks by recordedAt (or createdAt as fallback)
+    const sorted = [...filteredTasks].sort((a, b) => {
+      const dateA = new Date(a.recordedAt || a.createdAt).getTime();
+      const dateB = new Date(b.recordedAt || b.createdAt).getTime();
+      return dateA - dateB;
+    });
+
+    let totalDist = 0;
+    for (let i = 0; i < sorted.length - 1; i++) {
+      const loc1 = sorted[i].locations?.[0];
+      const loc2 = sorted[i+1].locations?.[0];
+      if (loc1 && loc2) {
+        totalDist += calculateDistance(loc1.latitude, loc1.longitude, loc2.latitude, loc2.longitude);
+      }
+    }
+
+    const start = new Date(sorted[0].recordedAt || sorted[0].createdAt);
+    const end = new Date(sorted[sorted.length - 1].recordedAt || sorted[sorted.length - 1].createdAt);
+    
+    return {
+      totalDistance: totalDist.toFixed(1),
+      timeRange: `${start.toLocaleDateString("cs-CZ")} - ${end.toLocaleDateString("cs-CZ")}`,
+      sortedTasks: sorted
+    };
+  };
+
+  const stats = getJourneyStats();
+  const displayTasks = isLocationHistoryFolder && stats ? stats.sortedTasks : filteredTasks;
 
   const breadcrumbs: any[] = [];
   let curr: any = currentFolder;
@@ -635,24 +679,62 @@ export const TaskList = () => {
           <div className={styles.loading}>Načítám...</div>
         ) : (
           <AnimatePresence mode="popLayout">
-            {filteredTasks.length === 0 ? (
+            {isLocationHistoryFolder && stats && (
+              <div className={styles.journeySummary}>
+                <div className={styles.summaryItem}>
+                  <span className={styles.summaryLabel}>Rozmezí</span>
+                  <span className={styles.summaryValue}>{stats.timeRange}</span>
+                </div>
+                <div className={styles.summaryItem}>
+                  <span className={styles.summaryLabel}>Celkem</span>
+                  <span className={styles.summaryValue}>{stats.totalDistance} km</span>
+                </div>
+                <div className={styles.summaryItem}>
+                  <span className={styles.summaryLabel}>Bodů</span>
+                  <span className={styles.summaryValue}>{stats.sortedTasks.length}</span>
+                </div>
+              </div>
+            )}
+
+            {displayTasks.length === 0 ? (
               <div className={styles.empty}>
                 <h3>Prázdno ✨</h3>
                 <p>Začni tím, že přidáš první položku v této úrovni.</p>
-                {/* Buttons moved to header */}
               </div>
             ) : (
-              filteredTasks.map(task => (
-                <TaskCard 
-                  key={task.id} 
-                  task={{ ...task, progress: getTaskProgress(task) }}
-                  onUpdate={(data: any) => handleUpdate(task.id, data)}
-                  onDelete={handleDelete}
-                  onOpen={() => goToFolder(task.id)}
-                  onOpenDetail={() => setSelectedTask(task)}
-                  isEvidence={isEvidenceView}
-                />
-              ))
+              displayTasks.map((task, idx) => {
+                const nextTask = displayTasks[idx + 1];
+                let distToNext = 0;
+                if (isLocationHistoryFolder && nextTask) {
+                   const loc1 = task.locations?.[0];
+                   const loc2 = nextTask.locations?.[0];
+                   if (loc1 && loc2) {
+                     distToNext = calculateDistance(loc1.latitude, loc1.longitude, loc2.latitude, loc2.longitude);
+                   }
+                }
+
+                return (
+                  <React.Fragment key={task.id}>
+                    <TaskCard 
+                      task={{ ...task, progress: getTaskProgress(task) }}
+                      onUpdate={(data: any) => handleUpdate(task.id, data)}
+                      onDelete={handleDelete}
+                      onOpen={() => goToFolder(task.id)}
+                      onOpenDetail={() => setSelectedTask(task)}
+                      isEvidence={isEvidenceView}
+                    />
+                    {isLocationHistoryFolder && nextTask && (
+                      <div className={styles.timelineConnector}>
+                        <div className={styles.line} />
+                        {distToNext > 0.1 && (
+                          <div className={styles.distanceBadge}>{distToNext.toFixed(1)} km</div>
+                        )}
+                        <div className={styles.line} />
+                      </div>
+                    )}
+                  </React.Fragment>
+                );
+              })
             )}
           </AnimatePresence>
         )}

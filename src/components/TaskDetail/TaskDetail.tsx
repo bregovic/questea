@@ -423,8 +423,8 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
       <div className={styles.content}>
         {/* Quick Actions */}
         <div className={styles.actionRow}>
-          <button onClick={() => window.print()} className={styles.actionBtn}>
-            <FileText size={14} /> Export
+          <button onClick={() => window.print()} className={`${styles.actionBtn} ${styles.exportBtn}`}>
+            <FileText size={16} /> Export do PDF
           </button>
           
           {task.isDeleted ? (

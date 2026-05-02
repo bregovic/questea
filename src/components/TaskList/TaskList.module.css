@@ -11,7 +11,7 @@
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--panel-border);
-  padding: 1.5rem 2.5rem;
+  padding: 1rem 1.5rem;
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
@@ -25,11 +25,13 @@
 }
 
 .breadcrumbContainer {
+  flex: 1;
   display: flex;
   align-items: center;
   gap: 0.75rem;
   overflow-x: auto;
-  padding-bottom: 0.25rem;
+  scrollbar-width: none; /* Hide scrollbar for Firefox */
+  padding-bottom: 2px;
 }
 
 .breadcrumbContainer::-webkit-scrollbar {
@@ -253,8 +255,10 @@
 
 .breadcrumbHeader {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 40px;
 }
 
 .viewNav {
@@ -309,6 +313,7 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  flex-shrink: 0;
 }
 
 .quickActionGroup {
@@ -336,8 +341,35 @@
 
 .headerActionBtn:hover {
   background: var(--accent-soft);
+  border-color: var(--accent-primary);
   color: var(--accent-primary);
-  border-color: rgba(234, 88, 12, 0.2);
+  transform: translateY(-1px);
+}
+
+.deleteBtn {
+  margin-left: auto;
+  background: #fef2f2 !important;
+  color: #dc2626 !important;
+  border: 1px solid #fee2e2 !important;
+  padding: 0.7rem 1.25rem !important;
+}
+
+.deleteBtn:hover {
+  background: #fee2e2 !important;
+  border-color: #fca5a5 !important;
+  transform: translateY(-1px);
+}
+
+.exportBtn {
+  background: #f0f9ff !important;
+  color: #0284c7 !important;
+  border: 1px solid #e0f2fe !important;
+  padding: 0.7rem 1.25rem !important;
+}
+
+.exportBtn:hover {
+  background: #e0f2fe !important;
+  border-color: #bae6fd !important;
   transform: translateY(-1px);
 }
 

@@ -6,7 +6,7 @@ import { TaskCard } from "../TaskCard/TaskCard";
 import { TaskDetail } from "../TaskDetail/TaskDetail";
 import { QuickExpenseModal } from "../QuickExpenseModal/QuickExpenseModal";
 import { LocationTracker } from "../LocationTracker/LocationTracker";
-import { Search, Grid, List as ListIcon, Home, ChevronRight, Maximize2, Minimize2, Wallet, Tag, Building, X, Save } from "lucide-react";
+import { Search, Grid, List as ListIcon, Home, ChevronRight, Maximize2, Minimize2, Wallet, Tag, Building, X, Save, MapPin } from "lucide-react";
 import styles from "./TaskList.module.css";
 import { motion, AnimatePresence } from "framer-motion";
 

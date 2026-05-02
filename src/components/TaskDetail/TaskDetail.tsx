@@ -25,6 +25,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
   const [title, setTitle] = useState(task.title);
   const [slug, setSlug] = useState(task.slug || "");
   const [blogTemplate, setBlogTemplate] = useState(task.blogTemplate || "MODERN");
+  const [isUploading, setIsUploading] = useState(false);
   const [description, setDescription] = useState(task.description || "");
   const [priority, setPriority] = useState(task.priority);
   const [ownerEmail, setOwnerEmail] = useState(task.user?.email || "");
@@ -117,62 +118,54 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const reader = new FileReader();
-      
-      const processFile = new Promise<void>((resolve) => {
-        reader.onload = async (event) => {
-          const img = new Image();
-          img.onload = async () => {
-            const canvas = document.createElement("canvas");
-            const MAX_WIDTH = 1200;
-            const MAX_HEIGHT = 1200;
-            let width = img.width;
-            let height = img.height;
-
-            if (width > height) {
-              if (width > MAX_WIDTH) {
-                height *= MAX_WIDTH / width;
-                width = MAX_WIDTH;
+    setIsUploading(true);
+    for (const file of files) {
+      try {
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+              const canvas = document.createElement("canvas");
+              const MAX_WIDTH = 1200;
+              const MAX_HEIGHT = 1200;
+              let width = img.width;
+              let height = img.height;
+              if (width > height) {
+                if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
+              } else {
+                if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
               }
-            } else {
-              if (height > MAX_HEIGHT) {
-                width *= MAX_HEIGHT / height;
-                height = MAX_HEIGHT;
-              }
-            }
-
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext("2d");
-            ctx?.drawImage(img, 0, 0, width, height);
-            const base64 = canvas.toDataURL("image/jpeg", 0.7);
-
-            try {
-              const res = await fetch(`/api/tasks/${task.id}/attachments`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name: file.name, url: base64, type: "image" })
-              });
-              if (res.ok) {
-                const newAtt = await res.json();
-                setAttachments((prev: any) => [...prev, newAtt]);
-              }
-            } catch (err) { console.error(err); }
-            resolve();
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext("2d");
+              ctx?.drawImage(img, 0, 0, width, height);
+              resolve(canvas.toDataURL("image/jpeg", 0.7));
+            };
+            img.onerror = () => reject(new Error("Image load error"));
+            img.src = event.target?.result as string;
           };
-          img.src = event.target?.result as string;
-        };
-      });
-      
-      reader.readAsDataURL(file);
-      await processFile;
+          reader.onerror = () => reject(new Error("File read error"));
+          reader.readAsDataURL(file);
+        });
+
+        const res = await fetch(`/api/tasks/${task.id}/attachments`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: file.name, url: base64, type: "image" })
+        });
+        if (res.ok) {
+          const newAtt = await res.json();
+          setAttachments((prev: any) => [...prev, newAtt]);
+        }
+      } catch (err) {
+        console.error("Upload failed for:", file.name, err);
+      }
     }
-    // Clear input
+    setIsUploading(false);
     e.target.value = "";
   };
 
@@ -784,13 +777,14 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
               
               {!isRecording ? (
                 <div className="flex gap-2">
-                  <label className={styles.uploadBtn}>
-                    <Camera size={20} />
+                  <label className={`${styles.uploadBtn} ${isUploading ? 'opacity-50 animate-pulse' : ''}`}>
+                    {isUploading ? <Loader2 className="animate-spin" size={20} /> : <Camera size={20} />}
                     <input 
                       type="file" 
                       accept="image/*" 
                       multiple
                       onChange={handleFileUpload}
+                      disabled={isUploading}
                       hidden 
                     />
                   </label>

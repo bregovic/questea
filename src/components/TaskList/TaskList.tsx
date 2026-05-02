@@ -5,6 +5,7 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { TaskCard } from "../TaskCard/TaskCard";
 import { TaskDetail } from "../TaskDetail/TaskDetail";
 import { QuickExpenseModal } from "../QuickExpenseModal/QuickExpenseModal";
+import { LocationSelectionModal } from "../LocationSelectionModal/LocationSelectionModal";
 import { LocationTracker } from "../LocationTracker/LocationTracker";
 import { Search, Grid, List as ListIcon, Home, ChevronRight, Maximize2, Minimize2, Wallet, Tag, Building, X, Save, MapPin } from "lucide-react";
 import styles from "./TaskList.module.css";
@@ -32,6 +33,7 @@ export const TaskList = () => {
   const [showUndo, setShowUndo] = useState(false);
   const [isZen, setIsZen] = useState(false);
   const [quickActionTask, setQuickActionTask] = useState<any | null>(null);
+  const [isSelectingLocation, setIsSelectingLocation] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
 
   const toggleZen = () => {
@@ -109,7 +111,8 @@ export const TaskList = () => {
     const handleQuickActionEvent = (e: any) => {
       const task = e.detail.task;
       if (task.taskType === "LOCATION_HISTORY") {
-        handleQuickLocation(task);
+        setIsSelectingLocation(true);
+        // We could pass the task.id to handleLocationSelect
       } else {
         setQuickActionTask(task);
       }
@@ -303,61 +306,46 @@ export const TaskList = () => {
     }
   };
 
+  const handleLocationSelect = async (loc: any) => {
+    try {
+      const taskRes = await fetch("/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: loc.placeName,
+          description: loc.address,
+          status: "DONE",
+          priority: "LOW",
+          taskType: "LOCATION_HISTORY",
+          parentId: currentParentId,
+        })
+      });
+      
+      if (!taskRes.ok) throw new Error("Failed to create subtask");
+      const newSubtask = await taskRes.json();
+
+      await fetch("/api/locations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          latitude: loc.latitude,
+          longitude: loc.longitude,
+          address: loc.address,
+          placeName: loc.placeName,
+          taskId: newSubtask.id,
+        })
+      });
+
+      setIsSelectingLocation(false);
+      fetchTasks();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const handleQuickLocation = async (task: any) => {
-    if (!navigator.geolocation) return alert("GPS není k dispozici");
-    
-    navigator.geolocation.getCurrentPosition(async (pos) => {
-      const { latitude, longitude } = pos.coords;
-      let address = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
-      let placeName = `Záznam polohy ${new Date().toLocaleTimeString("cs-CZ")}`;
-
-      try {
-        const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`, { headers: { "Accept-Language": "cs" } });
-        if (geoRes.ok) {
-          const geoData = await geoRes.json();
-          address = geoData.display_name;
-          placeName = geoData.address.road || geoData.address.suburb || geoData.address.city || placeName;
-        }
-      } catch (err) {}
-
-      try {
-        // 1. Create a subtask for this location
-        const taskRes = await fetch("/api/tasks", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: placeName,
-            description: address,
-            status: "DONE",
-            priority: "LOW",
-            taskType: "LOCATION_HISTORY",
-            parentId: task.id,
-          })
-        });
-        
-        if (!taskRes.ok) throw new Error("Failed to create subtask");
-        const newSubtask = await taskRes.json();
-
-        // 2. Attach location data to this subtask
-        await fetch("/api/locations", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            latitude,
-            longitude,
-            address,
-            placeName,
-            taskId: newSubtask.id,
-            note: "Automatický záznam z karty"
-          })
-        });
-
-        // 3. Refresh tasks to show the new subtask
-        fetchTasks();
-      } catch (err) {
-        console.error(err);
-      }
-    });
+    // Deprecated in favor of handleLocationSelect via modal
+    setIsSelectingLocation(true);
   };
 
   const filteredTasks = tasks.filter(task => {
@@ -470,6 +458,12 @@ export const TaskList = () => {
             }}
           />
         )}
+        {isSelectingLocation && (
+          <LocationSelectionModal 
+            onClose={() => setIsSelectingLocation(false)}
+            onSelect={handleLocationSelect}
+          />
+        )}
       </AnimatePresence>
 
       {!isZen ? (
@@ -494,10 +488,10 @@ export const TaskList = () => {
               </div>
 
               <div className={styles.headerActions}>
-                {currentFolder?.taskType === "LOCATION_HISTORY" && (
+                {currentParentId && (
                   <div className={styles.quickActionGroup}>
                     <button 
-                      onClick={() => handleQuickLocation(currentFolder)} 
+                      onClick={() => setIsSelectingLocation(true)} 
                       className={styles.headerActionBtn}
                       title="Zaznamenat GPS"
                     >

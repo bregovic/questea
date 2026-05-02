@@ -24,6 +24,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
 }) => {
   const [title, setTitle] = useState(task.title);
   const [slug, setSlug] = useState(task.slug || "");
+  const [blogTemplate, setBlogTemplate] = useState(task.blogTemplate || "MODERN");
   const [description, setDescription] = useState(task.description || "");
   const [priority, setPriority] = useState(task.priority);
   const [ownerEmail, setOwnerEmail] = useState(task.user?.email || "");
@@ -484,22 +485,37 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
           <section className={styles.section}>
             <div className={styles.sectionHeader}>
               <LinkIcon size={18} />
-              <span>Vlastní adresa blogu (Slug)</span>
+              <span>Nastavení veřejného blogu</span>
             </div>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-xs opacity-40">/blog/</span>
-              <input 
-                type="text"
-                value={slug}
-                onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''))}
-                onBlur={() => onUpdate(task.id, { slug })}
-                className="flex-1 p-2 bg-stone-100 border border-stone-200 rounded-xl text-sm font-bold"
-                placeholder="moje-cesta-2024..."
-              />
+            <div className="space-y-4 mt-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs opacity-40 w-12 text-right">Adresa:</span>
+                <input 
+                  type="text"
+                  value={slug}
+                  onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''))}
+                  onBlur={() => onUpdate(task.id, { slug })}
+                  className="flex-1 p-2 bg-stone-100 border border-stone-200 rounded-xl text-sm font-bold"
+                  placeholder="moje-cesta-2024..."
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs opacity-40 w-12 text-right">Vzhled:</span>
+                <select 
+                  value={blogTemplate}
+                  onChange={(e) => {
+                    const t = e.target.value;
+                    setBlogTemplate(t);
+                    onUpdate(task.id, { blogTemplate: t });
+                  }}
+                  className="flex-1 p-2 bg-white border border-stone-200 rounded-xl text-sm"
+                >
+                  <option value="MODERN">Moderní (Premium)</option>
+                  <option value="MINIMAL">Minimalistický (Čistý)</option>
+                  <option value="ADVENTURE">Dobrodružný (Papír)</option>
+                </select>
+              </div>
             </div>
-            <p className="text-[10px] opacity-40 mt-1 italic px-1">
-              Pokud vyplníte slug, blog bude dostupný na této hezké adrese.
-            </p>
           </section>
         )}
 

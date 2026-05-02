@@ -566,27 +566,29 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
           />
         </section>
 
-        {/* Roles Section */}
-        <section className={styles.labelsGrid}>
-          <div className={styles.labelItem}>
-            <div className={styles.labelHeader}><User size={14} /> Vlastník (Email)</div>
-            <div className="flex items-center gap-2 mt-1">
-              <Mail size={12} className="opacity-40" />
-              <input 
-                type="email"
-                value={ownerEmail}
-                onChange={(e) => setOwnerEmail(e.target.value)}
-                onBlur={handleOwnerChange}
-                className={styles.emailInput}
-                placeholder="email@example.com"
-              />
+        {/* Roles Section (Hidden for Location/Expense) */}
+        {taskType !== "LOCATION_HISTORY" && taskType !== "EXPENSE" && (
+          <section className={styles.labelsGrid}>
+            <div className={styles.labelItem}>
+              <div className={styles.labelHeader}><User size={14} /> Vlastník (Email)</div>
+              <div className="flex items-center gap-2 mt-1">
+                <Mail size={12} className="opacity-40" />
+                <input 
+                  type="email"
+                  value={ownerEmail}
+                  onChange={(e) => setOwnerEmail(e.target.value)}
+                  onBlur={handleOwnerChange}
+                  className={styles.emailInput}
+                  placeholder="email@example.com"
+                />
+              </div>
             </div>
-          </div>
-          <div className={styles.labelItem}>
-            <div className={styles.labelHeader}><Calendar size={14} /> Termín</div>
-            <div className={styles.labelValue}>{task.dueDate ? new Date(task.dueDate).toLocaleDateString("cs-CZ") : "DNES"}</div>
-          </div>
-        </section>
+            <div className={styles.labelItem}>
+              <div className={styles.labelHeader}><Calendar size={14} /> Termín</div>
+              <div className={styles.labelValue}>{task.dueDate ? new Date(task.dueDate).toLocaleDateString("cs-CZ") : "DNES"}</div>
+            </div>
+          </section>
+        )}
 
         {/* Subtasks Section */}
         <section className={styles.section}>
@@ -741,54 +743,56 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
           </section>
         )}
 
-        {/* Photos / Attachments Section */}
-        <section className={styles.section}>
-          <div className={styles.sectionHeader}>
-            <Camera size={18} />
-            <span>Přílohy & Účtenky</span>
-          </div>
-          
-          <div className={styles.attachmentGrid}>
-            {attachments.map((att: any) => (
-              <div key={att.id} className={styles.attachmentItem}>
-                {att.type === 'image' ? (
-                  <img src={att.url} alt={att.name} />
-                ) : (
-                  <div className={styles.audioPlaceholder}>
-                    <Mic size={20} className="text-coral" />
-                    <audio src={att.url} controls className={styles.audioControl} />
-                  </div>
-                )}
-                <button onClick={() => handleDeleteAttachment(att.id)} className={styles.attDelete}>
-                  <X size={10} />
-                </button>
-              </div>
-            ))}
+        {/* Photos / Attachments Section (Hidden for Location/Expense) */}
+        {taskType !== "LOCATION_HISTORY" && taskType !== "EXPENSE" && (
+          <section className={styles.section}>
+            <div className={styles.sectionHeader}>
+              <Camera size={18} />
+              <span>Přílohy & Účtenky</span>
+            </div>
             
-            {!isRecording ? (
-              <div className="flex gap-2">
-                <label className={styles.uploadBtn}>
-                  <Camera size={20} />
-                  <input 
-                    type="file" 
-                    accept="image/*" 
-                    capture="environment" 
-                    onChange={handleFileUpload}
-                    hidden 
-                  />
-                </label>
-                <button onClick={startRecording} className={styles.uploadBtn}>
-                  <Mic size={20} />
+            <div className={styles.attachmentGrid}>
+              {attachments.map((att: any) => (
+                <div key={att.id} className={styles.attachmentItem}>
+                  {att.type === 'image' ? (
+                    <img src={att.url} alt={att.name} />
+                  ) : (
+                    <div className={styles.audioPlaceholder}>
+                      <Mic size={20} className="text-coral" />
+                      <audio src={att.url} controls className={styles.audioControl} />
+                    </div>
+                  )}
+                  <button onClick={() => handleDeleteAttachment(att.id)} className={styles.attDelete}>
+                    <X size={10} />
+                  </button>
+                </div>
+              ))}
+              
+              {!isRecording ? (
+                <div className="flex gap-2">
+                  <label className={styles.uploadBtn}>
+                    <Camera size={20} />
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      capture="environment" 
+                      onChange={handleFileUpload}
+                      hidden 
+                    />
+                  </label>
+                  <button onClick={startRecording} className={styles.uploadBtn}>
+                    <Mic size={20} />
+                  </button>
+                </div>
+              ) : (
+                <button onClick={stopRecording} className={`${styles.uploadBtn} ${styles.recording}`}>
+                  <Square size={20} fill="currentColor" />
+                  <span className={styles.recordTimer}>{Math.floor(recordingTime / 60)}:{(recordingTime % 60).toString().padStart(2, '0')}</span>
                 </button>
-              </div>
-            ) : (
-              <button onClick={stopRecording} className={`${styles.uploadBtn} ${styles.recording}`}>
-                <Square size={20} fill="currentColor" />
-                <span className={styles.recordTimer}>{Math.floor(recordingTime / 60)}:{(recordingTime % 60).toString().padStart(2, '0')}</span>
-              </button>
-            )}
-          </div>
-        </section>
+              )}
+            </div>
+          </section>
+        )}
       </div>
     </motion.div>
   );

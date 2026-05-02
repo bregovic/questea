@@ -718,24 +718,6 @@ export const TaskList = () => {
                   <span className={styles.summaryValue}>{stats.sortedTasks.length}</span>
                 </div>
               </div>
-
-              <div className={styles.labelItem}>
-                <div className={styles.labelHeader}><Layers size={14} /> Kategorie výdaje</div>
-                <select 
-                  className={styles.select}
-                  value={categoryId} 
-                  onChange={(e) => {
-                    const cid = e.target.value;
-                    setCategoryId(cid);
-                    onUpdate(task.id, { categoryId: cid });
-                  }}
-                >
-                  <option value="">(Bez kategorie)</option>
-                  {categories.map(c => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-              </div>
             )}
 
             {displayTasks.length === 0 ? (

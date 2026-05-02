@@ -34,6 +34,7 @@ export const TaskList = () => {
   const [isZen, setIsZen] = useState(false);
   const [quickActionTask, setQuickActionTask] = useState<any | null>(null);
   const [isSelectingLocation, setIsSelectingLocation] = useState(false);
+  const [locationModalMode, setLocationModalMode] = useState<'GPS' | 'SEARCH'>('GPS');
   const [locationTargetFolderId, setLocationTargetFolderId] = useState<string | null>(null);
   const [categories, setCategories] = useState<any[]>([]);
 
@@ -113,6 +114,7 @@ export const TaskList = () => {
       const { task } = e.detail;
       if (task.taskType === "LOCATION_HISTORY") {
         setLocationTargetFolderId(task.id);
+        setLocationModalMode(action || 'GPS');
         setIsSelectingLocation(true);
       } else {
         setQuickActionTask(task);
@@ -466,8 +468,12 @@ export const TaskList = () => {
         )}
         {isSelectingLocation && (
           <LocationSelectionModal 
-            onClose={() => setIsSelectingLocation(false)}
+            onClose={() => {
+              setIsSelectingLocation(false);
+              setLocationTargetFolderId(null);
+            }}
             onSelect={handleLocationSelect}
+            autoGPS={locationModalMode === 'GPS'}
           />
         )}
       </AnimatePresence>

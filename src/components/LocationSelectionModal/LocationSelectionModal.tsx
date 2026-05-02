@@ -9,9 +9,12 @@ interface LocationSelectionModalProps {
   onClose: () => void;
   onSelect: (location: any) => void;
   initialQuery?: string;
+  autoGPS?: boolean;
 }
 
-export const LocationSelectionModal: React.FC<LocationSelectionModalProps> = ({ onClose, onSelect, initialQuery }) => {
+export const LocationSelectionModal: React.FC<LocationSelectionModalProps> = ({ 
+  onClose, onSelect, initialQuery, autoGPS = true 
+}) => {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState(initialQuery || "");
   const [results, setResults] = useState<any[]>([]);
@@ -83,7 +86,7 @@ export const LocationSelectionModal: React.FC<LocationSelectionModalProps> = ({ 
   useEffect(() => {
     if (initialQuery) {
       searchPlaces(initialQuery);
-    } else {
+    } else if (autoGPS) {
       getGPS();
     }
   }, []);
@@ -136,14 +139,16 @@ export const LocationSelectionModal: React.FC<LocationSelectionModalProps> = ({ 
               <button onClick={() => searchPlaces(searchQuery)} className={styles.searchBtn}>Hledat</button>
             </div>
             
-            <button 
-              onClick={getGPS} 
-              disabled={gpsLoading}
-              className={styles.gpsBtn}
-            >
-              {gpsLoading ? <Loader2 className={styles.spin} size={18} /> : <Navigation size={18} />}
-              <span>Použít GPS</span>
-            </button>
+            {searchQuery.length === 0 && (
+              <button 
+                onClick={getGPS} 
+                disabled={gpsLoading}
+                className={styles.gpsBtn}
+              >
+                {gpsLoading ? <Loader2 className={styles.spin} size={18} /> : <Navigation size={18} />}
+                <span>Použít GPS</span>
+              </button>
+            )}
           </div>
 
           {error && <div className={styles.error}>{error}</div>}

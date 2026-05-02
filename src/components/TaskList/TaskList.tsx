@@ -601,7 +601,7 @@ export const TaskList = () => {
             </div>
           </header>
 
-          {tasks.filter(t => t.parentId === currentParentId && !t.isDeleted).length > 8 && (
+          {(!isEvidenceView || tasks.filter(t => t.parentId === currentParentId && !t.isDeleted).length > 8) && (
             <div className={styles.filterBar}>
             <div className={styles.searchGroup}>
               <Search className={styles.searchIcon} size={16} />

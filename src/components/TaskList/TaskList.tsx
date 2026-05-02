@@ -247,7 +247,20 @@ export const TaskList = () => {
   };
 
   const stats = getJourneyStats();
-  const displayTasks = isLocationHistoryFolder && stats ? stats.sortedTasks : filteredTasks;
+  
+  const getSortedDisplayTasks = () => {
+    if (isLocationHistoryFolder && stats) return stats.sortedTasks;
+    if (isEvidenceView) {
+      return [...filteredTasks].sort((a, b) => {
+        const dateA = new Date(a.recordedAt || a.createdAt).getTime();
+        const dateB = new Date(b.recordedAt || b.createdAt).getTime();
+        return dateB - dateA; // Descending
+      });
+    }
+    return filteredTasks;
+  };
+
+  const displayTasks = getSortedDisplayTasks();
 
   const breadcrumbs: any[] = [];
   let curr: any = currentFolder;
@@ -693,6 +706,24 @@ export const TaskList = () => {
                   <span className={styles.summaryLabel}>Bodů</span>
                   <span className={styles.summaryValue}>{stats.sortedTasks.length}</span>
                 </div>
+              </div>
+
+              <div className={styles.labelItem}>
+                <div className={styles.labelHeader}><Layers size={14} /> Kategorie výdaje</div>
+                <select 
+                  className={styles.select}
+                  value={categoryId} 
+                  onChange={(e) => {
+                    const cid = e.target.value;
+                    setCategoryId(cid);
+                    onUpdate(task.id, { categoryId: cid });
+                  }}
+                >
+                  <option value="">(Bez kategorie)</option>
+                  {categories.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
               </div>
             )}
 

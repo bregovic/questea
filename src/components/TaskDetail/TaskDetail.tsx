@@ -35,6 +35,8 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
   const [recordedAt, setRecordedAt] = useState(task.recordedAt ? new Date(task.recordedAt).toISOString().slice(0, 16) : "");
   const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
   const [payees, setPayees] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [categoryId, setCategoryId] = useState(task.categoryId || "");
   const [showPayeeSuggestions, setShowPayeeSuggestions] = useState(false);
 
   // Location logic in task
@@ -54,12 +56,18 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
   const [nearbyPlaces, setNearbyPlaces] = useState<any[]>([]);
   const [loadingNearby, setLoadingNearby] = useState(false);
 
-  // Fetch payees for codelist
+  // Fetch payees & categories for codelist
   React.useEffect(() => {
     fetch("/api/payees")
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) setPayees(data);
+      });
+    
+    fetch("/api/categories")
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) setCategories(data);
       });
   }, []);
 
@@ -499,6 +507,24 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
                     className={styles.currencyInput}
                   />
                 </div>
+              </div>
+
+              <div className={styles.labelItem}>
+                <div className={styles.labelHeader}><Layers size={14} /> Kategorie výdaje</div>
+                <select 
+                  className={styles.select}
+                  value={categoryId} 
+                  onChange={(e) => {
+                    const cid = e.target.value;
+                    setCategoryId(cid);
+                    onUpdate(task.id, { categoryId: cid });
+                  }}
+                >
+                  <option value="">(Bez kategorie)</option>
+                  {categories.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
               </div>
               
               <div className={styles.labelItem}>

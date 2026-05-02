@@ -11,10 +11,12 @@ interface TaskCardProps {
   onDelete: (id: string) => void;
   onOpen?: () => void;
   onOpenDetail?: () => void;
+  isEvidence?: boolean;
 }
 
-export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, onOpen, onOpenDetail }) => {
+export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, onOpen, onOpenDetail, isEvidence }) => {
   const x = useMotionValue(0);
+  const [actionSuccess, setActionSuccess] = useState(false);
   
   // Swipe colors
   const backgroundRight = useTransform(x, [0, 100], ["rgba(255,255,255,0)", "#ecfdf5"]);
@@ -42,9 +44,11 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (task.progress / 100) * circumference;
 
+  const isLogRecord = isEvidence && task.taskType !== "TASK";
+
   return (
     <div className={styles.wrapper}>
-      {task.taskType === "TASK" && (
+      {!isLogRecord && task.taskType === "TASK" && (
         <>
           <motion.div style={{ background: backgroundRight }} className={`${styles.actionBackground} ${styles.right}`}>
             <Check size={20} color="#059669" />
@@ -56,16 +60,16 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
       )}
 
       <motion.div
-        drag={task.taskType === "TASK" ? "x" : false}
+        drag={!isLogRecord && task.taskType === "TASK" ? "x" : false}
         dragConstraints={{ left: 0, right: 0 }}
         style={{ x }}
         onDragEnd={handleDragEnd}
         onClick={onOpen}
-        className={`${styles.card} ${task.status === "DONE" && task.taskType === "TASK" ? styles.completed : ""} ${task.taskType !== "TASK" ? styles.logCard : ""}`}
+        className={`${styles.card} ${task.status === "DONE" && task.taskType === "TASK" ? styles.completed : ""} ${isLogRecord ? styles.logCard : ""}`}
       >
         <div className={styles.leftIndicator} style={{ backgroundColor: getPriorityColor(task.priority) }} />
         
-        {task.taskType === "TASK" ? (
+        {!isLogRecord ? (
           <>
             <div className={styles.mainInfo}>
               <div className={styles.titleRow}>
@@ -93,24 +97,47 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
             </div>
 
             <div className={styles.rightActions}>
-              <div className={styles.gaugeWrapper}>
-                <svg width="44" height="44" className={styles.gauge}>
-                  <circle cx="22" cy="22" r={radius} stroke="#f5f5f4" strokeWidth="3" fill="none" />
-                  <motion.circle 
-                    cx="22" cy="22" r={radius} 
-                    stroke={task.status === "DONE" ? "#059669" : "#ea580c"} 
-                    strokeWidth="3" 
-                    fill="none"
-                    strokeDasharray={circumference}
-                    initial={{ strokeDashoffset: circumference }}
-                    animate={{ strokeDashoffset: offset }}
-                    transition={{ duration: 1, ease: "easeOut" }}
-                    strokeLinecap="round"
-                    transform="rotate(-90 22 22)"
-                  />
-                </svg>
-                <span className={styles.gaugeText}>{task.progress}%</span>
-              </div>
+              {task.taskType === "EXPENSE" || task.taskType === "LOCATION_HISTORY" ? (
+                <button 
+                  className={styles.quickActionBtn}
+                  data-type={task.taskType}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActionSuccess(true);
+                    setTimeout(() => setActionSuccess(false), 1500);
+                    (window as any).dispatchEvent(new CustomEvent("quickAction", { 
+                      detail: { task } 
+                    }));
+                  }}
+                >
+                  {actionSuccess ? (
+                    <Check size={18} color="#16a34a" />
+                  ) : task.taskType === "EXPENSE" ? (
+                    <Plus size={18} />
+                  ) : (
+                    <MapPin size={18} />
+                  )}
+                </button>
+              ) : (
+                <div className={styles.gaugeWrapper}>
+                  <svg width="44" height="44" className={styles.gauge}>
+                    <circle cx="22" cy="22" r={radius} stroke="#f5f5f4" strokeWidth="3" fill="none" />
+                    <motion.circle 
+                      cx="22" cy="22" r={radius} 
+                      stroke={task.status === "DONE" ? "#059669" : "#ea580c"} 
+                      strokeWidth="3" 
+                      fill="none"
+                      strokeDasharray={circumference}
+                      initial={{ strokeDashoffset: circumference }}
+                      animate={{ strokeDashoffset: offset }}
+                      transition={{ duration: 1, ease: "easeOut" }}
+                      strokeLinecap="round"
+                      transform="rotate(-90 22 22)"
+                    />
+                  </svg>
+                  <span className={styles.gaugeText}>{task.progress}%</span>
+                </div>
+              )}
 
               <button 
                 className={styles.eyeBtn}

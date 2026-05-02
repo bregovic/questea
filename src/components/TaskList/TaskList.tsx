@@ -582,6 +582,7 @@ export const TaskList = () => {
                   onDelete={handleDelete}
                   onOpen={() => goToFolder(task.id)}
                   onOpenDetail={() => setSelectedTask(task)}
+                  isEvidence={curr?.taskType === "EXPENSE" || curr?.taskType === "LOCATION_HISTORY"}
                 />
               ))
             )}

@@ -162,8 +162,11 @@ export const TaskList = () => {
   };
 
   // Derived breadcrumbs (resilient even if parent is not in the list)
+  const currentFolder = tasks.find(t => t.id === currentParentId);
+  const isEvidenceView = currentFolder?.taskType === "EXPENSE" || currentFolder?.taskType === "LOCATION_HISTORY";
+
   const breadcrumbs: any[] = [];
-  let curr: any = tasks.find(t => t.id === currentParentId);
+  let curr: any = currentFolder;
   if (!curr && currentParentId) {
     // If parent is transferred/missing, find a child that knows about it
     const sampleChild = tasks.find(t => t.parentId === currentParentId);
@@ -508,28 +511,32 @@ export const TaskList = () => {
               />
             </div>
             
-            <div className={styles.filterGroup}>
-              {[
-                { id: "ACTIVE", label: "Aktivní" },
-                { id: "ALL", label: "Vše" },
-                { id: "TODO", label: "K řešení" },
-                { id: "DONE", label: "Hotovo" },
-                { id: "TRASH", label: "Koš" }
-              ].map(f => (
-                <button
-                  key={f.id}
-                  onClick={() => setFilterStatus(f.id)}
-                  className={`${styles.filterChip} ${filterStatus === f.id ? styles.chipActive : styles.chipInactive}`}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </div>
+            {!isEvidenceView && (
+              <div className={styles.filterGroup}>
+                {[
+                  { id: "ACTIVE", label: "Aktivní" },
+                  { id: "ALL", label: "Vše" },
+                  { id: "TODO", label: "K řešení" },
+                  { id: "DONE", label: "Hotovo" },
+                  { id: "TRASH", label: "Koš" }
+                ].map(f => (
+                  <button
+                    key={f.id}
+                    onClick={() => setFilterStatus(f.id)}
+                    className={`${styles.filterChip} ${filterStatus === f.id ? styles.chipActive : styles.chipInactive}`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            )}
 
-            <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className={styles.sortSelect}>
-              <option value="PRIORITY">Priority</option>
-              <option value="PROGRESS">Progress</option>
-            </select>
+            {!isEvidenceView && (
+              <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className={styles.sortSelect}>
+                <option value="PRIORITY">Priority</option>
+                <option value="PROGRESS">Progress</option>
+              </select>
+            )}
 
             <button onClick={() => setViewMode(viewMode === "list" ? "grid" : "list")} className="ml-2 opacity-40 hover:opacity-100 transition-opacity">
               {viewMode === "list" ? <ListIcon size={20} /> : <Grid size={20} />}
@@ -572,6 +579,43 @@ export const TaskList = () => {
               <div className={styles.empty}>
                 <h3>Prázdno ✨</h3>
                 <p>Začni tím, že přidáš první položku v této úrovni.</p>
+                {currentFolder?.taskType === "LOCATION_HISTORY" && (
+                  <div className="flex flex-col gap-3 mt-4 w-full max-w-xs mx-auto">
+                    <button 
+                      onClick={() => handleQuickLocation(currentFolder)}
+                      className="flex items-center justify-center gap-2 bg-emerald-600 text-white p-3 rounded-xl font-medium shadow-sm hover:bg-emerald-700 transition-colors"
+                    >
+                      <MapPin size={18} /> Zaznamenat polohu (GPS)
+                    </button>
+                    <button 
+                      onClick={async () => {
+                        try {
+                          const res = await fetch("/api/tasks", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ 
+                              title: "Nové místo",
+                              status: "DONE",
+                              taskType: "LOCATION_HISTORY",
+                              parentId: currentFolder.id,
+                              recordedAt: new Date().toISOString()
+                            }),
+                          });
+                          if (res.ok) {
+                            const newTask = await res.json();
+                            setTasks((prev) => [...prev, newTask]);
+                            setSelectedTask(newTask);
+                          }
+                        } catch (err) {
+                          console.error("Failed to create manual location", err);
+                        }
+                      }}
+                      className="flex items-center justify-center gap-2 bg-white text-stone-700 border border-stone-200 p-3 rounded-xl font-medium shadow-sm hover:bg-stone-50 transition-colors"
+                    >
+                      <Search size={18} /> Přidat ručně
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               filteredTasks.map(task => (
@@ -582,7 +626,7 @@ export const TaskList = () => {
                   onDelete={handleDelete}
                   onOpen={() => goToFolder(task.id)}
                   onOpenDetail={() => setSelectedTask(task)}
-                  isEvidence={curr?.taskType === "EXPENSE" || curr?.taskType === "LOCATION_HISTORY"}
+                  isEvidence={isEvidenceView}
                 />
               ))
             )}

@@ -51,6 +51,8 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
   const [recorder, setRecorder] = useState<MediaRecorder | null>(null);
   const [recordingTime, setRecordingTime] = useState(0);
   const [isDictating, setIsDictating] = useState(false);
+  const [nearbyPlaces, setNearbyPlaces] = useState<any[]>([]);
+  const [loadingNearby, setLoadingNearby] = useState(false);
 
   // Fetch payees for codelist
   React.useEffect(() => {
@@ -313,6 +315,26 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
         placeName: d.address.road || d.address.suburb || d.address.city || d.display_name.split(',')[0]
       })));
     } catch (err) {} finally { setLoadingLoc(false); }
+  };
+
+  const fetchNearbyPlaces = async (lat: number, lon: number) => {
+    setLoadingNearby(true);
+    try {
+      const query = `[out:json];node(around:150,${lat},${lon})[name];out 10;`;
+      const res = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`);
+      const data = await res.json();
+      if (data.elements) {
+        setNearbyPlaces(data.elements.map((e: any) => ({
+          name: e.tags.name,
+          lat: e.lat,
+          lon: e.lon
+        })));
+      }
+    } catch (err) {
+      console.error("Failed to fetch nearby places", err);
+    } finally {
+      setLoadingNearby(false);
+    }
   };
 
   const handleSubtaskAdd = async (e: React.FormEvent) => {
@@ -655,6 +677,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
                               setCurrentLoc(s);
                               setLocSuggestions([]);
                               setLocSearch("");
+                              fetchNearbyPlaces(s.lat, s.lng);
                             }}
                           >
                             <span className="font-bold block">{s.placeName}</span>
@@ -665,6 +688,30 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
                     )}
                   </div>
                 </div>
+
+                {nearbyPlaces.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-[10px] font-bold text-stone-400 uppercase mb-2">Místa v okolí</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {nearbyPlaces.map((p, i) => (
+                        <button 
+                          key={i}
+                          onClick={() => {
+                            setTitle(p.name);
+                            onUpdate(task.id, { title: p.name });
+                            if (currentLoc) {
+                              setCurrentLoc({ ...currentLoc, placeName: p.name });
+                            }
+                          }}
+                          className="text-[11px] bg-emerald-50 text-emerald-700 px-2 py-1 rounded-lg border border-emerald-100 hover:bg-emerald-100 transition-colors"
+                        >
+                          {p.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {currentLoc && (
                   <textarea 
                     placeholder="Poznámka k místu..." 

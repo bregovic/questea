@@ -6,7 +6,7 @@ import {
   X, User, FileText, Link as LinkIcon, Calendar, 
   Plus, Trash2, Mail, Layers, Lock, Unlock, RotateCcw, 
   Wallet, DollarSign, Building, MapPin, Loader2, Navigation, Camera, Mic, Square, Play, Pause,
-  ChevronUp, ChevronDown, Search
+  ChevronUp, ChevronDown, Search, Clock, Eye, ChevronRight, AlertCircle, FolderOpen
 } from "lucide-react";
 import styles from "./TaskDetail.module.css";
 

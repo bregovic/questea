@@ -6,9 +6,34 @@ import { ReactNode } from "react";
 export const BlogStyles = () => {
   return (
     <style jsx global>{`
-      @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,900;1,900&family=Inter:wght@300;400;700;900&display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,900;1,900&family=Outfit:wght@300;400;700;900&display=swap');
       html { scroll-behavior: smooth; }
-      body { -webkit-font-smoothing: antialiased; }
+      body { 
+        -webkit-font-smoothing: antialiased;
+        overflow-x: hidden;
+      }
+      .drop-cap {
+        float: left;
+        font-family: 'Playfair Display', serif;
+        font-weight: 900;
+        line-height: 0.8;
+        margin-right: 0.75rem;
+        margin-top: 0.5rem;
+        font-size: 4.5rem;
+      }
+      @media (min-width: 768px) {
+        .drop-cap {
+          font-size: 7.5rem;
+          margin-right: 1.5rem;
+          margin-top: 1rem;
+        }
+      }
+      .washi-tape {
+        background: rgba(255, 255, 255, 0.4);
+        backdrop-filter: blur(4px);
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        border: 1px solid rgba(255,255,255,0.2);
+      }
     `}</style>
   );
 };

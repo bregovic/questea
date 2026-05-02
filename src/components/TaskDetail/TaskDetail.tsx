@@ -547,11 +547,24 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
           </section>
         )}
 
+        {/* Address Section (Specific to Location History) */}
+        {taskType === "LOCATION_HISTORY" && task.locations?.[0] && (
+          <section className={styles.section}>
+            <div className={styles.sectionHeader}>
+              <MapPin size={18} />
+              <span>Zaznamenaná adresa</span>
+            </div>
+            <div className="p-3 bg-stone-50 rounded-xl border border-stone-200 text-sm text-stone-600 italic">
+              {task.locations[0].address}
+            </div>
+          </section>
+        )}
+
         {/* Description Section */}
         <section className={styles.section}>
           <div className={styles.sectionHeader}>
             <FileText size={18} />
-            <span>{taskType === "LOCATION_HISTORY" ? "Poznámka" : "Deníček / Poznámky"}</span>
+            <span>{taskType === "LOCATION_HISTORY" ? "Zápisky / Deníček" : "Deníček / Poznámky"}</span>
             <button 
               className={`${styles.dictateBtn} ${isDictating ? styles.dictating : ""}`}
               onClick={isDictating ? stopDictation : startDictation}

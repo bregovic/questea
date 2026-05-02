@@ -111,7 +111,7 @@ export const TaskList = () => {
 
     // Quick Action listener
     const handleQuickActionEvent = (e: any) => {
-      const { task } = e.detail;
+      const { task, action } = e.detail;
       if (task.taskType === "LOCATION_HISTORY") {
         setLocationTargetFolderId(task.id);
         setLocationModalMode(action || 'GPS');

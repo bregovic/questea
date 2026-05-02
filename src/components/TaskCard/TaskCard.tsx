@@ -127,7 +127,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
           </>
         ) : (
           <div className={styles.logMain}>
-            <h3 className={styles.logTitle}>{task.title}</h3>
+            <h3 className={styles.logTitle}>
+              {task.taskType === "EXPENSE" && task.payee ? task.payee : task.title}
+            </h3>
             {task.description && <p className={styles.logAddress}>{task.description}</p>}
             
             <div className={styles.logFooter}>
@@ -153,20 +155,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
                 >
                   <Eye size={18} />
                 </button>
-                {task.taskType === "EXPENSE" || task.taskType === "LOCATION_HISTORY" ? (
-                  <button 
-                    className={styles.quickActionBtn}
-                    data-type={task.taskType}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      (window as any).dispatchEvent(new CustomEvent("quickAction", { 
-                        detail: { task } 
-                      }));
-                    }}
-                  >
-                    {task.taskType === "EXPENSE" ? <Plus size={18} /> : <MapPin size={18} />}
-                  </button>
-                ) : null}
               </div>
             </div>
           </div>

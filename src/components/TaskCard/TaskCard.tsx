@@ -185,10 +185,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
                     {task.amount} {task.currency || "CZK"}
                   </span>
                 )}
-                <span className={styles.logTime}>
-                  <Clock size={10} />
-                  {new Date(task.recordedAt || task.createdAt).toLocaleDateString("cs-CZ")} {new Date(task.recordedAt || task.createdAt).toLocaleTimeString("cs-CZ", { hour: '2-digit', minute: '2-digit' })}
-                </span>
               </div>
 
               <div className="flex gap-2">

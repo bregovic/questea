@@ -488,7 +488,7 @@ export const TaskList = () => {
               </div>
 
               <div className={styles.headerActions}>
-                {currentParentId && (
+                {currentFolder?.taskType === "LOCATION_HISTORY" && (
                   <div className={styles.quickActionGroup}>
                     <button 
                       onClick={() => setIsSelectingLocation(true)} 
@@ -534,7 +534,7 @@ export const TaskList = () => {
             </div>
           </header>
 
-          {tasks.filter(t => t.parentId === currentParentId && !t.isDeleted).length > 0 && (
+          {tasks.filter(t => t.parentId === currentParentId && !t.isDeleted).some(t => !t.subTasks || t.subTasks.length === 0) && (
             <div className={styles.filterBar}>
             <div className={styles.searchGroup}>
               <Search className={styles.searchIcon} size={16} />

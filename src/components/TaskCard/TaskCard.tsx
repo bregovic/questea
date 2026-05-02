@@ -110,14 +110,14 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
             </div>
 
             <div className={styles.rightActions}>
-              {task.taskType === "LOCATION_HISTORY" ? (
+              {(task.taskType === "LOCATION_HISTORY" || task.title.toLowerCase().includes("místa")) ? (
                 <div className="flex gap-2">
                   <button 
                     className={styles.cardActionBtn}
                     onClick={(e) => {
                       e.stopPropagation();
                       (window as any).dispatchEvent(new CustomEvent("quickAction", { 
-                        detail: { task, action: 'GPS' } 
+                        detail: { task: { ...task, taskType: 'LOCATION_HISTORY' }, action: 'GPS' } 
                       }));
                     }}
                   >
@@ -128,7 +128,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
                     onClick={(e) => {
                       e.stopPropagation();
                       (window as any).dispatchEvent(new CustomEvent("quickAction", { 
-                        detail: { task, action: 'SEARCH' } 
+                        detail: { task: { ...task, taskType: 'LOCATION_HISTORY' }, action: 'SEARCH' } 
                       }));
                     }}
                   >
@@ -155,26 +155,40 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
                   )}
                 </button>
               ) : (
-                task.subTasks?.length > 0 && (
-                  <div className={styles.gaugeWrapper}>
-                    <svg width="44" height="44" className={styles.gauge}>
-                      <circle cx="22" cy="22" r={radius} stroke="#f5f5f4" strokeWidth="3" fill="none" />
-                      <motion.circle 
-                        cx="22" cy="22" r={radius} 
-                        stroke={task.status === "DONE" ? "#059669" : "#ea580c"} 
-                        strokeWidth="3" 
-                        fill="none"
-                        strokeDasharray={circumference}
-                        initial={{ strokeDashoffset: circumference }}
-                        animate={{ strokeDashoffset: offset }}
-                        transition={{ duration: 1, ease: "easeOut" }}
-                        strokeLinecap="round"
-                        transform="rotate(-90 22 22)"
-                      />
-                    </svg>
-                    <span className={styles.gaugeText}>{task.progress}%</span>
-                  </div>
-                )
+                <div className="flex items-center gap-3">
+                  {task.subTasks?.length > 0 && (
+                    <button 
+                      className={styles.cardActionBtn}
+                      style={{ background: '#f5f5f4', borderColor: '#e5e5e4', color: '#737373' }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        (window as any).dispatchEvent(new CustomEvent("addTask", { detail: { parentId: task.id } }));
+                      }}
+                    >
+                      <Plus size={16} />
+                    </button>
+                  )}
+                  {task.subTasks?.length > 0 && (
+                    <div className={styles.gaugeWrapper}>
+                      <svg width="44" height="44" className={styles.gauge}>
+                        <circle cx="22" cy="22" r={radius} stroke="#f5f5f4" strokeWidth="3" fill="none" />
+                        <motion.circle 
+                          cx="22" cy="22" r={radius} 
+                          stroke={task.status === "DONE" ? "#059669" : "#ea580c"} 
+                          strokeWidth="3" 
+                          fill="none"
+                          strokeDasharray={circumference}
+                          initial={{ strokeDashoffset: circumference }}
+                          animate={{ strokeDashoffset: offset }}
+                          transition={{ duration: 1, ease: "easeOut" }}
+                          strokeLinecap="round"
+                          transform="rotate(-90 22 22)"
+                        />
+                      </svg>
+                      <span className={styles.gaugeText}>{task.progress}%</span>
+                    </div>
+                  )}
+                </div>
               )}
 
               {task.subTasks?.length > 0 ? (

@@ -102,6 +102,7 @@ model Category {
 
 model Task {
   id          String   @id @default(cuid())
+  slug        String?  @unique // Custom URL slug for public sharing
   
   // Základní údaje (Zadání)
   title       String       // Předmět

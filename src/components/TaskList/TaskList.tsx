@@ -607,7 +607,8 @@ export const TaskList = () => {
                     </button>
                     <button 
                       onClick={() => {
-                        const url = `${window.location.origin}/blog/${currentParentId}`;
+                        const shareId = currentFolder?.slug || currentParentId;
+                        const url = `${window.location.origin}/blog/${shareId}`;
                         navigator.clipboard.writeText(url);
                         alert("Odkaz na blog byl zkopírován do schránky!");
                       }}

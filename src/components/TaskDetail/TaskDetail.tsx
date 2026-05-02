@@ -23,6 +23,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
   task, allTasks, onClose, onUpdate, onDelete, onRestore 
 }) => {
   const [title, setTitle] = useState(task.title);
+  const [slug, setSlug] = useState(task.slug || "");
   const [description, setDescription] = useState(task.description || "");
   const [priority, setPriority] = useState(task.priority);
   const [ownerEmail, setOwnerEmail] = useState(task.user?.email || "");
@@ -477,6 +478,30 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
             </button>
           )}
         </div>
+
+        {/* Custom Slug Section (Public Link) */}
+        {taskType === "LOCATION_HISTORY" && (
+          <section className={styles.section}>
+            <div className={styles.sectionHeader}>
+              <LinkIcon size={18} />
+              <span>Vlastní adresa blogu (Slug)</span>
+            </div>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-xs opacity-40">/blog/</span>
+              <input 
+                type="text"
+                value={slug}
+                onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''))}
+                onBlur={() => onUpdate(task.id, { slug })}
+                className="flex-1 p-2 bg-stone-100 border border-stone-200 rounded-xl text-sm font-bold"
+                placeholder="moje-cesta-2024..."
+              />
+            </div>
+            <p className="text-[10px] opacity-40 mt-1 italic px-1">
+              Pokud vyplníte slug, blog bude dostupný na této hezké adrese.
+            </p>
+          </section>
+        )}
 
         {/* Parent Selection & Lock (Hidden for Location) */}
         {taskType !== "LOCATION_HISTORY" && (

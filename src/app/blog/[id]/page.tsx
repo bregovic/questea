@@ -4,9 +4,14 @@ import { MapPin, Clock, Navigation, Calendar, Camera } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
-async function getBlogData(id: string) {
-  const folder = await prisma.task.findUnique({
-    where: { id },
+async function getBlogData(idOrSlug: string) {
+  const folder = await prisma.task.findFirst({
+    where: {
+      OR: [
+        { id: idOrSlug },
+        { slug: idOrSlug }
+      ]
+    },
     include: {
       subTasks: {
         where: { isDeleted: false },
@@ -34,8 +39,9 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   return R * c;
 }
 
-export default async function BlogPage({ params }: { params: { id: string } }) {
-  const folder = await getBlogData(params.id);
+export default async function BlogPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const folder = await getBlogData(id);
   if (!folder) notFound();
 
   const posts = folder.subTasks;

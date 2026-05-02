@@ -356,6 +356,11 @@ export const TaskList = () => {
 
     // Status filter
     if (filterStatus === "ACTIVE") {
+      // If we are inside a folder (currentParentId is set), 
+      // we usually want to see all entries (even DONE ones)
+      if (currentParentId) {
+        return task.status !== "CANCELED";
+      }
       return task.status !== "DONE" && task.status !== "CANCELED";
     }
     if (filterStatus !== "ALL" && task.status !== filterStatus) return false;

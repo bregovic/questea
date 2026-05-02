@@ -24,9 +24,22 @@ export async function POST(req: Request) {
 
   try {
     const { name, color } = await req.json();
+    
+    // Check if category with this name already exists for this user
+    const existing = await prisma.category.findFirst({
+      where: {
+        name: name.trim(),
+        userId: session.user.id
+      }
+    });
+
+    if (existing) {
+      return NextResponse.json(existing);
+    }
+
     const category = await prisma.category.create({
       data: {
-        name,
+        name: name.trim(),
         color: color || "#3b82f6",
         userId: session.user.id
       }

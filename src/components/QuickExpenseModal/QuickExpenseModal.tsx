@@ -102,9 +102,10 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({ task, cate
               />
               {showCatSuggestions && (
                 <div className={styles.suggestions}>
-                  {categories
-                    .filter(c => c.name.toLowerCase().includes(categorySearch.toLowerCase()))
-                    .map(c => (
+                  {Array.from(new Set(categories.map(c => c.name.toLowerCase())))
+                    .map(name => categories.find(c => c.name.toLowerCase() === name))
+                    .filter(c => c && c.name.toLowerCase().includes(categorySearch.toLowerCase()))
+                    .map(c => c && (
                       <div 
                         key={c.id} 
                         className={styles.suggestionItem}

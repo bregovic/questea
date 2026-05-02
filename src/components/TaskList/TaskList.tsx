@@ -334,7 +334,6 @@ export const TaskList = () => {
 
         // 3. Refresh tasks to show the new subtask
         fetchTasks();
-        alert(`Uloženo: ${placeName} ✨`);
       } catch (err) {
         console.error(err);
       }
@@ -439,7 +438,6 @@ export const TaskList = () => {
                 if (res.ok) {
                   fetchTasks();
                   setQuickActionTask(null);
-                  alert("Výdaj byl přidán do seznamu ✨");
                 }
               } catch (err) {
                 console.error(err);

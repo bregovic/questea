@@ -183,6 +183,40 @@ export const TaskList = () => {
     return R * c;
   };
 
+  const filteredTasks = tasks.filter(task => {
+    // Trash view
+    if (filterStatus === "TRASH") return task.isDeleted;
+    if (task.isDeleted) return false;
+
+    // If searching, show all matches regardless of hierarchy
+    if (searchQuery) {
+      return task.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+             task.description?.toLowerCase().includes(searchQuery.toLowerCase());
+    }
+    
+    // Normal drill-down navigation (must match parentId unless searching)
+    if (task.parentId !== currentParentId) return false;
+
+    // Status filter
+    if (filterStatus === "ACTIVE") {
+      // If we are inside a folder (currentParentId is set), 
+      // we usually want to see all entries (even DONE ones)
+      if (currentParentId) {
+        return task.status !== "CANCELED";
+      }
+      return task.status !== "DONE" && task.status !== "CANCELED";
+    }
+    if (filterStatus !== "ALL" && task.status !== filterStatus) return false;
+    
+    return true;
+  }).sort((a, b) => {
+    if (sortBy === "PRIORITY") {
+      const pMap: any = { URGENT: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
+      return (pMap[a.priority] || 2) - (pMap[b.priority] || 2);
+    }
+    return (b.progress || 0) - (a.progress || 0);
+  });
+
   const getJourneyStats = () => {
     if (!isLocationHistoryFolder || filteredTasks.length < 1) return null;
     
@@ -400,40 +434,6 @@ export const TaskList = () => {
     setIsSelectingLocation(true);
   };
 
-  const filteredTasks = tasks.filter(task => {
-    // Trash view
-    if (filterStatus === "TRASH") return task.isDeleted;
-    if (task.isDeleted) return false;
-
-    // If searching, show all matches regardless of hierarchy
-    if (searchQuery) {
-      return task.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-             task.description?.toLowerCase().includes(searchQuery.toLowerCase());
-    }
-    
-    // Normal drill-down navigation (must match parentId unless searching)
-    if (task.parentId !== currentParentId) return false;
-
-    // Status filter
-    if (filterStatus === "ACTIVE") {
-      // If we are inside a folder (currentParentId is set), 
-      // we usually want to see all entries (even DONE ones)
-      if (currentParentId) {
-        return task.status !== "CANCELED";
-      }
-      return task.status !== "DONE" && task.status !== "CANCELED";
-    }
-    if (filterStatus !== "ALL" && task.status !== filterStatus) return false;
-    
-    return true;
-  }).sort((a, b) => {
-    if (sortBy === "PRIORITY") {
-      const pMap: any = { URGENT: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
-      return pMap[a.priority] - pMap[b.priority];
-    }
-    if (sortBy === "PROGRESS") return (b.progress || 0) - (a.progress || 0);
-    return 0;
-  });
 
   // Mobile swipe support (simple)
   const [touchStart, setTouchStart] = useState<number | null>(null);

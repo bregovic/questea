@@ -52,34 +52,45 @@ export const LocationSelectionModal: React.FC<LocationSelectionModalProps> = ({
       async (pos) => {
         const { latitude, longitude } = pos.coords;
         try {
-          // 1. Get the main address
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`,
-            { headers: { "Accept-Language": "cs" } }
-          );
-          const mainPlace = await res.json();
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`, { 
+            headers: { "Accept-Language": "cs" },
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
           
-          // 2. Also search for nearby POIs to give more options
-          const nearbyRes = await fetch(
-             `https://nominatim.openstreetmap.org/search?format=json&q=point+of+interest&lat=${latitude}&lon=${longitude}&addressdetails=1&limit=8`,
-             { headers: { "Accept-Language": "cs" } }
-          );
-          const nearbyData = await nearbyRes.json();
+          if (!res.ok) throw new Error("Reverse geocode failed");
+          const data = await res.json();
           
-          const combined = [mainPlace, ...nearbyData.filter((p: any) => p.place_id !== mainPlace.place_id)];
-          setResults(combined);
-          setSearchQuery(mainPlace.display_name);
+          onSelect({
+            latitude,
+            longitude,
+            address: data.display_name,
+            placeName: data.address.amenity || data.address.shop || data.address.tourism || data.address.building || data.address.road || data.name || "Zjištěná poloha"
+          });
         } catch (err) {
-          setError("Chyba při získávání adresy.");
+          console.warn("Reverse geocoding failed, using coordinates", err);
+          onSelect({
+            latitude,
+            longitude,
+            address: `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
+            placeName: "Moje poloha (GPS)"
+          });
         } finally {
           setGpsLoading(false);
         }
       },
-      () => {
-        setError("Přístup k GPS byl zamítnut.");
+      (err) => {
+        console.error("GPS Error:", err);
+        let msg = "Nepodařilo se získat polohu.";
+        if (err.code === 1) msg = "Povolte prosím GPS v nastavení prohlížeče.";
+        if (err.code === 3) msg = "Získání polohy vypršelo (zkuste to venku).";
+        setError(msg);
         setGpsLoading(false);
       },
-      { enableHighAccuracy: true }
+      geoOptions
     );
   };
 

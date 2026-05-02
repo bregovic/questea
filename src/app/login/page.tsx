@@ -48,8 +48,8 @@ export default function LoginPage() {
   return (
     <div className={styles.container}>
       <div className={styles.loginCard}>
-        <h1 className={styles.title}>Vítejte zpět</h1>
-        <p className={styles.subtitle}>Přihlaste se do Questea pro správu svých úkolů a projektů</p>
+        <h1 className={styles.title}>Přihlášení</h1>
+        <p className={styles.subtitle}>Vítejte zpět v Questea</p>
 
         {status === "error" && (
           <div className={styles.error}>{errorMessage}</div>
@@ -93,9 +93,9 @@ export default function LoginPage() {
           </button>
         </form>
         
-        <p className={styles.divider} style={{ marginTop: '2rem' }}>
-          Nemáte ještě účet? <Link href="/register" style={{ color: 'var(--accent-primary)', marginLeft: '0.5rem', textDecoration: 'none', fontWeight: 600 }}>Vytvořit účet</Link>
-        </p>
+        <div className={styles.registerLink}>
+          Nemáte účet? <Link href="/register" className={styles.link}>Vytvořit</Link>
+        </div>
       </div>
     </div>
   );

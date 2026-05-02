@@ -317,3 +317,32 @@
   color: var(--accent-primary);
   transform: translateX(2px);
 }
+
+.cardActionBtn {
+  background: #f0fdf4;
+  border: 1px solid #dcfce7;
+  color: #16a34a;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cardActionBtn:hover {
+  background: #dcfce7;
+  transform: scale(1.05);
+}
+
+.cardActionBtn:last-of-type {
+  background: #f0f9ff;
+  border-color: #e0f2fe;
+  color: #0284c7;
+}
+
+.cardActionBtn:last-of-type:hover {
+  background: #e0f2fe;
+}

@@ -110,7 +110,32 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
             </div>
 
             <div className={styles.rightActions}>
-              {task.taskType === "EXPENSE" || task.taskType === "LOCATION_HISTORY" ? (
+              {task.taskType === "LOCATION_HISTORY" ? (
+                <div className="flex gap-2">
+                  <button 
+                    className={styles.cardActionBtn}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      (window as any).dispatchEvent(new CustomEvent("quickAction", { 
+                        detail: { task, action: 'GPS' } 
+                      }));
+                    }}
+                  >
+                    <MapPin size={18} />
+                  </button>
+                  <button 
+                    className={styles.cardActionBtn}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      (window as any).dispatchEvent(new CustomEvent("quickAction", { 
+                        detail: { task, action: 'SEARCH' } 
+                      }));
+                    }}
+                  >
+                    <Search size={18} />
+                  </button>
+                </div>
+              ) : task.taskType === "EXPENSE" ? (
                 <button 
                   className={styles.quickActionBtn}
                   data-type={task.taskType}
@@ -125,10 +150,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
                 >
                   {actionSuccess ? (
                     <Check size={18} color="#16a34a" />
-                  ) : task.taskType === "EXPENSE" ? (
-                    <Plus size={18} />
                   ) : (
-                    <MapPin size={18} />
+                    <Plus size={18} />
                   )}
                 </button>
               ) : (

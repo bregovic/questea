@@ -34,6 +34,7 @@ export const TaskList = () => {
   const [isZen, setIsZen] = useState(false);
   const [quickActionTask, setQuickActionTask] = useState<any | null>(null);
   const [isSelectingLocation, setIsSelectingLocation] = useState(false);
+  const [locationTargetFolderId, setLocationTargetFolderId] = useState<string | null>(null);
   const [categories, setCategories] = useState<any[]>([]);
 
   const toggleZen = () => {
@@ -109,10 +110,10 @@ export const TaskList = () => {
 
     // Quick Action listener
     const handleQuickActionEvent = (e: any) => {
-      const task = e.detail.task;
+      const { task } = e.detail;
       if (task.taskType === "LOCATION_HISTORY") {
+        setLocationTargetFolderId(task.id);
         setIsSelectingLocation(true);
-        // We could pass the task.id to handleLocationSelect
       } else {
         setQuickActionTask(task);
       }
@@ -307,6 +308,9 @@ export const TaskList = () => {
   };
 
   const handleLocationSelect = async (loc: any) => {
+    const targetId = locationTargetFolderId || currentParentId;
+    if (!targetId) return;
+
     try {
       const taskRes = await fetch("/api/tasks", {
         method: "POST",
@@ -317,7 +321,8 @@ export const TaskList = () => {
           status: "DONE",
           priority: "LOW",
           taskType: "LOCATION_HISTORY",
-          parentId: currentParentId,
+          parentId: targetId,
+          recordedAt: new Date().toISOString()
         })
       });
       
@@ -336,10 +341,11 @@ export const TaskList = () => {
         })
       });
 
+      setTasks([newSubtask, ...tasks]);
       setIsSelectingLocation(false);
-      fetchTasks();
-    } catch (err) {
-      console.error(err);
+      setLocationTargetFolderId(null);
+    } catch (error) {
+      console.error("Failed to add location subtask", error);
     }
   };
 

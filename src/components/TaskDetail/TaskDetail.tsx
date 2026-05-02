@@ -393,17 +393,19 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
               <option value="EXPENSE">Náklady</option>
               <option value="LOCATION_HISTORY">Historie cesty</option>
             </select>
-            <select 
-              value={priority}
-              onChange={(e) => handlePriorityChange(e.target.value)}
-              className={styles.prioritySelect}
-              style={{ color: priority === 'URGENT' ? '#dc2626' : 'inherit' }}
-            >
-              <option value="LOW">Low</option>
-              <option value="MEDIUM">Medium</option>
-              <option value="HIGH">High</option>
-              <option value="URGENT">Urgent</option>
-            </select>
+            {taskType !== "LOCATION_HISTORY" && (
+              <select 
+                value={priority}
+                onChange={(e) => handlePriorityChange(e.target.value)}
+                className={styles.prioritySelect}
+                style={{ color: priority === 'URGENT' ? '#dc2626' : 'inherit' }}
+              >
+                <option value="LOW">Low</option>
+                <option value="MEDIUM">Medium</option>
+                <option value="HIGH">High</option>
+                <option value="URGENT">Urgent</option>
+              </select>
+            )}
           </div>
           <div className="flex items-center gap-2 mt-1">
              <Clock size={12} className="opacity-40" />
@@ -441,32 +443,34 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
           )}
         </div>
 
-        {/* Parent Selection & Lock */}
-        <section className={styles.section}>
-          <h4 className={styles.sectionTitle}>
-             <Layers className={styles.sectionIcon} size={14} /> Hierarchie & Ochrana
-          </h4>
-          <div className="flex flex-col gap-3">
-            <select 
-              className={styles.select}
-              value={parentId} 
-              onChange={(e) => handleParentChange(e.target.value)}
-            >
-              <option value="">(Bez nadřazeného úkolu / ROOT)</option>
-              {allTasks.filter(t => t.id !== task.id).map(t => (
-                <option key={t.id} value={t.id}>{t.title}</option>
-              ))}
-            </select>
-            
-            <button 
-              className={`${styles.lockToggle} ${lockStatus ? styles.locked : ""}`}
-              onClick={() => handleLockStatusChange(!lockStatus)}
-            >
-              {lockStatus ? <Lock size={14} /> : <Unlock size={14} />}
-              <span>{lockStatus ? "Status uzamčen (nelze uzavřít)" : "Status volný"}</span>
-            </button>
-          </div>
-        </section>
+        {/* Parent Selection & Lock (Hidden for Location) */}
+        {taskType !== "LOCATION_HISTORY" && (
+          <section className={styles.section}>
+            <h4 className={styles.sectionTitle}>
+               <Layers className={styles.sectionIcon} size={14} /> Hierarchie & Ochrana
+            </h4>
+            <div className="flex flex-col gap-3">
+              <select 
+                className={styles.select}
+                value={parentId} 
+                onChange={(e) => handleParentChange(e.target.value)}
+              >
+                <option value="">(Bez nadřazeného úkolu / ROOT)</option>
+                {allTasks.filter(t => t.id !== task.id).map(t => (
+                  <option key={t.id} value={t.id}>{t.title}</option>
+                ))}
+              </select>
+              
+              <button 
+                className={`${styles.lockToggle} ${lockStatus ? styles.locked : ""}`}
+                onClick={() => handleLockStatusChange(!lockStatus)}
+              >
+                {lockStatus ? <Lock size={14} /> : <Unlock size={14} />}
+                <span>{lockStatus ? "Status uzamčen (nelze uzavřít)" : "Status volný"}</span>
+              </button>
+            </div>
+          </section>
+        )}
 
         {/* Expense Details (Conditional) */}
         {taskType === "EXPENSE" && (
@@ -547,7 +551,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
         <section className={styles.section}>
           <div className={styles.sectionHeader}>
             <FileText size={18} />
-            <span>Deníček / Poznámky</span>
+            <span>{taskType === "LOCATION_HISTORY" ? "Poznámka" : "Deníček / Poznámky"}</span>
             <button 
               className={`${styles.dictateBtn} ${isDictating ? styles.dictating : ""}`}
               onClick={isDictating ? stopDictation : startDictation}
@@ -634,114 +638,8 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
           </div>
         </section>
 
-        {/* Location History Section (Conditional) */}
-        {taskType === "LOCATION_HISTORY" && (
-          <section className={styles.section}>
-            <h4 className={styles.sectionTitle}>
-              <Navigation className={styles.sectionIcon} size={14} /> Záznam trasy
-            </h4>
-            <div className={styles.trackerMini}>
-              <div className="flex flex-col gap-2 w-full">
-                <div className="flex gap-2">
-                  {!currentLoc ? (
-                    <button onClick={getGPS} disabled={loadingLoc} className={styles.gpsBtn}>
-                      {loadingLoc ? <Loader2 className={styles.spin} size={14} /> : <MapPin size={14} />}
-                      <span>GPS</span>
-                    </button>
-                  ) : (
-                    <div className={styles.locConfirm}>
-                      <p className="text-xs font-bold truncate">{currentLoc.placeName || currentLoc.address}</p>
-                      <div className="flex gap-2">
-                        <button onClick={handleSaveLoc} className={styles.miniSaveBtn}>Uložit</button>
-                        <button onClick={() => setCurrentLoc(null)} className={styles.miniCancelBtn}>Zrušit</button>
-                      </div>
-                    </div>
-                  )}
-                  <div className={styles.searchWrapper}>
-                    <Search size={14} className={styles.searchIcon} />
-                    <input 
-                      type="text" 
-                      placeholder="Hledat adresu..." 
-                      className={styles.locInput}
-                      value={locSearch}
-                      onChange={(e) => {
-                        setLocSearch(e.target.value);
-                        searchLocations(e.target.value);
-                      }}
-                    />
-                    {locSuggestions.length > 0 && (
-                      <div className={styles.locSuggestions}>
-                        {locSuggestions.map((s, i) => (
-                          <div 
-                            key={i} 
-                            className={styles.suggestionItem}
-                            onClick={() => {
-                              setCurrentLoc(s);
-                              setLocSuggestions([]);
-                              setLocSearch("");
-                              fetchNearbyPlaces(s.lat, s.lng);
-                            }}
-                          >
-                            <span className="font-bold block">{s.placeName}</span>
-                            <span className="text-[10px] opacity-60 truncate block">{s.address}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {nearbyPlaces.length > 0 && (
-                  <div className="mt-3">
-                    <p className="text-[10px] font-bold text-stone-400 uppercase mb-2">Místa v okolí</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {nearbyPlaces.map((p, i) => (
-                        <button 
-                          key={i}
-                          onClick={() => {
-                            setTitle(p.name);
-                            onUpdate(task.id, { title: p.name });
-                            if (currentLoc) {
-                              setCurrentLoc({ ...currentLoc, placeName: p.name });
-                            }
-                          }}
-                          className="text-[11px] bg-emerald-50 text-emerald-700 px-2 py-1 rounded-lg border border-emerald-100 hover:bg-emerald-100 transition-colors"
-                        >
-                          {p.name}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {currentLoc && (
-                  <textarea 
-                    placeholder="Poznámka k místu..." 
-                    value={locNote} 
-                    onChange={(e) => setLocNote(e.target.value)}
-                    className={styles.miniTextarea}
-                  />
-                )}
-              </div>
-            </div>
-
-            <div className={styles.locHistory}>
-              {locHistory.map((loc: any) => (
-                <div key={loc.id} className={styles.locItem}>
-                  <div className={styles.locDot} />
-                  <div className={styles.locInfo}>
-                    <div className="flex justify-between items-start">
-                      <span className="font-bold text-xs">{loc.placeName || "Místo"}</span>
-                      <span className="text-[10px] opacity-40">{new Date(loc.createdAt).toLocaleTimeString("cs-CZ", { hour: '2-digit', minute: '2-digit' })}</span>
-                    </div>
-                    <p className="text-[10px] opacity-60 truncate">{loc.address}</p>
-                    {loc.note && <p className="text-[10px] italic mt-1">{loc.note}</p>}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
+        {/* Location History Tracker (HIDDEN for individual location detail) */}
+        {/* We keep it only for general tasks if needed, but for HISTORY type it is now strictly a record */}
 
         {/* Photos / Attachments Section (Hidden for Location/Expense) */}
         {taskType !== "LOCATION_HISTORY" && taskType !== "EXPENSE" && (

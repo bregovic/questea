@@ -319,7 +319,7 @@ export const TaskList = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: loc.placeName,
-          description: loc.address,
+          description: "",
           status: "DONE",
           priority: "LOW",
           taskType: "LOCATION_HISTORY",

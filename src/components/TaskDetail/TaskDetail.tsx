@@ -50,6 +50,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
   const [isRecording, setIsRecording] = useState(false);
   const [recorder, setRecorder] = useState<MediaRecorder | null>(null);
   const [recordingTime, setRecordingTime] = useState(0);
+  const [isDictating, setIsDictating] = useState(false);
 
   // Fetch payees for codelist
   React.useEffect(() => {
@@ -173,6 +174,38 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
       clearInterval((recorder as any)._timer);
       setIsRecording(false);
       setRecordingTime(0);
+    }
+  };
+
+  const startDictation = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) return alert("Hlasový vstup není v tomto prohlížeči podporován.");
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'cs-CZ';
+    recognition.continuous = false; // Stop after a pause for better UX
+    recognition.interimResults = false;
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      if (transcript) {
+        const newDesc = description + (description ? " " : "") + transcript;
+        setDescription(newDesc);
+        onUpdate(task.id, { description: newDesc });
+      }
+    };
+
+    recognition.onstart = () => setIsDictating(true);
+    recognition.onend = () => setIsDictating(false);
+    recognition.onerror = () => setIsDictating(false);
+
+    recognition.start();
+    (window as any)._recognition = recognition;
+  };
+
+  const stopDictation = () => {
+    if ((window as any)._recognition) {
+      (window as any)._recognition.stop();
     }
   };
 
@@ -492,7 +525,15 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
         <section className={styles.section}>
           <div className={styles.sectionHeader}>
             <FileText size={18} />
-            <span>Popis</span>
+            <span>Deníček / Poznámky</span>
+            <button 
+              className={`${styles.dictateBtn} ${isDictating ? styles.dictating : ""}`}
+              onClick={isDictating ? stopDictation : startDictation}
+              type="button"
+            >
+              <Mic size={16} />
+              {isDictating && <span className={styles.pulseDot} />}
+            </button>
           </div>
           <textarea 
             className={styles.textarea}

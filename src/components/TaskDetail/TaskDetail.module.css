@@ -679,3 +679,46 @@
 .recordedAtInput:focus {
   color: var(--accent-primary);
 }
+
+.dictateBtn {
+  margin-left: auto;
+  background: #f5f5f4;
+  border: none;
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-muted);
+  position: relative;
+  transition: all 0.2s;
+}
+
+.dictateBtn:hover {
+  background: #fdfaf5;
+  color: var(--accent-primary);
+}
+
+.dictateBtn.dictating {
+  background: #fef2f2;
+  color: #dc2626;
+  animation: borderPulse 1.5s infinite;
+}
+
+.pulseDot {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 6px;
+  height: 6px;
+  background: #dc2626;
+  border-radius: 50%;
+}
+
+@keyframes borderPulse {
+  0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(220, 38, 38, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+}

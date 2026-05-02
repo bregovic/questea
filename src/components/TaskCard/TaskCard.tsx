@@ -44,7 +44,14 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (task.progress / 100) * circumference;
 
-  const isLogRecord = isEvidence && task.taskType !== "TASK";
+  let isLogRecord = isEvidence && task.taskType !== "TASK";
+  if (!isEvidence) {
+    if (task.taskType === "EXPENSE" && task.amount !== null && task.amount !== undefined) {
+      isLogRecord = true;
+    } else if (task.taskType === "LOCATION_HISTORY" && task.description) {
+      isLogRecord = true;
+    }
+  }
 
   return (
     <div className={styles.wrapper}>

@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { motion, useMotionValue, useTransform } from "framer-motion";
 import { Check, Clock, ChevronRight, Eye, FolderOpen, AlertCircle, MapPin, Plus, Wallet } from "lucide-react";
 import styles from "./TaskCard.module.css";

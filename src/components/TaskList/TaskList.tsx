@@ -310,7 +310,7 @@ export const TaskList = () => {
             description: address,
             status: "DONE",
             priority: "LOW",
-            taskType: "TASK",
+            taskType: "LOCATION_HISTORY",
             parentId: task.id,
           })
         });

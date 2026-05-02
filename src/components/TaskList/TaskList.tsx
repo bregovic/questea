@@ -224,7 +224,7 @@ export const TaskList = () => {
     const sorted = [...filteredTasks].sort((a, b) => {
       const dateA = new Date(a.recordedAt || a.createdAt).getTime();
       const dateB = new Date(b.recordedAt || b.createdAt).getTime();
-      return dateA - dateB;
+      return dateB - dateA; // DESCENDING (newest first)
     });
 
     let totalDist = 0;

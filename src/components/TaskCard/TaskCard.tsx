@@ -211,12 +211,23 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
             <h3 className={styles.logTitle}>
               {task.taskType === "EXPENSE" && task.payee ? task.payee : task.title}
             </h3>
-            {task.description && (!task.subTasks || task.subTasks.length === 0) && (
+            
+            {task.taskType === "LOCATION_HISTORY" && task.locations?.[0] && (
+              <p className={styles.logAddress}>{task.locations[0].address}</p>
+            )}
+
+            {task.description && task.taskType !== "LOCATION_HISTORY" && (!task.subTasks || task.subTasks.length === 0) && (
               <p className={styles.logAddress}>{task.description}</p>
             )}
             
             <div className={styles.logFooter}>
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-center">
+                {(task.recordedAt || task.createdAt) && (
+                  <span className="text-[10px] opacity-40 font-bold flex items-center gap-1">
+                    <Clock size={10} />
+                    {new Date(task.recordedAt || task.createdAt).toLocaleTimeString("cs-CZ", { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                )}
                 {task.taskType === "EXPENSE" && task.amount && (
                   <span className={styles.expenseBadge}>
                     {task.amount} {task.currency || "CZK"}

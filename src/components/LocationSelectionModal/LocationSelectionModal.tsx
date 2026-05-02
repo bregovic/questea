@@ -90,7 +90,11 @@ export const LocationSelectionModal: React.FC<LocationSelectionModalProps> = ({
         setError(msg);
         setGpsLoading(false);
       },
-      geoOptions
+      { 
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0
+      }
     );
   };
 

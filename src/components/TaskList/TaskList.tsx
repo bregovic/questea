@@ -7,7 +7,7 @@ import { TaskDetail } from "../TaskDetail/TaskDetail";
 import { QuickExpenseModal } from "../QuickExpenseModal/QuickExpenseModal";
 import { LocationSelectionModal } from "../LocationSelectionModal/LocationSelectionModal";
 import { LocationTracker } from "../LocationTracker/LocationTracker";
-import { Search, Grid, List as ListIcon, Home, ChevronRight, Maximize2, Minimize2, Wallet, Tag, Building, X, Save, MapPin } from "lucide-react";
+import { Search, Grid, List as ListIcon, Home, ChevronRight, Maximize2, Minimize2, Wallet, Tag, Building, X, Save, MapPin, Share } from "lucide-react";
 import styles from "./TaskList.module.css";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -604,6 +604,17 @@ export const TaskList = () => {
                       title="Přidat ručně"
                     >
                       <Search size={18} />
+                    </button>
+                    <button 
+                      onClick={() => {
+                        const url = `${window.location.origin}/blog/${currentParentId}`;
+                        navigator.clipboard.writeText(url);
+                        alert("Odkaz na blog byl zkopírován do schránky!");
+                      }}
+                      className={styles.headerActionBtn}
+                      title="Sdílet cestu (Blog)"
+                    >
+                      <Share size={18} />
                     </button>
                   </div>
                 )}

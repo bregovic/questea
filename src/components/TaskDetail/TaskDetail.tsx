@@ -121,19 +121,46 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
     // For now, we simulate upload by converting to base64
     // In production, you'd upload to S3/Cloudinary and get a URL
     const reader = new FileReader();
-    reader.onloadend = async () => {
-      const base64 = reader.result as string;
-      try {
-        const res = await fetch(`/api/tasks/${task.id}/attachments`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: file.name, url: base64, type: "image" })
-        });
-        if (res.ok) {
-          const newAtt = await res.json();
-          setAttachments([...attachments, newAtt]);
+    reader.onload = async (event) => {
+      const img = new Image();
+      img.onload = async () => {
+        const canvas = document.createElement("canvas");
+        const MAX_WIDTH = 1200;
+        const MAX_HEIGHT = 1200;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
         }
-      } catch (err) { console.error(err); }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx?.drawImage(img, 0, 0, width, height);
+        const base64 = canvas.toDataURL("image/jpeg", 0.7);
+
+        try {
+          const res = await fetch(`/api/tasks/${task.id}/attachments`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: file.name, url: base64, type: "image" })
+          });
+          if (res.ok) {
+            const newAtt = await res.json();
+            setAttachments([...attachments, newAtt]);
+          }
+        } catch (err) { console.error(err); }
+      };
+      img.src = event.target?.result as string;
     };
     reader.readAsDataURL(file);
   };
@@ -680,8 +707,8 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
         {/* Location History Tracker (HIDDEN for individual location detail) */}
         {/* We keep it only for general tasks if needed, but for HISTORY type it is now strictly a record */}
 
-        {/* Photos / Attachments Section (Hidden for Location/Expense) */}
-        {taskType !== "LOCATION_HISTORY" && taskType !== "EXPENSE" && (
+        {/* Photos / Attachments Section */}
+        {taskType !== "EXPENSE" && (
           <section className={styles.section}>
             <div className={styles.sectionHeader}>
               <Camera size={18} />

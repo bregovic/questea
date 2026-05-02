@@ -3,6 +3,16 @@
 import { motion } from "framer-motion";
 import { ReactNode } from "react";
 
+export const BlogStyles = () => {
+  return (
+    <style jsx global>{`
+      @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,900;1,900&family=Inter:wght@300;400;700;900&display=swap');
+      html { scroll-behavior: smooth; }
+      body { -webkit-font-smoothing: antialiased; }
+    `}</style>
+  );
+};
+
 export const Reveal = ({ children, delay = 0 }: { children: ReactNode, delay?: number }) => {
   return (
     <motion.div

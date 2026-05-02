@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { MapPin, Clock, Navigation, Calendar, ChevronDown, Quote } from "lucide-react";
-import { Reveal, RevealImage, FloatingHeader } from "@/components/Blog/BlogClient";
+import { Reveal, RevealImage, FloatingHeader, BlogStyles } from "@/components/Blog/BlogClient";
 
 export const dynamic = "force-dynamic";
 
@@ -262,11 +262,7 @@ export default async function BlogPage({ params }: { params: Promise<{ id: strin
          </Reveal>
       </footer>
 
-      <style jsx global>{`
-        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,900;1,900&family=Inter:wght@300;400;700;900&display=swap');
-        html { scroll-behavior: smooth; }
-        body { -webkit-font-smoothing: antialiased; }
-      `}</style>
+      <BlogStyles />
     </div>
   );
 }

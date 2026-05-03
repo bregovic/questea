@@ -683,6 +683,27 @@ export const TaskList = () => {
             </button>
             </div>
           )}
+
+          {currentParentId && !isEvidenceView && (
+            <div className={styles.inlineActions}>
+              <button onClick={() => { setAddingType('TASK'); setIsAddingTask(true); }} className={styles.inlineActionBtn}>
+                <div className={styles.inlineIcon} style={{ color: '#f59e0b' }}><CheckSquare size={16} /></div>
+                <span>Úkol</span>
+              </button>
+              <button onClick={() => { setAddingType('EXPENSE'); setIsAddingTask(true); }} className={styles.inlineActionBtn}>
+                <div className={styles.inlineIcon} style={{ color: '#ef4444' }}><Wallet size={16} /></div>
+                <span>Výdaj</span>
+              </button>
+              <button onClick={() => { setIsSelectingLocation(true); setIsAddingTask(false); }} className={styles.inlineActionBtn}>
+                <div className={styles.inlineIcon} style={{ color: '#3b82f6' }}><MapPin size={16} /></div>
+                <span>Místo</span>
+              </button>
+              <button onClick={() => { setAddingType('FOLDER'); setIsAddingTask(true); }} className={styles.inlineActionBtn}>
+                <div className={styles.inlineIcon} style={{ color: '#737373' }}><FolderOpen size={16} /></div>
+                <span>Složka</span>
+              </button>
+            </div>
+          )}
         </>
       ) : (
         <button onClick={toggleZen} className={styles.zenRestore}>

@@ -581,3 +581,48 @@
     grid-template-columns: repeat(4, 1fr);
   }
 }
+
+.inlineActions {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0 1rem 1rem 1rem;
+  overflow-x: auto;
+  scrollbar-width: none; /* Firefox */
+}
+
+.inlineActions::-webkit-scrollbar {
+  display: none; /* Safari and Chrome */
+}
+
+.inlineActionBtn {
+  background: white;
+  border: 1px solid #f0ebe1;
+  padding: 0.6rem 1rem;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+  box-shadow: var(--shadow-sm);
+}
+
+.inlineActionBtn:hover {
+  border-color: var(--accent-primary);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+.inlineIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.inlineActionBtn span {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-main);
+  font-family: 'Outfit', sans-serif;
+}

@@ -482,8 +482,8 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
           )}
         </div>
 
-        {/* Custom Slug Section (Public Link) */}
-        {taskType === "LOCATION_HISTORY" && (
+        {/* Custom Slug Section (Public Link) - Only for the main trip folder */}
+        {taskType === "LOCATION_HISTORY" && !task.parentTaskId && (
           <section className={styles.section}>
             <div className={styles.sectionHeader}>
               <LinkIcon size={18} />

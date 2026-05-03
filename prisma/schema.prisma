@@ -86,6 +86,7 @@ enum TaskType {
   IDEA
   EXPENSE
   LOCATION_HISTORY
+  LOCATION
 }
 
 model Category {

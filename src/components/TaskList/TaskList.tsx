@@ -413,7 +413,7 @@ export const TaskList = () => {
           description: "",
           status: "DONE",
           priority: "LOW",
-          taskType: "LOCATION_HISTORY",
+          taskType: "LOCATION",
           parentId: targetId,
           recordedAt: new Date().toISOString()
         })

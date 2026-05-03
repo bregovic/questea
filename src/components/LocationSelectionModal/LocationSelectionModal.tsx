@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, MapPin, Search, Navigation, Loader2, Save, Map as MapIcon, Check } from "lucide-react";
+import { X, MapPin, Search, Navigation, Loader2, Map as MapIcon, Check, ChevronRight } from "lucide-react";
 import styles from "./LocationSelectionModal.module.css";
 
 interface LocationSelectionModalProps {
@@ -20,6 +20,10 @@ export const LocationSelectionModal: React.FC<LocationSelectionModalProps> = ({
   const [results, setResults] = useState<any[]>([]);
   const [gpsLoading, setGpsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Confirmation state
+  const [selectedPlace, setSelectedPlace] = useState<any>(null);
+  const [note, setNote] = useState("");
 
   const searchPlaces = async (query: string) => {
     if (!query || query.length < 3) return;
@@ -27,13 +31,39 @@ export const LocationSelectionModal: React.FC<LocationSelectionModalProps> = ({
     setError(null);
     try {
       const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&addressdetails=1&limit=10`,
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&addressdetails=1&limit=15`,
         { headers: { "Accept-Language": "cs" } }
       );
       const data = await res.json();
       setResults(data);
     } catch (err) {
       setError("Chyba při vyhledávání.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getNearbyPlaces = async (lat: number, lon: number) => {
+    setLoading(true);
+    try {
+      // We'll search for 'amenity' (POI) nearby to get a better list than just one reverse geocode
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=amenity&lat=${lat}&lon=${lon}&addressdetails=1&limit=10`,
+        { headers: { "Accept-Language": "cs" } }
+      );
+      const data = await res.json();
+      
+      // Also get the exact address as top result
+      const revRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1`, { 
+        headers: { "Accept-Language": "cs" } 
+      });
+      const revData = await revRes.json();
+      
+      // Combine results, ensuring exact address is first
+      const combined = [revData, ...data.filter((d: any) => d.place_id !== revData.place_id)];
+      setResults(combined);
+    } catch (err) {
+      console.warn("Nearby search failed", err);
     } finally {
       setLoading(false);
     }
@@ -51,50 +81,18 @@ export const LocationSelectionModal: React.FC<LocationSelectionModalProps> = ({
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         const { latitude, longitude } = pos.coords;
-        try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 6000);
-
-          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`, { 
-            headers: { "Accept-Language": "cs" },
-            signal: controller.signal
-          });
-          clearTimeout(timeoutId);
-          
-          if (!res.ok) throw new Error("Reverse geocode failed");
-          const data = await res.json();
-          
-          onSelect({
-            latitude,
-            longitude,
-            address: data.display_name,
-            placeName: data.address.amenity || data.address.shop || data.address.tourism || data.address.building || data.address.road || data.name || "Zjištěná poloha"
-          });
-        } catch (err) {
-          console.warn("Reverse geocoding failed, using coordinates", err);
-          onSelect({
-            latitude,
-            longitude,
-            address: `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
-            placeName: "Moje poloha (GPS)"
-          });
-        } finally {
-          setGpsLoading(false);
-        }
+        await getNearbyPlaces(latitude, longitude);
+        setGpsLoading(false);
       },
       (err) => {
         console.error("GPS Error:", err);
         let msg = "Nepodařilo se získat polohu.";
         if (err.code === 1) msg = "Povolte prosím GPS v nastavení prohlížeče.";
-        if (err.code === 3) msg = "Získání polohy vypršelo (zkuste to venku).";
+        if (err.code === 3) msg = "Získání polohy vypršelo.";
         setError(msg);
         setGpsLoading(false);
       },
-      { 
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 0
-      }
+      { enableHighAccuracy: true, timeout: 15000 }
     );
   };
 
@@ -106,15 +104,24 @@ export const LocationSelectionModal: React.FC<LocationSelectionModalProps> = ({
     }
   }, []);
 
-  const handleSelect = (place: any) => {
-    const address = place.display_name;
-    const name = place.address.amenity || place.address.shop || place.address.tourism || place.address.building || place.address.road || place.name || "Místo";
+  const handlePlaceClick = (place: any) => {
+    setSelectedPlace(place);
+  };
+
+  const handleConfirm = () => {
+    if (!selectedPlace) return;
     
+    const lat = selectedPlace.lat ? parseFloat(selectedPlace.lat) : selectedPlace.latitude;
+    const lon = selectedPlace.lon ? parseFloat(selectedPlace.lon) : selectedPlace.longitude;
+    const addr = selectedPlace.display_name || selectedPlace.address;
+    const name = selectedPlace.address?.amenity || selectedPlace.address?.shop || selectedPlace.address?.tourism || selectedPlace.address?.building || selectedPlace.address?.road || selectedPlace.name || "Místo";
+
     onSelect({
-      latitude: parseFloat(place.lat),
-      longitude: parseFloat(place.lon),
-      address: address,
+      latitude: lat,
+      longitude: lon,
+      address: addr,
       placeName: name,
+      note: note
     });
   };
 
@@ -132,8 +139,8 @@ export const LocationSelectionModal: React.FC<LocationSelectionModalProps> = ({
             <MapPin size={20} />
           </div>
           <div>
-            <h3>Vybrat místo</h3>
-            <p>Zaznamenejte polohu k záznamu</p>
+            <h3>{selectedPlace ? "Doplnit údaje" : "Vybrat místo"}</h3>
+            <p>{selectedPlace ? "Přidejte poznámku k místu" : "Zaznamenejte polohu k záznamu"}</p>
           </div>
           <button onClick={onClose} className={styles.closeBtn}>
             <X size={20} />
@@ -141,64 +148,110 @@ export const LocationSelectionModal: React.FC<LocationSelectionModalProps> = ({
         </header>
 
         <div className={styles.content}>
-          <div className={styles.searchBar}>
-            <div className={styles.inputGroup}>
-              <Search className={styles.searchIcon} size={18} />
-              <input 
-                type="text" 
-                placeholder="Hledat adresu nebo místo..." 
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && searchPlaces(searchQuery)}
-              />
-              <button onClick={() => searchPlaces(searchQuery)} className={styles.searchBtn}>Hledat</button>
-            </div>
-            
-            {searchQuery.length === 0 && (
-              <button 
-                onClick={getGPS} 
-                disabled={gpsLoading}
-                className={styles.gpsBtn}
+          <AnimatePresence mode="wait">
+            {!selectedPlace ? (
+              <motion.div 
+                key="search"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
               >
-                {gpsLoading ? <Loader2 className={styles.spin} size={18} /> : <Navigation size={18} />}
-                <span>Použít GPS</span>
-              </button>
-            )}
-          </div>
-
-          {error && <div className={styles.error}>{error}</div>}
-
-          <div className={styles.resultsList}>
-            {loading ? (
-              <div className={styles.loadingState}>
-                <Loader2 className={styles.spin} />
-                <span>Vyhledávám místa...</span>
-              </div>
-            ) : results.length > 0 ? (
-              results.map((r, idx) => (
-                <button 
-                  key={r.place_id || idx} 
-                  className={styles.resultItem}
-                  onClick={() => handleSelect(r)}
-                >
-                  <div className={styles.resultIcon}>
-                    <MapIcon size={16} />
+                <div className={styles.searchBar}>
+                  <div className={styles.inputGroup}>
+                    <Search className={styles.searchIcon} size={18} />
+                    <input 
+                      type="text" 
+                      placeholder="Hledat adresu nebo místo..." 
+                      value={searchQuery}
+                      onChange={e => setSearchQuery(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && searchPlaces(searchQuery)}
+                    />
+                    <button onClick={() => searchPlaces(searchQuery)} className={styles.searchBtn}>Hledat</button>
                   </div>
-                  <div className={styles.resultText}>
-                    <span className={styles.resultName}>
-                      {r.address.amenity || r.address.shop || r.address.tourism || r.address.building || r.address.road || r.name}
-                    </span>
-                    <span className={styles.resultAddr}>{r.display_name}</span>
+                  
+                  <button 
+                    onClick={getGPS} 
+                    disabled={gpsLoading}
+                    className={styles.gpsBtn}
+                  >
+                    {gpsLoading ? <Loader2 className={styles.spin} size={18} /> : <Navigation size={18} />}
+                    <span>{gpsLoading ? "Zjišťuji..." : "Moje poloha"}</span>
+                  </button>
+                </div>
+
+                {error && <div className={styles.error}>{error}</div>}
+
+                <div className={styles.resultsList}>
+                  {loading ? (
+                    <div className={styles.loadingState}>
+                      <Loader2 className={styles.spin} />
+                      <span>Hledám nejlepší místa v okolí...</span>
+                    </div>
+                  ) : results.length > 0 ? (
+                    results.map((r, idx) => (
+                      <button 
+                        key={r.place_id || idx} 
+                        className={styles.resultItem}
+                        onClick={() => handlePlaceClick(r)}
+                      >
+                        <div className={styles.resultIcon}>
+                          <MapIcon size={16} />
+                        </div>
+                        <div className={styles.resultText}>
+                          <span className={styles.resultName}>
+                            {r.address?.amenity || r.address?.shop || r.address?.tourism || r.address?.building || r.address?.road || r.name || "Neznámé místo"}
+                          </span>
+                          <span className={styles.resultAddr}>{r.display_name}</span>
+                        </div>
+                        <ChevronRight className={styles.checkIcon} size={16} />
+                      </button>
+                    ))
+                  ) : !gpsLoading && (
+                    <div className={styles.emptyState}>
+                      Zatím žádné výsledky. Zkuste vyhledat adresu nebo použít GPS.
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div 
+                key="confirm"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className={styles.confirmView}
+              >
+                <div className={styles.selectedPlaceInfo}>
+                  <MapPin className="text-coral" size={24} />
+                  <div>
+                    <h4 className="font-bold text-lg">
+                      {selectedPlace.address?.amenity || selectedPlace.address?.shop || selectedPlace.address?.tourism || selectedPlace.address?.building || selectedPlace.address?.road || selectedPlace.name || "Místo"}
+                    </h4>
+                    <p className="text-sm opacity-60 leading-tight mt-1">{selectedPlace.display_name}</p>
                   </div>
-                  <Check className={styles.checkIcon} size={16} />
-                </button>
-              ))
-            ) : !gpsLoading && (
-              <div className={styles.emptyState}>
-                Zatím žádné výsledky. Zkuste vyhledat adresu nebo použít GPS.
-              </div>
+                </div>
+
+                <div className="mt-8">
+                   <label className="text-xs font-black uppercase tracking-widest opacity-40 block mb-2">Poznámka / Deníček</label>
+                   <textarea 
+                     className={styles.noteInput}
+                     placeholder="Co se tady dělo? Přidejte detail..."
+                     value={note}
+                     onChange={e => setNote(e.target.value)}
+                     autoFocus
+                   />
+                </div>
+
+                <div className={styles.confirmActions}>
+                  <button onClick={() => setSelectedPlace(null)} className={styles.backBtn}>Zpět k výběru</button>
+                  <button onClick={handleConfirm} className={styles.saveBtn}>
+                    <Check size={18} />
+                    Uložit místo
+                  </button>
+                </div>
+              </motion.div>
             )}
-          </div>
+          </AnimatePresence>
         </div>
       </motion.div>
     </div>

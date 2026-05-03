@@ -262,3 +262,78 @@
     max-height: 90vh;
   }
 }
+
+.confirmView {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.selectedPlaceInfo {
+  display: flex;
+  gap: 1.25rem;
+  padding: 1.5rem;
+  background: #fdfaf5;
+  border-radius: 24px;
+  border: 1px solid rgba(234, 88, 12, 0.1);
+  align-items: flex-start;
+}
+
+.noteInput {
+  width: 100%;
+  min-height: 120px;
+  padding: 1.25rem;
+  background: #fafaf9;
+  border: 1px solid var(--panel-border);
+  border-radius: 20px;
+  outline: none;
+  font-size: 1rem;
+  font-family: inherit;
+  line-height: 1.5;
+  resize: none;
+  transition: all 0.2s;
+}
+
+.noteInput:focus {
+  background: white;
+  border-color: var(--accent-primary);
+  box-shadow: 0 4px 12px rgba(234, 88, 12, 0.05);
+}
+
+.confirmActions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.backBtn {
+  flex: 1;
+  padding: 1rem;
+  background: #f5f5f4;
+  color: var(--text-muted);
+  border: none;
+  border-radius: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.saveBtn {
+  flex: 2;
+  padding: 1rem;
+  background: var(--text-main);
+  color: white;
+  border: none;
+  border-radius: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.saveBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+}

@@ -96,7 +96,11 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
                     {new Date(task.dueDate).toLocaleDateString("cs-CZ")}
                   </span>
                 )}
-                <span className={styles.typeBadge} data-type={task.taskType}>{task.taskType}</span>
+                <span className={styles.typeBadge} data-type={task.taskType}>
+                  {task.taskType === 'LOCATION_HISTORY' ? 'HISTORIE CESTY' : 
+                   task.taskType === 'LOCATION' ? 'MÍSTO' : 
+                   task.taskType}
+                </span>
                 {task.priority === "URGENT" && (
                   <motion.span 
                     animate={{ scale: [1, 1.1, 1] }} 

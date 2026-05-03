@@ -38,6 +38,9 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
   const [recordedAt, setRecordedAt] = useState(task.recordedAt ? new Date(task.recordedAt).toISOString().slice(0, 16) : "");
   const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
   const [payees, setPayees] = useState<any[]>([]);
+  const isLocationHistory = taskType === "LOCATION_HISTORY";
+  const isLocation = taskType === "LOCATION";
+  const isExpense = taskType === "EXPENSE";
   const [categories, setCategories] = useState<any[]>([]);
   const [categoryId, setCategoryId] = useState(task.categoryId || "");
   const [showPayeeSuggestions, setShowPayeeSuggestions] = useState(false);
@@ -430,7 +433,8 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
               <option value="BUG">Bug</option>
               <option value="IDEA">Nápad</option>
               <option value="EXPENSE">Náklady</option>
-              <option value="LOCATION_HISTORY">Historie cesty</option>
+              <option value="LOCATION_HISTORY">Historie cesty (Složka)</option>
+              <option value="LOCATION">Místo / Zastávka</option>
             </select>
             {taskType !== "LOCATION_HISTORY" && (
               <select 
@@ -482,8 +486,8 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
           )}
         </div>
 
-        {/* Custom Slug Section (Public Link) - Only for the main trip folder */}
-        {taskType === "LOCATION_HISTORY" && !task.parentTaskId && (
+        {/* Custom Slug Section (Public Link) - ONLY for the main trip folder */}
+        {isLocationHistory && !task.parentId && (
           <section className={styles.section}>
             <div className={styles.sectionHeader}>
               <LinkIcon size={18} />

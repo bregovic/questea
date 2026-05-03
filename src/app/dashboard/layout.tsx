@@ -89,6 +89,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </nav>
       )}
 
+      {/* Mobile FAB */}
+      {!isZenMode && (
+        <button 
+          onClick={handleAddTask}
+          className={styles.mobileFab}
+          title="Nový úkol"
+        >
+          <Plus size={24} />
+        </button>
+      )}
+
       <main className={`${styles.mainContent} ${isZenMode ? styles.zenMain : (isCollapsed ? styles.collapsed : "")}`}>
         {children}
       </main>

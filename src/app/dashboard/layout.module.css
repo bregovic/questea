@@ -222,3 +222,40 @@
   color: var(--accent-primary);
   border-color: var(--accent-primary);
 }
+
+.mobileFab {
+  display: none;
+  position: fixed;
+  bottom: 2rem;
+  right: 1.5rem;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--accent-gradient);
+  color: white;
+  border: none;
+  box-shadow: 0 4px 20px rgba(234, 88, 12, 0.4);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.mobileFab:active {
+  transform: scale(0.9);
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    display: none;
+  }
+  .mainContent {
+    margin-left: 0 !important;
+    width: 100% !important;
+    padding-bottom: 5rem; /* Space for FAB */
+  }
+  .mobileFab {
+    display: flex;
+  }
+}

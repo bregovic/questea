@@ -6,13 +6,14 @@ import { signOut, useSession } from "next-auth/react";
 import styles from "./layout.module.css";
 import React from "react";
 
-import { ChevronLeft, ChevronRight, CheckCircle, List, Settings, LogOut, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, CheckCircle, List, Settings, LogOut, Plus, Menu, X } from "lucide-react";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { data: session } = useSession();
   const [isCollapsed, setIsCollapsed] = React.useState(true); // Default to collapsed
   const [isZenMode, setIsZenMode] = React.useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
 
   React.useEffect(() => {
     const handleZenEvent = (e: any) => setIsZenMode(e.detail);
@@ -30,9 +31,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className={styles.dashboardContainer}>
+      {/* Mobile Menu Trigger */}
+      {!isZenMode && (
+        <button 
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          className={styles.mobileMenuToggle}
+        >
+          {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+        </button>
+      )}
+
+      {/* Sidebar Overlay for Mobile */}
+      {isMobileMenuOpen && (
+        <div className={styles.mobileOverlay} onClick={() => setIsMobileMenuOpen(false)} />
+      )}
+
       {/* Sidebar */}
       {!isZenMode && (
-        <nav className={`${styles.sidebar} ${isCollapsed ? styles.collapsed : ""}`}>
+        <nav className={`${styles.sidebar} ${isCollapsed ? styles.collapsed : ""} ${isMobileMenuOpen ? styles.mobileOpen : ""}`}>
           <button 
             onClick={() => setIsCollapsed(!isCollapsed)}
             className={styles.toggleBtn}

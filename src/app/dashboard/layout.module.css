@@ -223,6 +223,79 @@
   border-color: var(--accent-primary);
 }
 
+.mobileMenuToggle {
+  display: none;
+  position: fixed;
+  top: 1rem;
+  left: 1rem;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: white;
+  border: 1px solid var(--panel-border);
+  box-shadow: var(--shadow-sm);
+  z-index: 1001;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-main);
+}
+
+.mobileOverlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.2);
+  backdrop-filter: blur(4px);
+  z-index: 99;
+}
+
+.mobileFab {
+  display: none;
+  position: fixed;
+  bottom: 2rem;
+  right: 1.5rem;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--accent-gradient);
+  color: white;
+  border: none;
+  box-shadow: 0 4px 20px rgba(234, 88, 12, 0.4);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.mobileFab:active {
+  transform: scale(0.9);
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    left: -260px;
+    transition: left 0.3s ease;
+  }
+  .sidebar.mobileOpen {
+    display: flex;
+    left: 0;
+    width: 260px;
+  }
+  .mainContent {
+    margin-left: 0 !important;
+    width: 100% !important;
+    padding-bottom: 5rem; /* Space for FAB */
+  }
+  .mobileFab, .mobileMenuToggle {
+    display: flex;
+  }
+  .mobileOverlay {
+    display: block;
+  }
+}
+
 .mobileFab {
   display: none;
   position: fixed;

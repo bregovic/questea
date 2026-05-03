@@ -72,7 +72,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
         style={{ x }}
         onDragEnd={handleDragEnd}
         onClick={() => {
-          if (task.subTasks?.length > 0) {
+          if (task.taskType === "LOCATION_HISTORY" || task.subTasks?.length > 0) {
             onOpen?.();
           } else {
             onOpenDetail?.();
@@ -198,19 +198,15 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
                 </div>
               )}
 
-              {task.subTasks?.length > 0 ? (
-                <button 
-                  className={styles.detailArrowBtn}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onOpenDetail?.();
-                  }}
-                >
-                  <ChevronRight size={18} />
-                </button>
-              ) : (
-                <ChevronRight size={16} className="opacity-20" />
-              )}
+              <button 
+                className={styles.detailArrowBtn}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenDetail?.();
+                }}
+              >
+                <ChevronRight size={18} />
+              </button>
             </div>
           </>
         ) : (

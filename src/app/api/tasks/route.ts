@@ -12,7 +12,6 @@ export async function GET() {
       where: { 
         OR: [
           { userId: session.user.id },
-          { delegateId: session.user.id },
           { subTasks: { some: { userId: session.user.id } } }
         ]
       },

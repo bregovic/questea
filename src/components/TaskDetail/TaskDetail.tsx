@@ -29,7 +29,6 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
   const [isUploading, setIsUploading] = useState(false);
   const [description, setDescription] = useState(task.description || "");
   const [priority, setPriority] = useState(task.priority);
-  const [ownerEmail, setOwnerEmail] = useState(task.user?.email || "");
   const [parentId, setParentId] = useState(task.parentId || "");
   const [lockStatus, setLockStatus] = useState(task.lockStatus || false);
   const [taskType, setTaskType] = useState(task.taskType);
@@ -290,12 +289,6 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
   const handleLockStatusChange = (newLock: boolean) => {
     setLockStatus(newLock);
     onUpdate(task.id, { lockStatus: newLock });
-  };
-
-  const handleOwnerChange = () => {
-    if (ownerEmail !== task.user?.email) {
-      onUpdate(task.id, { ownerEmail });
-    }
   };
 
   const handleTaskTypeChange = (newType: string) => {

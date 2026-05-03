@@ -48,9 +48,6 @@ model User {
   
   // Questea Specific
   tasks           Task[]       @relation("UserTasks")
-  delegatedTasks  Task[]       @relation("DelegatedTasks")
-  guaranteedTasks Task[]       @relation("GuaranteedTasks")
-  approvedTasks   Task[]       @relation("ApprovedTasks")
   categories      Category[]
   aliasEmails     AliasEmail[]
   locations       LocationCheckIn[]
@@ -120,21 +117,11 @@ model Task {
   startDate   DateTime?    // Od kdy (začátek plnění)
   dueDate     DateTime?    // Kdy se má odevzdat (splatnost)
   
-  estimatedMinutes Int?    // Odhadovaný čas řešení v minutách
   spentMinutes     Int?    // Skutečně strávený/vykázaný čas v minutách
   
   // Vazby (Kdo, Komu, Kam, Čí)
   userId      String       // Vlastník/Tvůrce (Kdo úkol založil)
   user        User     @relation("UserTasks", fields: [userId], references: [id], onDelete: Cascade)
-  
-  delegateId  String?      // Řešitel/Přiřazeno (Komu je to předáno)
-  delegate    User?    @relation("DelegatedTasks", fields: [delegateId], references: [id], onDelete: SetNull)
-
-  guarantorId  String?     // Garant (Kdo za úkol ručí)
-  guarantor    User?    @relation("GuaranteedTasks", fields: [guarantorId], references: [id], onDelete: SetNull)
-
-  approverId   String?     // Schvalovatel (Kdo úkol schvaluje)
-  approver     User?    @relation("ApprovedTasks", fields: [approverId], references: [id], onDelete: SetNull)
 
   // Hierarchie (Nadúkoly a Podúkoly)
   parentId     String?
@@ -146,7 +133,6 @@ model Task {
 
   // Přílohy a hlasové poznámky
   attachments  Attachment[]
-  voiceNoteUrl String?     
   
   // Expense fields (only if taskType == EXPENSE)
   amount      Float?

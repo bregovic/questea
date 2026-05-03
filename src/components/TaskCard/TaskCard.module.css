@@ -119,20 +119,15 @@
 }
 
 .typeBadge {
-  font-size: 0.65rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 0.2rem 0.4rem;
-  border-radius: 4px;
-  background: #f5f5f4;
-  color: var(--text-muted);
-}
-
-.typeBadge[data-type="EXPENSE"] {
-  background: #e0f2fe;
-  color: #0369a1;
-  opacity: 1;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: #ea580c;
+  color: white;
+  flex-shrink: 0;
 }
 
 .expenseBadge {

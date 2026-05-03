@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { motion, useMotionValue, useTransform } from "framer-motion";
-import { Check, Clock, ChevronRight, Eye, FolderOpen, AlertCircle, MapPin, Plus, Wallet, Search } from "lucide-react";
+import { Check, Clock, ChevronRight, Eye, FolderOpen, AlertCircle, MapPin, Plus, Wallet, Search, Bug, Lightbulb, Navigation, CheckSquare } from "lucide-react";
 import styles from "./TaskCard.module.css";
 
 interface TaskCardProps {
@@ -97,9 +97,12 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
                   </span>
                 )}
                 <span className={styles.typeBadge} data-type={task.taskType}>
-                  {task.taskType === 'LOCATION_HISTORY' ? 'HISTORIE CESTY' : 
-                   task.taskType === 'LOCATION' ? 'MÍSTO' : 
-                   task.taskType}
+                  {task.taskType === 'BUG' && <Bug size={14} />}
+                  {task.taskType === 'IDEA' && <Lightbulb size={14} />}
+                  {task.taskType === 'EXPENSE' && <Wallet size={14} />}
+                  {task.taskType === 'LOCATION_HISTORY' && <Navigation size={14} />}
+                  {task.taskType === 'LOCATION' && <MapPin size={14} />}
+                  {(task.taskType === 'TASK' || !['BUG','IDEA','EXPENSE','LOCATION_HISTORY','LOCATION'].includes(task.taskType)) && <CheckSquare size={14} />}
                 </span>
                 {task.priority === "URGENT" && (
                   <motion.span 

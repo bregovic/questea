@@ -424,18 +424,28 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
             onBlur={handleSaveTitle}
           />
           <div className="flex gap-2">
-            <select 
-              value={taskType}
-              onChange={(e) => handleTaskTypeChange(e.target.value)}
-              className={styles.typeSelect}
-            >
-              <option value="TASK">Úkol</option>
-              <option value="BUG">Bug</option>
-              <option value="IDEA">Nápad</option>
-              <option value="EXPENSE">Náklady</option>
-              <option value="LOCATION_HISTORY">Historie cesty (Složka)</option>
-              <option value="LOCATION">Místo / Zastávka</option>
-            </select>
+            <div className="flex items-center gap-2">
+              <div className={styles.typeIconBadge}>
+                {taskType === 'BUG' && <Bug size={14} />}
+                {taskType === 'IDEA' && <Lightbulb size={14} />}
+                {taskType === 'EXPENSE' && <Wallet size={14} />}
+                {taskType === 'LOCATION_HISTORY' && <Navigation size={14} />}
+                {taskType === 'LOCATION' && <MapPin size={14} />}
+                {(taskType === 'TASK' || !['BUG','IDEA','EXPENSE','LOCATION_HISTORY','LOCATION'].includes(taskType)) && <CheckSquare size={14} />}
+              </div>
+              <select 
+                value={taskType}
+                onChange={(e) => handleTaskTypeChange(e.target.value)}
+                className={styles.typeSelectMinimal}
+              >
+                <option value="TASK">Úkol</option>
+                <option value="BUG">Bug</option>
+                <option value="IDEA">Nápad</option>
+                <option value="EXPENSE">Náklady</option>
+                <option value="LOCATION_HISTORY">Historie cesty</option>
+                <option value="LOCATION">Zastávka</option>
+              </select>
+            </div>
             {taskType !== "LOCATION_HISTORY" && (
               <select 
                 value={priority}

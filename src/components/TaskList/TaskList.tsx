@@ -16,6 +16,7 @@ export const TaskList = () => {
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   const [isAddingTask, setIsAddingTask] = useState(false);
+  const [addingType, setAddingType] = useState<any>(null);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [selectedTask, setSelectedTask] = useState<any | null>(null);
 
@@ -97,7 +98,15 @@ export const TaskList = () => {
     }
     
     // Global event for adding task from sidebar
-    const handleAddTaskEvent = () => setIsAddingTask(true);
+    const handleAddTaskEvent = () => {
+      if (!currentParentId) {
+        setAddingType('FOLDER');
+        setIsAddingTask(true);
+      } else {
+        setIsAddingTask(true);
+        setAddingType(null); // Show choices
+      }
+    };
     window.addEventListener("addTask", handleAddTaskEvent);
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -374,18 +383,20 @@ export const TaskList = () => {
     }
   };
 
-  const handleAddTask = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newTaskTitle.trim()) return;
+  const handleAddTask = async (titleOverride?: string, typeOverride?: string) => {
+    const title = titleOverride || newTaskTitle;
+    const type = typeOverride || addingType || "TASK";
+    
+    if (!title.trim()) return;
     try {
       const res = await fetch("/api/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
-          title: newTaskTitle,
+          title: title,
           status: "TODO",
           priority: "MEDIUM",
-          taskType: "TASK",
+          taskType: type,
           parentId: currentParentId,
         }),
       });
@@ -394,6 +405,7 @@ export const TaskList = () => {
         setTasks([newTask, ...tasks]);
         setNewTaskTitle("");
         setIsAddingTask(false);
+        setAddingType(null);
       }
     } catch (error) {
       console.error("Failed to add task", error);
@@ -680,22 +692,50 @@ export const TaskList = () => {
 
       <AnimatePresence>
         {isAddingTask && (
-          <motion.form 
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            onSubmit={handleAddTask} 
-            className={styles.addForm}
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            className={styles.addTypeContainer}
           >
-            <input 
-              autoFocus
-              placeholder={currentParentId ? "Nový podúkol..." : "Nový projekt..."} 
-              value={newTaskTitle}
-              onChange={(e) => setNewTaskTitle(e.target.value)}
-              onBlur={() => !newTaskTitle && setIsAddingTask(false)}
-            />
-            <button type="submit">Přidat</button>
-          </motion.form>
+            {(!currentParentId || addingType) ? (
+              <form 
+                onSubmit={(e) => { e.preventDefault(); handleAddTask(); }} 
+                className={styles.addForm}
+              >
+                <input 
+                  autoFocus
+                  placeholder={addingType === 'FOLDER' ? "Název projektu/složky..." : "Zadejte název..."} 
+                  value={newTaskTitle}
+                  onChange={(e) => setNewTaskTitle(e.target.value)}
+                  onBlur={() => { if(!newTaskTitle) { setIsAddingTask(false); setAddingType(null); } }}
+                />
+                <button type="submit">Vytvořit</button>
+              </form>
+            ) : (
+              <div className={styles.typeSelector}>
+                <button onClick={() => setAddingType('TASK')} className={styles.typeOption}>
+                   <div className={styles.typeIcon} style={{ background: '#f59e0b' }}><CheckSquare size={16} /></div>
+                   <span>Úkol</span>
+                </button>
+                <button onClick={() => setAddingType('EXPENSE')} className={styles.typeOption}>
+                   <div className={styles.typeIcon} style={{ background: '#ef4444' }}><Wallet size={16} /></div>
+                   <span>Výdaj</span>
+                </button>
+                <button onClick={() => { setIsSelectingLocation(true); setIsAddingTask(false); }} className={styles.typeOption}>
+                   <div className={styles.typeIcon} style={{ background: '#3b82f6' }}><MapPin size={16} /></div>
+                   <span>Místo (GPS)</span>
+                </button>
+                <button onClick={() => setAddingType('FOLDER')} className={styles.typeOption}>
+                   <div className={styles.typeIcon} style={{ background: '#737373' }}><FolderOpen size={16} /></div>
+                   <span>Podsložka</span>
+                </button>
+                <button onClick={() => setIsAddingTask(false)} className={styles.closeTypeSelector}>
+                   <X size={18} />
+                </button>
+              </div>
+            )}
+          </motion.div>
         )}
       </AnimatePresence>
 

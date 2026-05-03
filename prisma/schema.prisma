@@ -84,6 +84,7 @@ enum TaskType {
   EXPENSE
   LOCATION_HISTORY
   LOCATION
+  FOLDER
 }
 
 model Category {

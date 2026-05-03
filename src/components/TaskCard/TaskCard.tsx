@@ -102,7 +102,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
                   {task.taskType === 'EXPENSE' && <Wallet size={14} />}
                   {task.taskType === 'LOCATION_HISTORY' && <Navigation size={14} />}
                   {task.taskType === 'LOCATION' && <MapPin size={14} />}
-                  {(task.taskType === 'TASK' || !['BUG','IDEA','EXPENSE','LOCATION_HISTORY','LOCATION'].includes(task.taskType)) && <CheckSquare size={14} />}
+                  {task.taskType === 'FOLDER' && <FolderOpen size={14} />}
+                  {(task.taskType === 'TASK' || !['BUG','IDEA','EXPENSE','LOCATION_HISTORY','LOCATION','FOLDER'].includes(task.taskType)) && <CheckSquare size={14} />}
                 </span>
                 {task.priority === "URGENT" && (
                   <motion.span 

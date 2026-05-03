@@ -711,29 +711,12 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
           />
         </section>
 
-        {/* Roles Section (Hidden for Location/Expense) */}
-        {taskType !== "LOCATION_HISTORY" && taskType !== "EXPENSE" && (
-          <section className={styles.labelsGrid}>
-            <div className={styles.labelItem}>
-              <div className={styles.labelHeader}><User size={14} /> Vlastník (Email)</div>
-              <div className="flex items-center gap-2 mt-1">
-                <Mail size={12} className="opacity-40" />
-                <input 
-                  type="email"
-                  value={ownerEmail}
-                  onChange={(e) => setOwnerEmail(e.target.value)}
-                  onBlur={handleOwnerChange}
-                  className={styles.emailInput}
-                  placeholder="email@example.com"
-                />
-              </div>
-            </div>
-            <div className={styles.labelItem}>
-              <div className={styles.labelHeader}><Calendar size={14} /> Termín</div>
-              <div className={styles.labelValue}>{task.dueDate ? new Date(task.dueDate).toLocaleDateString("cs-CZ") : "DNES"}</div>
-            </div>
-          </section>
-        )}
+        <section className={styles.labelsGrid}>
+          <div className={styles.labelItem}>
+            <div className={styles.labelHeader}><Calendar size={14} /> Termín</div>
+            <div className={styles.labelValue}>{task.dueDate ? new Date(task.dueDate).toLocaleDateString("cs-CZ") : "DNES"}</div>
+          </div>
+        </section>
 
         {/* Subtasks Section */}
         <section className={styles.section}>

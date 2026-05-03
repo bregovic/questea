@@ -501,21 +501,43 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
                   placeholder="moje-cesta-2024..."
                 />
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs opacity-40 w-12 text-right">Vzhled:</span>
-                <select 
-                  value={blogTemplate}
-                  onChange={(e) => {
-                    const t = e.target.value;
-                    setBlogTemplate(t);
-                    onUpdate(task.id, { blogTemplate: t });
-                  }}
-                  className="flex-1 p-2 bg-white border border-stone-200 rounded-xl text-sm"
-                >
-                  <option value="MODERN">Moderní (Premium)</option>
-                  <option value="MINIMAL">Minimalistický (Čistý)</option>
-                  <option value="ADVENTURE">Dobrodružný (Papír)</option>
-                </select>
+              <div className="flex flex-col gap-3">
+                <span className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Vyberte styl deníku</span>
+                <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar -mx-2 px-2">
+                  {[
+                    { id: 'MODERN', name: 'Moderní', bg: '#fafaf9', accent: '#ea580c', text: '#1c1917', font: 'sans' },
+                    { id: 'ADVENTURE', name: 'Deník', bg: '#f4f1ea', accent: '#a68a64', text: '#4a3728', font: 'serif' },
+                    { id: 'ELEGANT', name: 'Elegant', bg: '#ffffff', accent: '#c5a059', text: '#1a1a1a', font: 'serif' },
+                    { id: 'DARK', name: 'Dark', bg: '#0a0a0a', accent: '#ffffff', text: '#ffffff', font: 'sans' },
+                    { id: 'MINIMAL', name: 'Čistý', bg: '#ffffff', accent: '#e5e7eb', text: '#000000', font: 'sans' }
+                  ].map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => {
+                        setBlogTemplate(t.id);
+                        onUpdate(task.id, { blogTemplate: t.id });
+                      }}
+                      className={`flex-shrink-0 w-32 group transition-all ${blogTemplate === t.id ? 'scale-105' : 'opacity-70 grayscale-[0.5] hover:opacity-100 hover:grayscale-0'}`}
+                    >
+                      <div 
+                        className={`h-40 w-full rounded-2xl border-2 mb-2 overflow-hidden flex flex-col p-3 transition-all ${blogTemplate === t.id ? 'border-[#ea580c] shadow-lg' : 'border-stone-100'}`}
+                        style={{ backgroundColor: t.bg, color: t.text }}
+                      >
+                        <div className="h-1.5 w-8 rounded-full mb-4" style={{ backgroundColor: t.accent }} />
+                        <div className={`text-[10px] font-black leading-none mb-1 ${t.font === 'serif' ? 'font-serif italic' : ''}`}>Title</div>
+                        <div className="h-0.5 w-12 bg-current opacity-10 mb-4" />
+                        <div className="flex-1 rounded-lg border border-current opacity-10 flex items-center justify-center">
+                          <Camera size={16} />
+                        </div>
+                        <div className="h-1 w-full bg-current opacity-5 mt-4 rounded-full" />
+                        <div className="h-1 w-2/3 bg-current opacity-5 mt-1 rounded-full" />
+                      </div>
+                      <span className={`text-[10px] font-black uppercase tracking-widest ${blogTemplate === t.id ? 'text-[#ea580c]' : 'text-stone-400'}`}>
+                        {t.name}
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </section>

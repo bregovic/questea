@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
-import { MapPin, Clock, Navigation, Calendar, ChevronDown, Quote, Camera } from "lucide-react";
+import { MapPin, Clock, Navigation, Calendar, ChevronDown, Camera } from "lucide-react";
 import { Reveal, RevealImage, FloatingHeader, BlogStyles } from "@/components/Blog/BlogClient";
 
 export const dynamic = "force-dynamic";
@@ -62,32 +62,44 @@ export default async function BlogPage({ params }: { params: Promise<{ id: strin
 
   const isMinimal = template === "MINIMAL";
   const isAdventure = template === "ADVENTURE";
+  const isElegant = template === "ELEGANT";
+  const isDark = template === "DARK";
+
+  const themeClass = isDark 
+    ? 'bg-[#0a0a0a] font-["Outfit",sans-serif] text-white selection:bg-white selection:text-black' 
+    : isAdventure 
+    ? 'bg-[#f4f1ea] font-serif text-[#4a3728] selection:bg-[#4a3728] selection:text-white' 
+    : isElegant
+    ? 'bg-[#fafafa] font-serif text-[#1a1a1a] selection:bg-[#c5a059] selection:text-white'
+    : isMinimal 
+    ? 'bg-white font-sans text-black selection:bg-black selection:text-white' 
+    : 'bg-[#fafaf9] font-["Outfit",sans-serif] text-[#1c1917] selection:bg-[#ea580c] selection:text-white';
 
   return (
-    <div className={`min-h-screen pb-40 selection:bg-[#ea580c] selection:text-white ${isAdventure ? 'bg-[#f4f1ea] font-serif text-[#4a3728]' : isMinimal ? 'bg-white font-sans text-black' : 'bg-[#fafaf9] font-["Outfit",sans-serif] text-[#1c1917]'}`}>
+    <div className={`min-h-screen pb-40 ${themeClass}`}>
       
       <BlogStyles />
 
       {/* Hero Section */}
       {!isMinimal ? (
-        <header className={`relative h-[95vh] flex items-center justify-center overflow-hidden ${isAdventure ? 'bg-[#2d241e]' : 'bg-[#0c0a09]'}`}>
-          <div className="absolute inset-0 z-10 bg-gradient-to-b from-transparent via-transparent to-black/80" />
+        <header className={`relative h-[90vh] flex items-center justify-center overflow-hidden ${isDark ? 'bg-black' : isAdventure ? 'bg-[#2d241e]' : isElegant ? 'bg-[#1a1a1a]' : 'bg-[#0c0a09]'}`}>
+          <div className={`absolute inset-0 z-10 bg-gradient-to-b from-transparent via-transparent ${isDark ? 'to-[#0a0a0a]' : 'to-current/20 opacity-40'}`} />
           
           <FloatingHeader>
-            <div className="absolute inset-0 opacity-40 z-0 scale-110 bg-[url('https://www.transparenttextures.com/patterns/black-paper.png')]" />
+            <div className={`absolute inset-0 opacity-40 z-0 scale-110 ${isAdventure ? "bg-[url('https://www.transparenttextures.com/patterns/black-paper.png')]" : "bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')]"}`} />
           </FloatingHeader>
           
           <div className="relative z-20 text-center px-6 max-w-5xl">
             <Reveal delay={0.2}>
               <div className="mb-10 inline-block">
-                <div className={`backdrop-blur-2xl px-8 py-2.5 rounded-full border border-white/10 text-[12px] font-black uppercase tracking-[0.5em] ${isAdventure ? 'bg-[#d4a373]/20 text-[#d4a373]' : 'bg-[#ea580c]/20 text-[#ea580c]'}`}>
-                  {isAdventure ? 'Journal' : 'Voyage'}
+                <div className={`backdrop-blur-2xl px-8 py-2.5 rounded-full border border-white/10 text-[12px] font-black uppercase tracking-[0.5em] ${isAdventure ? 'bg-[#d4a373]/20 text-[#d4a373]' : isElegant ? 'bg-[#c5a059]/20 text-[#c5a059]' : 'bg-[#ea580c]/20 text-[#ea580c]'}`}>
+                  {isAdventure ? 'Diary' : isElegant ? 'Collection' : 'Voyage'}
                 </div>
               </div>
             </Reveal>
             
             <Reveal delay={0.4}>
-              <h1 className={`text-6xl md:text-[160px] font-black text-white mb-12 tracking-tighter leading-[0.75] drop-shadow-2xl ${isAdventure ? 'font-serif italic' : ''}`}>
+              <h1 className={`text-6xl md:text-[140px] font-black text-white mb-12 tracking-tighter leading-[0.75] drop-shadow-2xl ${isAdventure || isElegant ? 'font-serif italic' : ''}`}>
                 {folder.title}
               </h1>
             </Reveal>
@@ -95,26 +107,24 @@ export default async function BlogPage({ params }: { params: Promise<{ id: strin
             <Reveal delay={0.6}>
               <div className="flex flex-wrap justify-center gap-16 text-white/40 font-black uppercase text-[11px] tracking-[0.3em]">
                 <div className="flex items-center gap-4">
-                  <Calendar size={18} className={isAdventure ? 'text-[#d4a373]' : 'text-[#ea580c]'} />
+                  <Calendar size={18} className={isAdventure ? 'text-[#d4a373]' : isElegant ? 'text-[#c5a059]' : 'text-[#ea580c]'} />
                   <span>{startDate} {startDate !== endDate && `— ${endDate}`}</span>
                 </div>
                 <div className="flex items-center gap-4">
-                  <Navigation size={18} className={isAdventure ? 'text-[#d4a373]' : 'text-[#ea580c]'} />
-                  <span>{totalKm.toFixed(1)} KM traveled</span>
+                  <Navigation size={18} className={isAdventure ? 'text-[#d4a373]' : isElegant ? 'text-[#c5a059]' : 'text-[#ea580c]'} />
+                  <span>{totalKm.toFixed(1)} KM</span>
                 </div>
               </div>
             </Reveal>
           </div>
 
           <div className="absolute bottom-12 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-4 opacity-30">
-             <span className="text-white text-[10px] font-black tracking-[0.5em] uppercase">Keep Scrolling</span>
              <ChevronDown className="text-white animate-bounce" size={24} />
           </div>
         </header>
       ) : (
         <header className="max-w-4xl mx-auto px-6 pt-40 pb-24 text-center">
            <Reveal>
-             <span className="text-[10px] font-black tracking-[0.6em] uppercase text-stone-300 mb-8 block">Log Archive</span>
              <h1 className="text-8xl md:text-9xl font-light tracking-tighter mb-12">{folder.title}</h1>
              <div className="flex justify-center gap-16 text-stone-400 text-xs font-black tracking-widest uppercase">
                <span>{startDate} — {endDate}</span>
@@ -139,36 +149,40 @@ export default async function BlogPage({ params }: { params: Promise<{ id: strin
               if (l1 && l2) distToNext = calculateDistance(l1.latitude, l1.longitude, l2.latitude, l2.longitude);
             }
 
+            // Interweaving logic: decide layout based on photo count and text length
+            const hasLongText = (post.description?.length || 0) > 200;
+            const useSideBySide = images.length === 1 && hasLongText && !isMinimal;
+
             return (
               <article key={post.id} className="relative group">
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-16 items-start">
                   
-                  {/* Metadata Column */}
+                  {/* Metadata Column (Desktop) */}
                   {!isMinimal && (
                     <div className="md:col-span-2 hidden md:block pt-6 sticky top-16">
                        <Reveal>
-                         <div className={`text-[12px] font-black uppercase tracking-[0.3em] mb-6 ${isAdventure ? 'text-[#a68a64]' : 'text-[#ea580c]'}`}>
-                            Day {idx + 1}
+                         <div className={`text-[12px] font-black uppercase tracking-[0.3em] mb-6 ${isAdventure ? 'text-[#a68a64]' : isElegant ? 'text-[#c5a059]' : isDark ? 'text-white/40' : 'text-[#ea580c]'}`}>
+                            {idx + 1}
                          </div>
-                         <div className="text-stone-400 text-[11px] font-black space-y-2 opacity-60">
-                            <div className="flex items-center gap-3"><Clock size={14}/> {date.toLocaleTimeString("cs-CZ", { hour: '2-digit', minute: '2-digit' })}</div>
+                         <div className={`text-[11px] font-black space-y-2 opacity-60 ${isDark ? 'text-white/30' : 'text-stone-400'}`}>
+                            <div>{date.toLocaleTimeString("cs-CZ", { hour: '2-digit', minute: '2-digit' })}</div>
                             <div>{date.toLocaleDateString("cs-CZ")}</div>
                          </div>
                        </Reveal>
                     </div>
                   )}
 
-                  {/* Main Entry Body */}
+                  {/* Main Entry Content */}
                   <div className={`${isMinimal ? 'md:col-span-12' : 'md:col-span-10'}`}>
                     
                     <header className="mb-16">
                        <Reveal>
-                         <h2 className={`text-5xl md:text-8xl font-black leading-[0.85] mb-10 ${isAdventure ? 'font-serif italic text-[#2d241e]' : 'tracking-tighter text-[#1c1917]'}`}>
+                         <h2 className={`text-5xl md:text-8xl font-black leading-[0.85] mb-10 ${isAdventure || isElegant ? 'font-serif italic' : 'tracking-tighter'}`}>
                             {post.title}
                          </h2>
                          {post.locations?.[0] && !isMinimal && (
-                           <div className="flex items-center gap-3 text-stone-400 text-xs font-black uppercase tracking-[0.2em]">
-                             <MapPin size={16} className={isAdventure ? 'text-[#a68a64]' : 'text-[#ea580c]'} />
+                           <div className={`flex items-center gap-3 text-xs font-black uppercase tracking-[0.2em] ${isDark ? 'text-white/40' : 'text-stone-400'}`}>
+                             <MapPin size={16} className={isAdventure ? 'text-[#a68a64]' : isElegant ? 'text-[#c5a059]' : 'text-[#ea580c]'} />
                              {post.locations[0].placeName || post.locations[0].address}
                            </div>
                          )}
@@ -176,68 +190,80 @@ export default async function BlogPage({ params }: { params: Promise<{ id: strin
                     </header>
 
                     <div className="flex flex-col gap-12">
-                       {/* Images: Big & Natural Layout */}
-                       {images.length > 0 && (
-                         <div className={`grid gap-6 ${images.length === 1 ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'}`}>
-                            {images.map((att: any, imgIdx: number) => {
-                               const rotation = isAdventure ? (imgIdx % 2 === 0 ? -2.5 : 2.5) : 0;
-                               const span = (imgIdx === 0 && images.length > 2) ? 'md:col-span-2 md:row-span-2' : '';
-                               
-                               return (
-                                 <RevealImage 
-                                   key={att.id} 
-                                   delay={imgIdx * 0.1} 
-                                   rotation={rotation}
-                                 >
-                                   <div className={`relative group overflow-hidden shadow-xl transition-all duration-1000 ${span} ${isAdventure ? 'border-[12px] border-white p-1 rounded-sm shadow-stone-400/30' : 'rounded-2xl md:rounded-3xl'}`}>
-                                     {isAdventure && (
-                                       <div className="absolute top-[-15px] left-1/2 -translate-x-1/2 w-24 h-10 washi-tape z-20 rotate-[-2deg] pointer-events-none opacity-80" />
-                                     )}
-                                     <img 
-                                       src={att.url} 
-                                       alt={att.name} 
-                                       className={`w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105 ${span ? 'aspect-auto h-full min-h-[500px]' : 'aspect-[4/3]'}`} 
-                                     />
-                                   </div>
-                                 </RevealImage>
-                               );
-                            })}
+                       {/* Interwoven Layout: Image and Text Side by Side if possible */}
+                       {useSideBySide ? (
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+                            <RevealImage delay={0.1}>
+                               <div className={`relative overflow-hidden shadow-xl ${isAdventure ? 'border-[12px] border-white p-1' : isElegant ? 'rounded-none border border-stone-200' : 'rounded-2xl md:rounded-3xl'}`}>
+                                 <img src={images[0].url} alt={images[0].name} className="w-full object-cover aspect-[4/5]" />
+                               </div>
+                            </RevealImage>
+                            <Reveal delay={0.2}>
+                               <div className={`relative ${isAdventure || isElegant ? 'font-serif leading-relaxed text-2xl' : 'leading-[1.8] text-xl md:text-2xl'}`}>
+                                  <span className={`drop-cap ${isAdventure ? 'text-[#d4a373]' : isElegant ? 'text-[#c5a059]' : 'text-[#ea580c]/30'}`}>
+                                     {post.description!.charAt(0)}
+                                  </span>
+                                  <p className="whitespace-pre-wrap">{post.description!.slice(1)}</p>
+                               </div>
+                            </Reveal>
                          </div>
-                       )}
+                       ) : (
+                         <>
+                           {/* Normal Flow: Big Images first, then Text */}
+                           {images.length > 0 && (
+                             <div className={`grid gap-6 ${images.length === 1 ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'}`}>
+                                {images.map((att: any, imgIdx: number) => {
+                                   const rotation = isAdventure ? (imgIdx % 2 === 0 ? -2.5 : 2.5) : 0;
+                                   const span = (imgIdx === 0 && images.length > 2) ? 'md:col-span-2 md:row-span-2' : '';
+                                   
+                                   return (
+                                     <RevealImage 
+                                       key={att.id} 
+                                       delay={imgIdx * 0.1} 
+                                       rotation={rotation}
+                                     >
+                                       <div className={`relative group overflow-hidden shadow-xl transition-all duration-1000 ${span} ${isAdventure ? 'border-[12px] border-white p-1 rounded-sm shadow-stone-400/30' : isElegant ? 'rounded-none border border-stone-100' : 'rounded-2xl md:rounded-3xl'}`}>
+                                         {isAdventure && (
+                                           <div className="absolute top-[-15px] left-1/2 -translate-x-1/2 w-24 h-10 washi-tape z-20 rotate-[-2deg] pointer-events-none opacity-80" />
+                                         )}
+                                         <img 
+                                           src={att.url} 
+                                           alt={att.name} 
+                                           className={`w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105 ${span ? 'aspect-auto h-full min-h-[500px]' : 'aspect-[4/3]'}`} 
+                                         />
+                                       </div>
+                                     </RevealImage>
+                                   );
+                                })}
+                             </div>
+                           )}
 
-                       {/* Description with Polished Drop Cap */}
-                       {post.description && (
-                         <Reveal delay={0.3}>
-                           <div className={`relative ${isAdventure ? 'font-serif text-[#4a3728] leading-[1.7] text-3xl max-w-2xl' : 'text-stone-600 leading-[1.8] text-2xl md:text-3xl max-w-3xl'}`}>
-                              <span className={`drop-cap ${isAdventure ? 'text-[#d4a373]' : 'text-[#ea580c]/30'}`}>
-                                 {post.description.charAt(0)}
-                              </span>
-                              <p className="whitespace-pre-wrap">
-                                 {post.description.slice(1)}
-                              </p>
-                              
-                              {isAdventure && (
-                                <div className="absolute -bottom-16 -right-16 opacity-[0.03] pointer-events-none">
-                                   <Quote size={240} />
-                                </div>
-                              )}
-                           </div>
-                         </Reveal>
+                           {post.description && (
+                             <Reveal delay={0.2}>
+                               <div className={`relative ${isAdventure || isElegant ? 'font-serif leading-relaxed text-2xl max-w-2xl' : 'text-stone-600 leading-[1.8] text-xl md:text-2xl max-w-3xl'}`}>
+                                  <span className={`drop-cap ${isAdventure ? 'text-[#d4a373]' : isElegant ? 'text-[#c5a059]' : isDark ? 'text-white/20' : 'text-[#ea580c]/30'}`}>
+                                     {post.description.charAt(0)}
+                                  </span>
+                                  <p className="whitespace-pre-wrap">{post.description.slice(1)}</p>
+                               </div>
+                             </Reveal>
+                           )}
+                         </>
                        )}
                     </div>
                   </div>
                 </div>
 
-                {/* Road Indicator */}
+                {/* Distance Indicator */}
                 {distToNext > 0.1 && (
                   <Reveal>
                     <div className="flex items-center gap-16 my-32">
-                      <div className={`h-px flex-1 opacity-10 ${isAdventure ? 'bg-[#4a3728]' : 'bg-black'}`} />
-                      <div className={`text-[11px] font-black tracking-[0.6em] uppercase whitespace-nowrap opacity-20 flex items-center gap-6 ${isAdventure ? 'font-serif italic' : ''}`}>
+                      <div className={`h-px flex-1 opacity-10 ${isDark ? 'bg-white' : 'bg-black'}`} />
+                      <div className={`text-[11px] font-black tracking-[0.6em] uppercase whitespace-nowrap opacity-20 flex items-center gap-6 ${isAdventure || isElegant ? 'font-serif italic' : ''}`}>
                          <Navigation size={14} />
-                         The Road continues: {distToNext.toFixed(1)} KM
+                         {distToNext.toFixed(1)} KM
                       </div>
-                      <div className={`h-px flex-1 opacity-10 ${isAdventure ? 'bg-[#4a3728]' : 'bg-black'}`} />
+                      <div className={`h-px flex-1 opacity-10 ${isDark ? 'bg-white' : 'bg-black'}`} />
                     </div>
                   </Reveal>
                 )}
@@ -247,21 +273,8 @@ export default async function BlogPage({ params }: { params: Promise<{ id: strin
         </div>
       </main>
 
-      <footer className="mt-80 pb-60 text-center">
-         <Reveal>
-           <div className="max-w-sm mx-auto mb-24">
-              <div className={`h-2 w-32 mx-auto mb-12 ${isAdventure ? 'bg-[#d4a373]' : 'bg-[#ea580c]'}`} />
-              <p className="text-lg font-light italic opacity-40 mb-20 leading-relaxed px-8">
-                “Traveling – it leaves you speechless, then turns you into a storyteller.”
-              </p>
-           </div>
-           <div className="flex flex-col items-center gap-10">
-              <div className="text-[11px] font-black tracking-[2em] uppercase opacity-10">Journey Concluded</div>
-              <div className={`w-14 h-14 rounded-full border flex items-center justify-center opacity-20 ${isAdventure ? 'border-[#4a3728]' : 'border-black'}`}>
-                 <Camera size={20} />
-              </div>
-           </div>
-         </Reveal>
+      <footer className="mt-80 pb-60 text-center opacity-30">
+         <div className={`h-2 w-32 mx-auto ${isAdventure ? 'bg-[#d4a373]' : isElegant ? 'bg-[#c5a059]' : isDark ? 'bg-white' : 'bg-[#ea580c]'}`} />
       </footer>
     </div>
   );

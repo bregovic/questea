@@ -125,7 +125,7 @@ export default async function BlogPage({ params }: { params: Promise<{ id: strin
       )}
 
       {/* Main Content */}
-      <main className={`max-w-4xl mx-auto px-6 relative z-30 ${!isMinimal ? '-mt-32' : 'pt-24'}`}>
+      <main className={`max-w-4xl mx-auto px-6 relative z-30 ${isMinimal ? 'pt-24' : 'pt-20 md:pt-32'}`}>
         <div className="space-y-64">
           {posts.map((post, idx) => {
             const date = new Date(post.recordedAt || post.createdAt);
@@ -175,10 +175,10 @@ export default async function BlogPage({ params }: { params: Promise<{ id: strin
                        </Reveal>
                     </header>
 
-                    <div className="flex flex-col gap-20">
-                       {/* Images with Grid & Washi Tape */}
+                    <div className="flex flex-col gap-12">
+                       {/* Images: Big & Natural Layout */}
                        {images.length > 0 && (
-                         <div className={`grid gap-12 ${images.length === 1 ? 'grid-cols-1' : images.length === 2 ? 'grid-cols-2' : 'grid-cols-2 md:grid-cols-3'}`}>
+                         <div className={`grid gap-6 ${images.length === 1 ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'}`}>
                             {images.map((att: any, imgIdx: number) => {
                                const rotation = isAdventure ? (imgIdx % 2 === 0 ? -2.5 : 2.5) : 0;
                                const span = (imgIdx === 0 && images.length > 2) ? 'md:col-span-2 md:row-span-2' : '';
@@ -186,12 +186,12 @@ export default async function BlogPage({ params }: { params: Promise<{ id: strin
                                return (
                                  <RevealImage 
                                    key={att.id} 
-                                   delay={imgIdx * 0.15} 
+                                   delay={imgIdx * 0.1} 
                                    rotation={rotation}
                                  >
-                                   <div className={`relative group overflow-hidden shadow-2xl transition-all duration-1000 ${span} ${isAdventure ? 'border-[16px] border-white p-1 rounded-sm shadow-stone-400/40' : 'rounded-[60px]'}`}>
+                                   <div className={`relative group overflow-hidden shadow-xl transition-all duration-1000 ${span} ${isAdventure ? 'border-[12px] border-white p-1 rounded-sm shadow-stone-400/30' : 'rounded-2xl md:rounded-3xl'}`}>
                                      {isAdventure && (
-                                       <div className="absolute top-[-20px] left-1/2 -translate-x-1/2 w-28 h-12 washi-tape z-20 rotate-[-3deg] pointer-events-none" />
+                                       <div className="absolute top-[-15px] left-1/2 -translate-x-1/2 w-24 h-10 washi-tape z-20 rotate-[-2deg] pointer-events-none opacity-80" />
                                      )}
                                      <img 
                                        src={att.url} 

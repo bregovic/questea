@@ -51,7 +51,7 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
     for (let i = 0; i < odoPosts.length - 1; i++) {
       const p1 = odoPosts[i];
       const p2 = odoPosts[i+1];
-      const realSegmentDist = Math.abs(p2.odometer - p1.odometer);
+      const realSegmentDist = Math.abs((p2.odometer || 0) - (p1.odometer || 0));
       
       const segmentStartIndex = posts.findIndex(p => p.id === p1.id);
       const segmentEndIndex = posts.findIndex(p => p.id === p2.id);

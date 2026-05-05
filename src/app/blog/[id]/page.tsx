@@ -19,7 +19,15 @@ async function getBlogData(idOrSlug: string) {
         where: { isDeleted: false },
         include: {
           locations: true,
-          attachments: true
+          attachments: {
+            select: {
+              id: true,
+              name: true,
+              type: true,
+              createdAt: true
+              // url is excluded to save bandwidth, served via /api/images/[id]
+            }
+          }
         },
         orderBy: { recordedAt: "asc" }
       }
@@ -46,7 +54,13 @@ export default async function BlogPage({ params }: { params: Promise<{ id: strin
   const folder = await getBlogData(id);
   if (!folder) notFound();
 
-  const posts = folder.subTasks;
+  const posts = folder.subTasks.map(post => ({
+    ...post,
+    attachments: post.attachments.map(att => ({
+      ...att,
+      url: att.type === 'image' ? `/api/images/${att.id}` : '#'
+    }))
+  }));
   const template = folder.blogTemplate || "MODERN";
 
   // Odometer Calibration for Total KM
@@ -58,7 +72,7 @@ export default async function BlogPage({ params }: { params: Promise<{ id: strin
     const lastOdo = odoPosts[odoPosts.length - 1];
     
     // Distance between first and last odometer readings
-    totalKm = Math.abs(lastOdo.odometer - firstOdo.odometer);
+    totalKm = Math.abs((lastOdo.odometer || 0) - (firstOdo.odometer || 0));
     
     // Add GPS distance BEFORE the first odometer reading
     const firstOdoIndex = posts.findIndex(p => p.id === firstOdo.id);

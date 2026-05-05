@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, ReactNode } from "react";
+import { useState, useEffect, ReactNode, useRef } from "react";
 import { motion } from "framer-motion";
 import { X, ChevronLeft, ChevronRight, Navigation } from "lucide-react";
 import { AnimatePresence } from "framer-motion";
@@ -154,7 +154,7 @@ export const Lightbox = ({ images, initialIndex, onClose }: { images: string[], 
 };
 export const JourneyMap = ({ points, isMini = false, id = "journey-map" }: { points: { lat: number, lng: number, title: string }[], isMini?: boolean, id?: string }) => {
   const [isUnlocked, setIsUnlocked] = useState(false);
-  const mapRef = React.useRef<any>(null);
+  const mapRef = useRef<any>(null);
 
   useEffect(() => {
     // Load Leaflet from CDN

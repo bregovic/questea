@@ -89,14 +89,19 @@ export const TaskList = () => {
   };
 
   useEffect(() => {
+    console.log("TaskList: Fetching tasks...");
     fetchTasks();
-    
-    // Sync state if URL changes (back button support)
-    const pId = searchParams.get("parentId");
-    if (pId !== currentParentId) {
-      setCurrentParentId(pId);
-    }
-    
+    fetchCategories();
+  }, []);
+
+  // Sync state if URL changes (back button support)
+  const pIdFromUrl = searchParams.get("parentId");
+  if (pIdFromUrl !== currentParentId) {
+    console.log("TaskList: Syncing parentId from URL", pIdFromUrl);
+    setCurrentParentId(pIdFromUrl);
+  }
+
+  useEffect(() => {
     // Global event for adding task from sidebar
     const handleAddTaskEvent = () => {
       if (!currentParentId) {
@@ -227,46 +232,51 @@ export const TaskList = () => {
   });
 
   const getJourneyStats = () => {
-    if (!isLocationHistoryFolder || filteredTasks.length < 1) return null;
-    
-    // Sort tasks by recordedAt (or createdAt as fallback)
-    const sorted = [...filteredTasks].sort((a, b) => {
-      const dateA = new Date(a.recordedAt || a.createdAt).getTime();
-      const dateB = new Date(b.recordedAt || b.createdAt).getTime();
-      return dateB - dateA; // DESCENDING (newest first)
-    });
+    try {
+      if (!isLocationHistoryFolder || !filteredTasks || filteredTasks.length < 1) return null;
+      
+      // Sort tasks by recordedAt (or createdAt as fallback)
+      const sorted = [...filteredTasks].sort((a, b) => {
+        const dateA = new Date(a.recordedAt || a.createdAt).getTime();
+        const dateB = new Date(b.recordedAt || b.createdAt).getTime();
+        return dateB - dateA; // DESCENDING (newest first)
+      });
 
-    let totalDist = 0;
-    for (let i = 0; i < sorted.length - 1; i++) {
-      const loc1 = sorted[i].locations?.[0];
-      const loc2 = sorted[i+1].locations?.[0];
-      if (loc1 && loc2) {
-        totalDist += calculateDistance(loc1.latitude, loc1.longitude, loc2.latitude, loc2.longitude);
+      let totalDist = 0;
+      for (let i = 0; i < sorted.length - 1; i++) {
+        const loc1 = sorted[i].locations?.[0];
+        const loc2 = sorted[i+1].locations?.[0];
+        if (loc1 && loc2 && loc1.latitude && loc1.longitude && loc2.latitude && loc2.longitude) {
+          totalDist += calculateDistance(loc1.latitude, loc1.longitude, loc2.latitude, loc2.longitude);
+        }
       }
+
+      const start = sorted[0] ? new Date(sorted[0].recordedAt || sorted[0].createdAt) : new Date();
+      const end = sorted[sorted.length - 1] ? new Date(sorted[sorted.length - 1].recordedAt || sorted[sorted.length - 1].createdAt) : new Date();
+      
+      // Calibration calculation
+      const odometerTasks = sorted.filter(t => t.odometer !== null && t.odometer !== undefined).sort((a, b) => {
+        return new Date(a.recordedAt || a.createdAt).getTime() - new Date(b.recordedAt || b.createdAt).getTime();
+      });
+
+      let displayTotalDist = totalDist;
+      if (odometerTasks.length >= 2) {
+        const firstOdo = odometerTasks[0].odometer;
+        const lastOdo = odometerTasks[odometerTasks.length - 1].odometer;
+        displayTotalDist = Math.abs(lastOdo - firstOdo);
+      }
+
+      return {
+        totalDistance: displayTotalDist.toFixed(1),
+        gpsDistance: totalDist.toFixed(1),
+        timeRange: `${start.toLocaleDateString("cs-CZ")} - ${end.toLocaleDateString("cs-CZ")}`,
+        sortedTasks: sorted,
+        odometerPoints: odometerTasks
+      };
+    } catch (err) {
+      console.error("Error calculating journey stats:", err);
+      return null;
     }
-
-    const start = new Date(sorted[0].recordedAt || sorted[0].createdAt);
-    const end = new Date(sorted[sorted.length - 1].recordedAt || sorted[sorted.length - 1].createdAt);
-    
-    // Calibration calculation
-    const odometerTasks = sorted.filter(t => t.odometer !== null).sort((a, b) => {
-      return new Date(a.recordedAt || a.createdAt).getTime() - new Date(b.recordedAt || b.createdAt).getTime();
-    });
-
-    let displayTotalDist = totalDist;
-    if (odometerTasks.length >= 2) {
-      const firstOdo = odometerTasks[0].odometer;
-      const lastOdo = odometerTasks[odometerTasks.length - 1].odometer;
-      displayTotalDist = lastOdo - firstOdo;
-    }
-
-    return {
-      totalDistance: displayTotalDist.toFixed(1),
-      gpsDistance: totalDist.toFixed(1),
-      timeRange: `${start.toLocaleDateString("cs-CZ")} - ${end.toLocaleDateString("cs-CZ")}`,
-      sortedTasks: sorted,
-      odometerPoints: odometerTasks
-    };
   };
 
   const stats = getJourneyStats();

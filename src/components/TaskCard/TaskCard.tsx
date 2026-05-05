@@ -72,9 +72,16 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
         style={{ x }}
         onDragEnd={handleDragEnd}
         onClick={() => {
-          if (task.taskType === "LOCATION_HISTORY" || task.subTasks?.length > 0) {
+          // If it's a stop (LOCATION) or a standard task/expense, open detail
+          if (task.taskType === "LOCATION" || task.taskType === "TASK" || task.taskType === "EXPENSE") {
+            onOpenDetail?.();
+          } 
+          // If it's a folder or journey container, open it
+          else if (task.taskType === "LOCATION_HISTORY" || task.taskType === "FOLDER" || task.subTasks?.length > 0) {
             onOpen?.();
-          } else {
+          } 
+          // Fallback
+          else {
             onOpenDetail?.();
           }
         }}

@@ -5,8 +5,9 @@ async function main() {
   console.log("Starting data cleanup...");
 
   // 1. Fix task types for legacy subtasks
-  // Any task that has a parent and is still LOCATION_HISTORY should be LOCATION
-  const subTasks = await prisma.task.updateMany({
+  // Any task that has a parent and is still LOCATION_HISTORY or FOLDER should be LOCATION or TASK
+  // We'll default to LOCATION if it was LOCATION_HISTORY, and TASK if it was FOLDER
+  const locationSubTasks = await prisma.task.updateMany({
     where: {
       parentId: { not: null },
       taskType: "LOCATION_HISTORY"
@@ -15,7 +16,18 @@ async function main() {
       taskType: "LOCATION"
     }
   });
-  console.log(`Updated ${subTasks.count} subtasks to type LOCATION.`);
+  console.log(`Updated ${locationSubTasks.count} subtasks to type LOCATION.`);
+
+  const folderSubTasks = await prisma.task.updateMany({
+    where: {
+      parentId: { not: null },
+      taskType: "FOLDER"
+    },
+    data: {
+      taskType: "TASK" // Usually if it's a sub-folder it might be a mistake or should be a task
+    }
+  });
+  console.log(`Updated ${folderSubTasks.count} subtasks from FOLDER to TASK.`);
 
   // 2. Ensure root journey folders are LOCATION_HISTORY
   const rootJourneys = await prisma.task.updateMany({

@@ -36,6 +36,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
   const [currency, setCurrency] = useState(task.currency || "CZK");
   const [payee, setPayee] = useState(task.payee || "");
   const [recordedAt, setRecordedAt] = useState(task.recordedAt ? new Date(task.recordedAt).toISOString().slice(0, 16) : "");
+  const [odometer, setOdometer] = useState(task.odometer || "");
   const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
   const [payees, setPayees] = useState<any[]>([]);
   const isLocationHistory = taskType === "LOCATION_HISTORY";
@@ -304,9 +305,18 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
     });
   };
 
-  const handleRecordedAtChange = (newVal: string) => {
-    setRecordedAt(newVal);
-    onUpdate(task.id, { recordedAt: newVal ? new Date(newVal).toISOString() : null });
+  const handleRecordedAtChange = (val: string) => {
+    setRecordedAt(val);
+    onUpdate(task.id, { recordedAt: val ? new Date(val).toISOString() : null });
+  };
+
+  const handleOdometerChange = (val: string) => {
+    setOdometer(val);
+  };
+
+  const handleOdometerBlur = () => {
+    const val = odometer === "" ? null : parseFloat(odometer);
+    onUpdate(task.id, { odometer: val });
   };
 
   const handleDelete = () => {
@@ -458,13 +468,27 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
           </div>
           <div className="flex items-center gap-2 mt-1">
              <Clock size={12} className="opacity-40" />
-             <input 
-               type="datetime-local" 
-               className={styles.recordedAtInput}
-               value={recordedAt}
-               onChange={(e) => handleRecordedAtChange(e.target.value)}
-             />
-          </div>
+              <input 
+                type="datetime-local" 
+                className={styles.recordedAtInput}
+                value={recordedAt}
+                onChange={(e) => handleRecordedAtChange(e.target.value)}
+              />
+           </div>
+           {isLocation && (
+             <div className="flex items-center gap-2 mt-1">
+                <Navigation size={12} className="opacity-40" />
+                <input 
+                  type="number"
+                  placeholder="Stav km (tachometr)..."
+                  className={styles.odometerInput}
+                  value={odometer}
+                  onChange={(e) => handleOdometerChange(e.target.value)}
+                  onBlur={handleOdometerBlur}
+                />
+                <span className="text-[10px] opacity-40 font-bold">KM</span>
+             </div>
+           )}
         </div>
         <button onClick={onClose} className={styles.closeBtn}>
           <X size={24} />

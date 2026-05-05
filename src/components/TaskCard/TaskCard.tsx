@@ -103,6 +103,12 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
                     {new Date(task.dueDate).toLocaleDateString("cs-CZ")}
                   </span>
                 )}
+                {task.odometer && (
+                  <span className={styles.odometerBadge}>
+                    <Navigation size={10} />
+                    {task.odometer} km
+                  </span>
+                )}
                 <span className={styles.typeBadge} data-type={task.taskType}>
                   {task.taskType === 'BUG' && <Bug size={14} />}
                   {task.taskType === 'IDEA' && <Lightbulb size={14} />}

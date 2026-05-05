@@ -148,6 +148,7 @@ model Task {
   lockStatus  Boolean  @default(false) // If true, cannot be closed/DONE manually
   orderIndex  Int      @default(0)
   recordedAt  DateTime? // Kdy se to skutečně stalo (pro historii)
+  odometer    Float?      // Manual odometer reading (km)
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

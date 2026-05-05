@@ -51,7 +51,7 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
           
           // Fallback: If we have one giant block but it contains single newlines, split by those
           if (paragraphs.length === 1 && post.description && post.description.includes('\n')) {
-            paragraphs = post.description.split('\n').filter(p => p.trim().length > 20);
+            paragraphs = post.description.split('\n').filter((p: string) => p.trim().length > 20);
           }
           
           // Safety: If still only 1 paragraph but very long, we could split by sentences, 

@@ -46,8 +46,16 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
             if (l1 && l2) distToNext = calculateDistance(l1.latitude, l1.longitude, l2.latitude, l2.longitude);
           }
 
-          // Content Interleaving Logic
-          const paragraphs = post.description ? post.description.split("\n\n").filter(Boolean) : [];
+          // Content Interleaving Logic - improved to handle single newlines if needed
+          let paragraphs = post.description ? post.description.split(/\n\s*\n/).filter(Boolean) : [];
+          
+          // Fallback: If we have one giant block but it contains single newlines, split by those
+          if (paragraphs.length === 1 && post.description && post.description.includes('\n')) {
+            paragraphs = post.description.split('\n').filter(p => p.trim().length > 20);
+          }
+          
+          // Safety: If still only 1 paragraph but very long, we could split by sentences, 
+          // but usually single newline split above covers most cases.
           
           return (
             <article key={post.id} className="relative group blog-article">

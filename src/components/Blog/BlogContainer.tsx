@@ -129,7 +129,8 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
       )}
 
       <div className="space-y-64">
-        {visiblePosts.map((post, idx) => {
+        {[...visiblePosts].reverse().map((post, idx) => {
+          const visualIndex = visiblePosts.length - idx;
           const date = new Date(post.recordedAt || post.createdAt);
           const images = post.attachments?.filter((a: any) => a.type === "image") || [];
           const imageUrls = images.map((img: any) => img.url);
@@ -156,7 +157,7 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
                   <div className="md:col-span-2 hidden md:block pt-6 sticky top-24">
                      <Reveal>
                        <div className={`text-[12px] font-black uppercase tracking-[0.3em] mb-6 ${isAdventure ? 'text-[#a68a64]' : isElegant ? 'text-[#c5a059]' : isDark ? 'text-white/40' : 'text-[#ea580c]'}`}>
-                          {idx + 1}
+                          {visualIndex}
                        </div>
                        <div className={`text-[11px] font-black space-y-2 opacity-60 ${isDark ? 'text-white/30' : 'text-stone-400'}`}>
                           <div>{date.toLocaleTimeString("cs-CZ", { hour: '2-digit', minute: '2-digit' })}</div>

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { MapPin, Clock, Navigation, Calendar, ChevronDown, Camera } from "lucide-react";
 import { Reveal, RevealImage, FloatingHeader, BlogStyles } from "@/components/Blog/BlogClient";
+import { BlogContainer } from "@/components/Blog/BlogContainer";
 
 export const dynamic = "force-dynamic";
 
@@ -136,141 +137,7 @@ export default async function BlogPage({ params }: { params: Promise<{ id: strin
 
       {/* Main Content */}
       <main className={`max-w-4xl mx-auto px-6 relative z-30 ${isMinimal ? 'pt-24' : 'pt-20 md:pt-32'}`}>
-        <div className="space-y-64">
-          {posts.map((post, idx) => {
-            const date = new Date(post.recordedAt || post.createdAt);
-            const nextPost = posts[idx + 1];
-            const images = post.attachments?.filter((a:any) => a.type === 'image') || [];
-            
-            let distToNext = 0;
-            if (nextPost) {
-              const l1 = post.locations?.[0];
-              const l2 = nextPost.locations?.[0];
-              if (l1 && l2) distToNext = calculateDistance(l1.latitude, l1.longitude, l2.latitude, l2.longitude);
-            }
-
-            // Interweaving logic: decide layout based on photo count and text length
-            const hasLongText = (post.description?.length || 0) > 200;
-            const useSideBySide = images.length === 1 && hasLongText && !isMinimal;
-
-            return (
-              <article key={post.id} className="relative group">
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-16 items-start">
-                  
-                  {/* Metadata Column (Desktop) */}
-                  {!isMinimal && (
-                    <div className="md:col-span-2 hidden md:block pt-6 sticky top-16">
-                       <Reveal>
-                         <div className={`text-[12px] font-black uppercase tracking-[0.3em] mb-6 ${isAdventure ? 'text-[#a68a64]' : isElegant ? 'text-[#c5a059]' : isDark ? 'text-white/40' : 'text-[#ea580c]'}`}>
-                            {idx + 1}
-                         </div>
-                         <div className={`text-[11px] font-black space-y-2 opacity-60 ${isDark ? 'text-white/30' : 'text-stone-400'}`}>
-                            <div>{date.toLocaleTimeString("cs-CZ", { hour: '2-digit', minute: '2-digit' })}</div>
-                            <div>{date.toLocaleDateString("cs-CZ")}</div>
-                         </div>
-                       </Reveal>
-                    </div>
-                  )}
-
-                  {/* Main Entry Content */}
-                  <div className={`${isMinimal ? 'md:col-span-12' : 'md:col-span-10'}`}>
-                    
-                    <header className="mb-16">
-                       <Reveal>
-                         <h2 className={`text-5xl md:text-8xl font-black leading-[0.85] mb-10 ${isAdventure || isElegant ? 'font-serif italic' : 'tracking-tighter'}`}>
-                            {post.title}
-                         </h2>
-                         {post.locations?.[0] && !isMinimal && (
-                           <div className={`flex items-center gap-3 text-xs font-black uppercase tracking-[0.2em] ${isDark ? 'text-white/40' : 'text-stone-400'}`}>
-                             <MapPin size={16} className={isAdventure ? 'text-[#a68a64]' : isElegant ? 'text-[#c5a059]' : 'text-[#ea580c]'} />
-                             {post.locations[0].placeName || post.locations[0].address}
-                           </div>
-                         )}
-                       </Reveal>
-                    </header>
-
-                    <div className="flex flex-col gap-12">
-                       {/* Interwoven Layout: Image and Text Side by Side if possible */}
-                       {useSideBySide ? (
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-                            <RevealImage delay={0.1}>
-                               <div className={`relative overflow-hidden shadow-xl ${isAdventure ? 'border-[12px] border-white p-1' : isElegant ? 'rounded-none border border-stone-200' : 'rounded-2xl md:rounded-3xl'}`}>
-                                 <img src={images[0].url} alt={images[0].name} className="w-full object-cover aspect-[4/5]" />
-                               </div>
-                            </RevealImage>
-                            <Reveal delay={0.2}>
-                               <div className={`relative ${isAdventure || isElegant ? 'font-serif leading-relaxed text-2xl' : 'leading-[1.8] text-xl md:text-2xl'}`}>
-                                  <span className={`drop-cap ${isAdventure ? 'text-[#d4a373]' : isElegant ? 'text-[#c5a059]' : 'text-[#ea580c]/30'}`}>
-                                     {post.description!.charAt(0)}
-                                  </span>
-                                  <p className="whitespace-pre-wrap">{post.description!.slice(1)}</p>
-                               </div>
-                            </Reveal>
-                         </div>
-                       ) : (
-                         <>
-                           {/* Normal Flow: Big Images first, then Text */}
-                           {images.length > 0 && (
-                             <div className={`grid gap-6 ${images.length === 1 ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'}`}>
-                                {images.map((att: any, imgIdx: number) => {
-                                   const rotation = isAdventure ? (imgIdx % 2 === 0 ? -2.5 : 2.5) : 0;
-                                   const span = (imgIdx === 0 && images.length > 2) ? 'md:col-span-2 md:row-span-2' : '';
-                                   
-                                   return (
-                                     <RevealImage 
-                                       key={att.id} 
-                                       delay={imgIdx * 0.1} 
-                                       rotation={rotation}
-                                     >
-                                       <div className={`relative group overflow-hidden shadow-xl transition-all duration-1000 ${span} ${isAdventure ? 'border-[12px] border-white p-1 rounded-sm shadow-stone-400/30' : isElegant ? 'rounded-none border border-stone-100' : 'rounded-2xl md:rounded-3xl'}`}>
-                                         {isAdventure && (
-                                           <div className="absolute top-[-15px] left-1/2 -translate-x-1/2 w-24 h-10 washi-tape z-20 rotate-[-2deg] pointer-events-none opacity-80" />
-                                         )}
-                                         <img 
-                                           src={att.url} 
-                                           alt={att.name} 
-                                           className={`w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105 ${span ? 'aspect-auto h-full min-h-[500px]' : 'aspect-[4/3]'}`} 
-                                         />
-                                       </div>
-                                     </RevealImage>
-                                   );
-                                })}
-                             </div>
-                           )}
-
-                           {post.description && (
-                             <Reveal delay={0.2}>
-                               <div className={`relative ${isAdventure || isElegant ? 'font-serif leading-relaxed text-2xl max-w-2xl' : 'text-stone-600 leading-[1.8] text-xl md:text-2xl max-w-3xl'}`}>
-                                  <span className={`drop-cap ${isAdventure ? 'text-[#d4a373]' : isElegant ? 'text-[#c5a059]' : isDark ? 'text-white/20' : 'text-[#ea580c]/30'}`}>
-                                     {post.description.charAt(0)}
-                                  </span>
-                                  <p className="whitespace-pre-wrap">{post.description.slice(1)}</p>
-                               </div>
-                             </Reveal>
-                           )}
-                         </>
-                       )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Distance Indicator */}
-                {distToNext > 0.1 && (
-                  <Reveal>
-                    <div className="flex items-center gap-16 my-32">
-                      <div className={`h-px flex-1 opacity-10 ${isDark ? 'bg-white' : 'bg-black'}`} />
-                      <div className={`text-[11px] font-black tracking-[0.6em] uppercase whitespace-nowrap opacity-20 flex items-center gap-6 ${isAdventure || isElegant ? 'font-serif italic' : ''}`}>
-                         <Navigation size={14} />
-                         {distToNext.toFixed(1)} KM
-                      </div>
-                      <div className={`h-px flex-1 opacity-10 ${isDark ? 'bg-white' : 'bg-black'}`} />
-                    </div>
-                  </Reveal>
-                )}
-              </article>
-            );
-          })}
-        </div>
+        <BlogContainer posts={posts} folder={folder} template={template} />
       </main>
 
       <footer className="mt-80 pb-60 text-center opacity-30">

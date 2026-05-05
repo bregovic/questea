@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { revalidatePath } from "next/cache";
 
 export async function PATCH(
   req: Request,
@@ -65,6 +66,14 @@ export async function PATCH(
         where: { parentId: id },
         data: { status: "DONE" }
       });
+    }
+
+    // Trigger revalidation for the public blog
+    if (task.slug) {
+      revalidatePath(`/blog/${task.slug}`);
+      revalidatePath(`/blog/${task.id}`);
+    } else {
+      revalidatePath(`/blog/${task.id}`);
     }
 
     return NextResponse.json(task);

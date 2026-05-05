@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
@@ -39,6 +40,17 @@ export async function POST(req: Request) {
         mileage: data.mileage ? parseFloat(data.mileage) : null,
       }
     });
+
+    // Revalidate the blog if taskId exists
+    if (data.taskId) {
+      // Find the task slug first to revalidate both ID and Slug paths
+      const task = await prisma.task.findUnique({ where: { id: data.taskId } });
+      if (task) {
+        if (task.slug) revalidatePath(`/blog/${task.slug}`);
+        revalidatePath(`/blog/${task.id}`);
+      }
+    }
+
     return NextResponse.json(location);
   } catch (error) {
     return NextResponse.json({ error: "Failed to save location" }, { status: 500 });

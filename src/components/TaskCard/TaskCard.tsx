@@ -72,11 +72,15 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
         style={{ x }}
         onDragEnd={handleDragEnd}
         onClick={() => {
-          // 1. If it's a folder, journey, or has children -> OPEN/ENTER it
-          if (task.taskType === "FOLDER" || task.taskType === "LOCATION_HISTORY" || task.subTasks?.length > 0) {
+          // 1. Leaf types (Stop, Expense) always open detail
+          if (task.taskType === "LOCATION" || task.taskType === "EXPENSE") {
+            onOpenDetail?.();
+          } 
+          // 2. Structural types or tasks with children enter folder
+          else if (task.taskType === "FOLDER" || task.taskType === "LOCATION_HISTORY" || task.subTasks?.length > 0) {
             onOpen?.();
           } 
-          // 2. Otherwise it's a leaf node (Task, Stop, Expense) -> OPEN DETAIL
+          // 3. Simple tasks or fallback
           else {
             onOpenDetail?.();
           }

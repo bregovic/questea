@@ -146,11 +146,34 @@ export default async function BlogPage({ params }: { params: Promise<{ id: strin
             </Reveal>
 
             <Reveal delay={0.6}>
-              <div className="flex flex-col items-center gap-8">
-                {posts.length > 0 && posts[posts.length - 1].locations?.[0] && (
-                  <div className={`flex items-center gap-3 px-6 py-2 rounded-full border border-white/10 backdrop-blur-md bg-white/5 text-white/80 text-[10px] font-black uppercase tracking-[0.2em]`}>
-                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                    Aktuálně: {posts[posts.length - 1].locations[0].placeName || posts[posts.length - 1].locations[0].address}
+              <div className="flex flex-col items-center gap-10">
+                {posts.length > 0 && (
+                  <div className="flex flex-col items-center gap-4">
+                    <div className={`flex items-center gap-3 px-6 py-2.5 rounded-full border border-white/10 backdrop-blur-md bg-white/5 text-white/90 text-[10px] font-black uppercase tracking-[0.2em] shadow-2xl`}>
+                      <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                      Aktuální poloha
+                    </div>
+                    
+                    {posts[posts.length - 1].locations?.[0] && (
+                      <div className="flex flex-col items-center gap-4 group">
+                         <div className="h-32 w-48 rounded-3xl overflow-hidden border-4 border-white/10 shadow-2xl relative">
+                            <BlogContainer 
+                               posts={posts} 
+                               folder={folder} 
+                               template={template} 
+                               onlyMap={posts[posts.length - 1]} 
+                            />
+                         </div>
+                         <div className="text-center">
+                            <div className="text-white font-black text-sm mb-1 uppercase tracking-wider">
+                               {posts[posts.length - 1].locations[0].placeName || "Na cestě"}
+                            </div>
+                            <div className="text-white/40 text-[10px] font-bold uppercase tracking-[0.2em]">
+                               {new Date(posts[posts.length - 1].recordedAt || posts[posts.length - 1].createdAt).toLocaleString("cs-CZ", { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                            </div>
+                         </div>
+                      </div>
+                    )}
                   </div>
                 )}
 

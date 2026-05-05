@@ -79,6 +79,37 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
   };
 
   const calibratedCorrections = getCalibratedDistances();
+  const visiblePosts = posts.filter(p => p.taskType !== "GPS_LOG");
+
+  // Calculate distances between visible posts, including intermediate GPS_LOG points
+  const getVisibleDistances = () => {
+    const dists: Record<string, number> = {};
+    for (let i = 0; i < visiblePosts.length - 1; i++) {
+      const current = visiblePosts[i];
+      const next = visiblePosts[i+1];
+      
+      let totalDist = 0;
+      const sIdx = posts.findIndex(p => p.id === current.id);
+      const eIdx = posts.findIndex(p => p.id === next.id);
+      
+      for (let j = sIdx; j < eIdx; j++) {
+        const pA = posts[j];
+        const pB = posts[j+1];
+        
+        if (calibratedCorrections[pA.id] !== undefined) {
+          totalDist += calibratedCorrections[pA.id];
+        } else {
+          const l1 = pA.locations?.[0];
+          const l2 = pB.locations?.[0];
+          if (l1 && l2) totalDist += calculateDistance(l1.latitude, l1.longitude, l2.latitude, l2.longitude);
+        }
+      }
+      dists[current.id] = totalDist;
+    }
+    return dists;
+  };
+
+  const visibleDistances = getVisibleDistances();
 
   return (
     <>
@@ -92,23 +123,12 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
       )}
 
       <div className="space-y-64">
-        {posts.filter(p => p.taskType !== "GPS_LOG").map((post, idx) => {
+        {visiblePosts.map((post, idx) => {
           const date = new Date(post.recordedAt || post.createdAt);
-          const nextPost = posts[idx + 1];
           const images = post.attachments?.filter((a: any) => a.type === "image") || [];
           const imageUrls = images.map((img: any) => img.url);
           
-          let distToNext = 0;
-          if (nextPost) {
-            // Use calibrated distance if available, fallback to GPS
-            if (calibratedCorrections[post.id] !== undefined) {
-              distToNext = calibratedCorrections[post.id];
-            } else {
-              const l1 = post.locations?.[0];
-              const l2 = nextPost.locations?.[0];
-              if (l1 && l2) distToNext = calculateDistance(l1.latitude, l1.longitude, l2.latitude, l2.longitude);
-            }
-          }
+          const distToNext = visibleDistances[post.id] || 0;
 
           // Content Interleaving Logic - improved to handle single newlines if needed
           let paragraphs = post.description ? post.description.split(/\n\s*\n/).filter(Boolean) : [];

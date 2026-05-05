@@ -64,7 +64,13 @@ export default async function BlogPage({ params }: { params: Promise<{ id: strin
   const template = folder.blogTemplate || "MODERN";
 
   // Odometer Calibration for Total KM
-  const odoPosts = posts.filter(p => p.odometer !== null && p.odometer !== undefined);
+  let odoPosts = posts.filter(p => p.odometer !== null && p.odometer !== undefined);
+  
+  // Support "Trip Odometer" mode: Assume start at 0 if not provided
+  if (posts.length > 0 && (odoPosts.length === 0 || odoPosts[0].id !== posts[0].id)) {
+    odoPosts = [{ ...posts[0], odometer: 0 }, ...odoPosts];
+  }
+
   let totalKm = 0;
 
   if (odoPosts.length >= 2) {

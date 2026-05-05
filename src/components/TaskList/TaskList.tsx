@@ -716,6 +716,32 @@ export const TaskList = () => {
                 <div className={styles.inlineIcon} style={{ color: '#737373' }}><FolderOpen size={16} /></div>
                 <span>Složka</span>
               </button>
+              <button 
+                onClick={() => {
+                  navigator.geolocation.getCurrentPosition(async (pos) => {
+                    const { latitude: lat, longitude: lng } = pos.coords;
+                    await fetch('/api/tasks', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        title: `GPS Log ${new Date().toLocaleTimeString('cs-CZ')}`,
+                        taskType: 'GPS_LOG',
+                        parentId: currentParentId,
+                        recordedAt: new Date().toISOString(),
+                        locations: {
+                          create: [{ latitude: lat, longitude: lng, address: `${lat.toFixed(4)}, ${lng.toFixed(4)}` }]
+                        }
+                      })
+                    });
+                    // Refresh
+                    window.location.reload();
+                  });
+                }} 
+                className={styles.inlineActionBtn}
+              >
+                <div className={styles.inlineIcon} style={{ color: '#0ea5e9' }}><Navigation size={16} /></div>
+                <span>Zapsat GPS</span>
+              </button>
             </div>
           )}
         </>

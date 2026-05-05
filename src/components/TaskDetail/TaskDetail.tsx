@@ -436,7 +436,8 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
                 {taskType === 'LOCATION_HISTORY' && <Navigation size={14} />}
                 {taskType === 'LOCATION' && <MapPin size={14} />}
                 {taskType === 'FOLDER' && <FolderOpen size={14} />}
-                {(taskType === 'TASK' || !['BUG','IDEA','EXPENSE','LOCATION_HISTORY','LOCATION','FOLDER'].includes(taskType)) && <CheckSquare size={14} />}
+                {taskType === 'GPS_LOG' && <Navigation size={14} />}
+                {(taskType === 'TASK' || !['BUG','IDEA','EXPENSE','LOCATION_HISTORY','LOCATION','FOLDER','GPS_LOG'].includes(taskType)) && <CheckSquare size={14} />}
               </div>
               <select 
                 value={taskType}
@@ -450,6 +451,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
                 <option value="LOCATION_HISTORY">Cesta (Složka)</option>
                 <option value="LOCATION">Zastávka</option>
                 <option value="FOLDER">Projekt (Složka)</option>
+                <option value="GPS_LOG">Zápis trasy (Map-only)</option>
               </select>
             </div>
             {taskType !== "LOCATION_HISTORY" && (

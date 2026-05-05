@@ -85,6 +85,7 @@ enum TaskType {
   LOCATION_HISTORY
   LOCATION
   FOLDER
+  GPS_LOG
 }
 
 model Category {

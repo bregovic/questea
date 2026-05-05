@@ -109,30 +109,6 @@ export const Lightbox = ({ images, initialIndex, onClose }: { images: string[], 
       className="fixed inset-0 z-[9999] bg-black/95 backdrop-blur-xl flex items-center justify-center p-4 md:p-12"
       onClick={onClose}
     >
-      <button 
-        className="absolute top-8 right-8 text-white/50 hover:text-white transition-colors p-2 bg-white/5 rounded-full"
-        onClick={onClose}
-      >
-        <X size={32} />
-      </button>
-
-      {images.length > 1 && (
-        <>
-          <button 
-            className="absolute left-8 top-1/2 -translate-y-1/2 text-white/30 hover:text-white transition-colors p-4 hidden md:block"
-            onClick={(e) => { e.stopPropagation(); setCurrentIndex((prev) => (prev - 1 + images.length) % images.length); }}
-          >
-            <ChevronLeft size={48} />
-          </button>
-          <button 
-            className="absolute right-8 top-1/2 -translate-y-1/2 text-white/30 hover:text-white transition-colors p-4 hidden md:block"
-            onClick={(e) => { e.stopPropagation(); setCurrentIndex((prev) => (prev + 1) % images.length); }}
-          >
-            <ChevronRight size={48} />
-          </button>
-        </>
-      )}
-
       <div className="relative w-full h-full flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
         <motion.img
           key={currentIndex}
@@ -149,6 +125,30 @@ export const Lightbox = ({ images, initialIndex, onClose }: { images: string[], 
           </div>
         )}
       </div>
+
+      <button 
+        className="absolute top-8 right-8 text-white/50 hover:text-white transition-colors p-3 bg-white/10 hover:bg-white/20 rounded-full z-[100] backdrop-blur-md border border-white/10"
+        onClick={(e) => { e.stopPropagation(); onClose(); }}
+      >
+        <X size={32} />
+      </button>
+
+      {images.length > 1 && (
+        <>
+          <button 
+            className="absolute left-8 top-1/2 -translate-y-1/2 text-white/30 hover:text-white transition-colors p-4 z-[100] hidden md:block"
+            onClick={(e) => { e.stopPropagation(); setCurrentIndex((prev) => (prev - 1 + images.length) % images.length); }}
+          >
+            <ChevronLeft size={48} />
+          </button>
+          <button 
+            className="absolute right-8 top-1/2 -translate-y-1/2 text-white/30 hover:text-white transition-colors p-4 z-[100] hidden md:block"
+            onClick={(e) => { e.stopPropagation(); setCurrentIndex((prev) => (prev + 1) % images.length); }}
+          >
+            <ChevronRight size={48} />
+          </button>
+        </>
+      )}
     </motion.div>
   );
 };

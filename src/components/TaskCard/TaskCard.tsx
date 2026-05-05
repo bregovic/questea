@@ -72,15 +72,27 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
         style={{ x }}
         onDragEnd={handleDragEnd}
         onClick={() => {
-          // 1. Leaf types (Stop, Expense) always open detail
-          if (task.taskType === "LOCATION" || task.taskType === "EXPENSE") {
+          // 1. Leaf types always open detail
+          const isLeafType = ["LOCATION", "EXPENSE", "GPS_LOG", "TASK", "BUG", "IDEA"].includes(task.taskType);
+          const hasChildren = task.subTasks?.length > 0;
+
+          if (isLeafType && !hasChildren) {
             onOpenDetail?.();
           } 
-          // 2. Structural types or tasks with children enter folder
-          else if (task.taskType === "FOLDER" || task.taskType === "LOCATION_HISTORY" || task.subTasks?.length > 0) {
+          // 2. Containers WITH children enter folder
+          else if (hasChildren) {
             onOpen?.();
-          } 
-          // 3. Simple tasks or fallback
+          }
+          // 3. Explicit folders/journeys (even empty) usually enter, 
+          // but if they are likely misclassified stops (in a history folder), we might want detail.
+          // For now, let's say if it's empty and type is LOCATION_HISTORY, it's likely a stop.
+          else if (task.taskType === "LOCATION_HISTORY" && !hasChildren) {
+            onOpenDetail?.();
+          }
+          else if (task.taskType === "FOLDER" || task.taskType === "LOCATION_HISTORY") {
+            onOpen?.();
+          }
+          // 4. Fallback
           else {
             onOpenDetail?.();
           }

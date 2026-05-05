@@ -7,7 +7,8 @@ import { TaskDetail } from "../TaskDetail/TaskDetail";
 import { QuickExpenseModal } from "../QuickExpenseModal/QuickExpenseModal";
 import { LocationSelectionModal } from "../LocationSelectionModal/LocationSelectionModal";
 import { LocationTracker } from "../LocationTracker/LocationTracker";
-import { Search, Grid, List as ListIcon, Home, ChevronRight, Maximize2, Minimize2, Wallet, Tag, Building, X, Save, MapPin, Share, CheckSquare, FolderOpen, Navigation } from "lucide-react";
+import { Search, Grid, List as ListIcon, Home, ChevronRight, Maximize2, Minimize2, Wallet, Tag, Building, X, Save, MapPin, Share, CheckSquare, FolderOpen, Navigation, Settings as SettingsIcon } from "lucide-react";
+import InstallPWA from "../InstallPWA/InstallPWA";
 import styles from "./TaskList.module.css";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -38,6 +39,7 @@ export const TaskList = () => {
   const [locationModalMode, setLocationModalMode] = useState<'GPS' | 'SEARCH'>('GPS');
   const [locationTargetFolderId, setLocationTargetFolderId] = useState<string | null>(null);
   const [categories, setCategories] = useState<any[]>([]);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const toggleZen = () => {
     const nextZen = !isZen;
@@ -568,7 +570,58 @@ export const TaskList = () => {
             }}
             onSelect={handleLocationSelect}
             autoGPS={locationModalMode === 'GPS'}
-          />
+        {isSettingsOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+            <motion.div 
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-stone-900/60 backdrop-blur-md"
+              onClick={() => setIsSettingsOpen(false)}
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-sm bg-white rounded-[40px] shadow-2xl overflow-hidden"
+            >
+               <div className="p-8 border-b border-stone-50 flex justify-between items-center">
+                  <div>
+                    <h3 className="text-xl font-black text-stone-950">Nastavení</h3>
+                    <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mt-1">Konfigurace aplikace</p>
+                  </div>
+                  <button onClick={() => setIsSettingsOpen(false)} className="p-3 hover:bg-stone-50 rounded-2xl transition-colors">
+                    <X size={20} className="text-stone-400" />
+                  </button>
+               </div>
+               <div className="p-8 space-y-8 max-h-[70vh] overflow-y-auto no-scrollbar">
+                  <section className="space-y-4">
+                    <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400 ml-1">Mobilní aplikace</h4>
+                    <InstallPWA />
+                  </section>
+                  
+                  <section className="space-y-4">
+                    <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400 ml-1">Rozhraní</h4>
+                    <button 
+                      onClick={() => { toggleZen(); setIsSettingsOpen(false); }}
+                      className="w-full flex items-center justify-between px-6 py-4 bg-stone-50 rounded-2xl hover:bg-stone-100 transition-all group"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-xl transition-colors ${isZen ? 'bg-orange-100 text-orange-600' : 'bg-white text-stone-400'}`}>
+                           <Maximize2 size={18} />
+                        </div>
+                        <span className="text-sm font-bold text-stone-600 group-hover:text-stone-950 transition-colors">Zen režim</span>
+                      </div>
+                      <div className={`w-10 h-6 rounded-full transition-colors relative ${isZen ? 'bg-orange-500' : 'bg-stone-200'}`}>
+                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-sm transition-all ${isZen ? 'left-5' : 'left-1'}`} />
+                      </div>
+                    </button>
+                  </section>
+
+                  <section className="pt-4 border-t border-stone-50">
+                    <div className="text-center text-[10px] font-bold text-stone-300 uppercase tracking-[0.3em]">
+                       Questea Life OS v2.0
+                    </div>
+                  </section>
+               </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 
@@ -601,6 +654,12 @@ export const TaskList = () => {
                       </button>
                     </React.Fragment>
                   ))}
+                  <button 
+                    onClick={() => setIsSettingsOpen(true)}
+                    className="ml-auto p-2 text-stone-300 hover:text-stone-950 transition-colors"
+                  >
+                    <SettingsIcon size={20} />
+                  </button>
                 </div>
               )}
 

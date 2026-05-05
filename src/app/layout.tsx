@@ -5,13 +5,14 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Questea | Modern Task Management",
   description: "Manage your life with ease. Tasks, categories, calendar, voice & sharing.",
+  manifest: "/manifest.json",
   appleWebApp: {
     title: "Questea",
     statusBarStyle: "default",
     capable: true,
   },
   icons: {
-    apple: "/apple-touch-icon.png",
+    apple: "/logo.png",
   },
 };
 

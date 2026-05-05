@@ -144,10 +144,10 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
               <div key={post.id} className="relative flex justify-center py-8">
                  <Reveal>
                     <div className="flex flex-col items-center gap-4">
-                       <div className="flex items-center gap-3 px-4 py-2 bg-white/80 backdrop-blur-md border border-stone-100 rounded-full shadow-sm">
+                       <div className="flex items-center gap-3 px-4 py-2 bg-stone-50 border border-stone-100 rounded-full shadow-sm group-hover:bg-white transition-colors">
                           <div className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
-                          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-500">
-                             Zapsána poloha: {date.toLocaleTimeString("cs-CZ", { hour: '2-digit', minute: '2-digit' })}
+                          <span className="text-[9px] font-black uppercase tracking-[0.2em] text-stone-400">
+                             Záznam trasy • {date.toLocaleTimeString("cs-CZ", { hour: '2-digit', minute: '2-digit' })}
                           </span>
                        </div>
                        <div className="h-32 w-48 rounded-3xl overflow-hidden border-4 border-white shadow-xl relative group cursor-pointer hover:scale-105 transition-all">

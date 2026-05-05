@@ -153,6 +153,9 @@ export const Lightbox = ({ images, initialIndex, onClose }: { images: string[], 
   );
 };
 export const JourneyMap = ({ points, isMini = false, id = "journey-map" }: { points: { lat: number, lng: number, title: string }[], isMini?: boolean, id?: string }) => {
+  const [isUnlocked, setIsUnlocked] = useState(false);
+  const mapRef = React.useRef<any>(null);
+
   useEffect(() => {
     // Load Leaflet from CDN
     if (!(window as any).L) {
@@ -180,9 +183,12 @@ export const JourneyMap = ({ points, isMini = false, id = "journey-map" }: { poi
         zoomControl: false,
         scrollWheelZoom: false,
         attributionControl: false,
-        dragging: !isMini,
-        touchZoom: !isMini
+        dragging: isUnlocked && !isMini,
+        touchZoom: isUnlocked && !isMini,
+        doubleClickZoom: isUnlocked && !isMini,
+        tap: isUnlocked && !isMini
       });
+      mapRef.current = map;
 
       L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
         maxZoom: 19
@@ -224,16 +230,45 @@ export const JourneyMap = ({ points, isMini = false, id = "journey-map" }: { poi
         map.setZoom(12);
       }
     }
-  }, [points, isMini, id]);
+
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, [points, isMini, id, isUnlocked]);
 
   return (
-    <div className={`relative w-full ${isMini ? 'h-full' : 'h-[400px] md:h-[600px]'} rounded-3xl overflow-hidden border border-white/10 shadow-2xl bg-stone-100`}>
+    <div 
+      className={`relative w-full ${isMini ? 'h-full' : 'h-[400px] md:h-[600px]'} rounded-3xl overflow-hidden border border-white/10 shadow-2xl bg-stone-100 group transition-all duration-500 ${isUnlocked ? 'ring-4 ring-orange-500/20' : ''}`}
+      onClick={() => !isMini && setIsUnlocked(true)}
+    >
       <div id={id} className="w-full h-full z-10" />
+      
+      {!isMini && !isUnlocked && (
+        <div className="absolute inset-0 z-30 bg-black/5 backdrop-blur-[2px] flex items-center justify-center cursor-pointer group-hover:bg-black/10 transition-all">
+          <div className="bg-white/90 backdrop-blur-md px-6 py-3 rounded-2xl shadow-xl flex items-center gap-3 scale-100 group-hover:scale-105 transition-transform">
+             <Navigation size={20} className="text-orange-500" />
+             <span className="text-xs font-black uppercase tracking-widest text-stone-900">Klepnutím aktivovat mapu</span>
+          </div>
+        </div>
+      )}
+
       {!isMini && (
         <div className="absolute top-6 left-6 z-20 bg-white/80 backdrop-blur-md px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg flex items-center gap-2">
           <Navigation size={14} className="text-orange-500" />
-          Mapa expedice
+          Mapa expedice {isUnlocked && <span className="text-orange-600 font-bold ml-1">• Aktivní</span>}
         </div>
+      )}
+      
+      {isUnlocked && !isMini && (
+        <button 
+          onClick={(e) => { e.stopPropagation(); setIsUnlocked(false); }}
+          className="absolute bottom-6 right-6 z-40 bg-stone-900/80 backdrop-blur-md text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-xl border border-white/10"
+        >
+          Ukončit režim mapy
+        </button>
       )}
     </div>
   );

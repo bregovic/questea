@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { MapPin, Clock, Navigation, Calendar, ChevronDown, Camera } from "lucide-react";
-import { Reveal, RevealImage, FloatingHeader, Lightbox } from "./BlogClient";
+import { Reveal, RevealImage, FloatingHeader, Lightbox, JourneyMap } from "./BlogClient";
 import { AnimatePresence } from "framer-motion";
 
 interface BlogContainerProps {
@@ -19,6 +19,17 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
   const isElegant = template === "ELEGANT";
   const isDark = template === "DARK";
 
+  // Extract map points
+  const mapPoints = posts
+    .map(p => {
+      const loc = p.locations?.[0];
+      if (loc && loc.latitude && loc.longitude) {
+        return { lat: loc.latitude, lng: loc.longitude, title: p.title };
+      }
+      return null;
+    })
+    .filter(Boolean) as { lat: number, lng: number, title: string }[];
+
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
     const R = 6371; 
     const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -32,8 +43,17 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
 
   return (
     <>
+      {/* Interactive Map Section */}
+      {mapPoints.length > 1 && (
+        <div className="mb-48">
+          <Reveal>
+            <JourneyMap points={mapPoints} />
+          </Reveal>
+        </div>
+      )}
+
       <div className="space-y-64">
-        {posts.map((post, idx) => {
+        {posts.filter(p => p.taskType !== "GPS_LOG").map((post, idx) => {
           const date = new Date(post.recordedAt || post.createdAt);
           const nextPost = posts[idx + 1];
           const images = post.attachments?.filter((a: any) => a.type === "image") || [];

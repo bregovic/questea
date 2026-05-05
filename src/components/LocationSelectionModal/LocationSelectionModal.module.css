@@ -129,7 +129,7 @@
 }
 
 .gpsBtn {
-  width: 100%;
+  flex: 1;
   padding: 0.8rem;
   background: var(--accent-soft);
   color: var(--accent-primary);
@@ -144,9 +144,20 @@
   transition: all 0.2s;
 }
 
+.logOnlyBtn {
+  background: #f0fdf4;
+  color: #16a34a;
+  border-color: rgba(22, 163, 74, 0.3);
+}
+
 .gpsBtn:hover {
   background: rgba(234, 88, 12, 0.12);
   border-style: solid;
+}
+
+.logOnlyBtn:hover {
+  background: #dcfce7;
+  border-color: #16a34a;
 }
 
 .error {

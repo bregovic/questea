@@ -91,14 +91,6 @@ export default async function BlogPage({ params }: { params: Promise<{ id: strin
           </FloatingHeader>
           
           <div className="relative z-20 text-center px-6 max-w-5xl">
-            <Reveal delay={0.2}>
-              <div className="mb-10 inline-block">
-                <div className={`backdrop-blur-2xl px-8 py-2.5 rounded-full border border-white/10 text-[12px] font-black uppercase tracking-[0.5em] ${isAdventure ? 'bg-[#d4a373]/20 text-[#d4a373]' : isElegant ? 'bg-[#c5a059]/20 text-[#c5a059]' : 'bg-[#ea580c]/20 text-[#ea580c]'}`}>
-                  {isAdventure ? 'Deník' : isElegant ? 'Kolekce' : 'Expedice'}
-                </div>
-              </div>
-            </Reveal>
-            
             <Reveal delay={0.4}>
               <h1 className={`text-6xl md:text-[140px] font-black text-white mb-12 tracking-tighter leading-[0.75] drop-shadow-2xl ${isAdventure || isElegant ? 'font-serif italic' : ''}`}>
                 {folder.title}
@@ -106,14 +98,23 @@ export default async function BlogPage({ params }: { params: Promise<{ id: strin
             </Reveal>
 
             <Reveal delay={0.6}>
-              <div className="flex flex-wrap justify-center gap-16 text-white/40 font-black uppercase text-[11px] tracking-[0.3em]">
-                <div className="flex items-center gap-4">
-                  <Calendar size={18} className={isAdventure ? 'text-[#d4a373]' : isElegant ? 'text-[#c5a059]' : 'text-[#ea580c]'} />
-                  <span>{startDate} {startDate !== endDate && `— ${endDate}`}</span>
-                </div>
-                <div className="flex items-center gap-4">
-                  <Navigation size={18} className={isAdventure ? 'text-[#d4a373]' : isElegant ? 'text-[#c5a059]' : 'text-[#ea580c]'} />
-                  <span>{totalKm.toFixed(1)} KM</span>
+              <div className="flex flex-col items-center gap-8">
+                {posts.length > 0 && posts[posts.length - 1].locations?.[0] && (
+                  <div className={`flex items-center gap-3 px-6 py-2 rounded-full border border-white/10 backdrop-blur-md bg-white/5 text-white/80 text-[10px] font-black uppercase tracking-[0.2em]`}>
+                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                    Aktuálně: {posts[posts.length - 1].locations[0].placeName || posts[posts.length - 1].locations[0].address}
+                  </div>
+                )}
+
+                <div className="flex flex-wrap justify-center gap-16 text-white/40 font-black uppercase text-[11px] tracking-[0.3em]">
+                  <div className="flex items-center gap-4">
+                    <Calendar size={18} className={isAdventure ? 'text-[#d4a373]' : isElegant ? 'text-[#c5a059]' : 'text-[#ea580c]'} />
+                    <span>{startDate} {startDate !== endDate && `— ${endDate}`}</span>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <Navigation size={18} className={isAdventure ? 'text-[#d4a373]' : isElegant ? 'text-[#c5a059]' : 'text-[#ea580c]'} />
+                    <span>{totalKm.toFixed(1)} KM</span>
+                  </div>
                 </div>
               </div>
             </Reveal>

@@ -152,3 +152,80 @@ export const Lightbox = ({ images, initialIndex, onClose }: { images: string[], 
     </motion.div>
   );
 };
+export const JourneyMap = ({ points }: { points: { lat: number, lng: number, title: string }[] }) => {
+  useEffect(() => {
+    // Load Leaflet from CDN
+    if (!(window as any).L) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      document.head.appendChild(link);
+
+      const script = document.createElement('script');
+      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      script.onload = () => initMap();
+      document.head.appendChild(script);
+    } else {
+      initMap();
+    }
+
+    function initMap() {
+      const L = (window as any).L;
+      if (!L || !points.length) return;
+
+      const container = document.getElementById('journey-map');
+      if (!container || (container as any)._leaflet_id) return;
+
+      const map = L.map('journey-map', {
+        zoomControl: false,
+        scrollWheelZoom: false,
+        attributionControl: false
+      });
+
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        maxZoom: 19
+      }).addTo(map);
+
+      const latlngs = points.map(p => [p.lat, p.lng]);
+      
+      // Draw path
+      if (latlngs.length > 1) {
+        L.polyline(latlngs, {
+          color: '#ea580c',
+          weight: 3,
+          opacity: 0.5,
+          dashArray: '10, 10'
+        }).addTo(map);
+      }
+
+      // Add markers
+      points.forEach((p, i) => {
+        const isLast = i === points.length - 1;
+        const color = isLast ? '#22c55e' : '#ea580c';
+        
+        const icon = L.divIcon({
+          className: 'custom-div-icon',
+          html: `<div style="background-color: ${color}; width: 12px; height: 12px; border: 2px solid white; border-radius: 50%; box-shadow: 0 0 10px rgba(0,0,0,0.2);"></div>`,
+          iconSize: [12, 12],
+          iconAnchor: [6, 6]
+        });
+
+        L.marker([p.lat, p.lng], { icon }).addTo(map)
+          .bindPopup(`<b style="font-family: sans-serif; font-size: 12px;">${p.title}</b>`);
+      });
+
+      const bounds = L.latLngBounds(latlngs);
+      map.fitBounds(bounds, { padding: [50, 50] });
+    }
+  }, [points]);
+
+  return (
+    <div className="relative w-full h-[400px] md:h-[600px] rounded-3xl overflow-hidden border border-white/10 shadow-2xl bg-stone-100">
+      <div id="journey-map" className="w-full h-full z-10" />
+      <div className="absolute top-6 left-6 z-20 bg-white/80 backdrop-blur-md px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg flex items-center gap-2">
+        <Navigation size={14} className="text-orange-500" />
+        Mapa expedice
+      </div>
+    </div>
+  );
+};

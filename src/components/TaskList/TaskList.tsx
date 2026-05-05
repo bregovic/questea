@@ -446,10 +446,10 @@ export const TaskList = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: loc.placeName,
-          description: "",
+          description: loc.note || "",
           status: "DONE",
           priority: "LOW",
-          taskType: "LOCATION",
+          taskType: loc.isGpsLog ? "GPS_LOG" : "LOCATION",
           parentId: targetId,
           recordedAt: new Date().toISOString()
         })
@@ -466,6 +466,7 @@ export const TaskList = () => {
           longitude: loc.longitude,
           address: loc.address,
           placeName: loc.placeName,
+          note: loc.note,
           taskId: newSubtask.id,
         })
       });

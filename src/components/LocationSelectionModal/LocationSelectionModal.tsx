@@ -169,14 +169,41 @@ export const LocationSelectionModal: React.FC<LocationSelectionModalProps> = ({
                     <button onClick={() => searchPlaces(searchQuery)} className={styles.searchBtn}>Hledat</button>
                   </div>
                   
-                  <button 
-                    onClick={getGPS} 
-                    disabled={gpsLoading}
-                    className={styles.gpsBtn}
-                  >
-                    {gpsLoading ? <Loader2 className={styles.spin} size={18} /> : <Navigation size={18} />}
-                    <span>{gpsLoading ? "Zjišťuji..." : "Moje poloha"}</span>
-                  </button>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={getGPS} 
+                      disabled={gpsLoading}
+                      className={styles.gpsBtn}
+                    >
+                      {gpsLoading ? <Loader2 className={styles.spin} size={18} /> : <Navigation size={18} />}
+                      <span>{gpsLoading ? "Zjišťuji..." : "Moje poloha"}</span>
+                    </button>
+
+                    <button 
+                      onClick={() => {
+                        setGpsLoading(true);
+                        navigator.geolocation.getCurrentPosition(
+                          async (pos) => {
+                            const { latitude, longitude } = pos.coords;
+                            onSelect({
+                              latitude,
+                              longitude,
+                              address: "GPS Záznam",
+                              placeName: "GPS Log",
+                              isGpsLog: true
+                            });
+                          },
+                          (err) => setError("Nepodařilo se získat GPS."),
+                          { enableHighAccuracy: true }
+                        );
+                      }}
+                      disabled={gpsLoading}
+                      className={`${styles.gpsBtn} ${styles.logOnlyBtn}`}
+                    >
+                      <MapIcon size={18} />
+                      <span>Jen zapsat GPS</span>
+                    </button>
+                  </div>
                 </div>
 
                 {error && <div className={styles.error}>{error}</div>}

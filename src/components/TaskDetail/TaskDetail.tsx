@@ -701,15 +701,39 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
           </section>
         )}
 
-        {/* Address Section (Specific to Location History) */}
-        {taskType === "LOCATION_HISTORY" && task.locations?.[0] && (
+        {/* Location History & Notes Section */}
+        {(isLocation || isLocationHistory) && locHistory.length > 0 && (
           <section className={styles.section}>
             <div className={styles.sectionHeader}>
-              <MapPin size={18} />
-              <span>Zaznamenaná adresa</span>
+              <Navigation size={18} />
+              <span>Historie míst & Zápisky</span>
             </div>
-            <div className="p-3 bg-stone-50 rounded-xl border border-stone-200 text-sm text-stone-600 italic">
-              {task.locations[0].address}
+            <div className={styles.locHistoryList}>
+              {locHistory.map((loc: any) => (
+                <div key={loc.id} className={styles.locHistoryItem}>
+                  <div className={styles.locDot} />
+                  <div className={styles.locContent}>
+                    <div className="flex justify-between items-start mb-1">
+                      <span className="text-[10px] font-black text-brand-400 uppercase tracking-widest">
+                        {new Date(loc.createdAt).toLocaleString("cs-CZ", { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      {loc.mileage && (
+                        <span className="text-[10px] font-black text-coral bg-coral/5 px-2 py-0.5 rounded-md border border-coral/10">
+                          {loc.mileage} km
+                        </span>
+                      )}
+                    </div>
+                    {loc.placeName && <div className="text-sm font-black text-brand-950 mb-0.5">{loc.placeName}</div>}
+                    <div className="text-xs text-brand-500 mb-2 leading-relaxed">{loc.address}</div>
+                    {loc.note && (
+                      <div className="p-3 bg-brand-50 rounded-xl border border-brand-100 text-sm text-brand-800 font-medium italic shadow-sm relative overflow-hidden">
+                        <div className="absolute top-0 left-0 w-1 h-full bg-brand-200" />
+                        {loc.note}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           </section>
         )}

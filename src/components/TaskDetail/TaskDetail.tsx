@@ -78,6 +78,26 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
       });
   }, []);
 
+  // Synchronize state when task changes
+  React.useEffect(() => {
+    setTitle(task.title);
+    setSlug(task.slug || "");
+    setBlogTemplate(task.blogTemplate || "MODERN");
+    setDescription(task.description || "");
+    setPriority(task.priority);
+    setParentId(task.parentId || "");
+    setLockStatus(task.lockStatus || false);
+    setTaskType(task.taskType);
+    setAmount(task.amount || "");
+    setCurrency(task.currency || "CZK");
+    setPayee(task.payee || "");
+    setRecordedAt(task.recordedAt ? new Date(task.recordedAt).toISOString().slice(0, 16) : "");
+    setOdometer(task.odometer || "");
+    setCategoryId(task.categoryId || "");
+    setLocHistory(task.locations || []);
+    setAttachments(task.attachments || []);
+  }, [task]);
+
   const getGPS = () => {
     setLoadingLoc(true);
     navigator.geolocation.getCurrentPosition(

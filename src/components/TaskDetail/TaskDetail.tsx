@@ -799,7 +799,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
               <span>Přílohy & Účtenky</span>
             </div>
             
-            <div className={styles.attachmentGrid}>
+            <div className={styles.attachmentGrid} data-count={attachments.length}>
               {attachments.map((att: any) => (
                 <div key={att.id} className={styles.attachmentItem}>
                   {att.type === 'image' ? (

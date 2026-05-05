@@ -489,14 +489,36 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 0.75rem;
+  width: 100%;
+}
+
+.attachmentGrid[data-count="1"] {
+  grid-template-columns: 1fr;
+}
+
+.attachmentGrid[data-count="2"] {
+  grid-template-columns: repeat(2, 1fr);
 }
 
 .attachmentItem {
   position: relative;
   aspect-ratio: 1;
-  border-radius: 12px;
+  border-radius: 16px;
   overflow: hidden;
-  border: 1px solid var(--panel-border);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  background: #fbfaf9;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+
+.attachmentGrid[data-count="1"] .attachmentItem {
+  aspect-ratio: 16 / 9;
+}
+
+.attachmentItem:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+  border-color: var(--accent-primary);
 }
 
 .attachmentItem img {
@@ -507,15 +529,34 @@
 
 .attDelete {
   position: absolute;
-  top: 4px;
-  right: 4px;
-  background: rgba(0,0,0,0.5);
-  color: white;
+  top: 8px;
+  right: 8px;
+  background: white;
+  color: #ef4444;
   border: none;
-  border-radius: 50%;
-  padding: 4px;
+  border-radius: 10px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  backdrop-filter: blur(4px);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+  opacity: 0;
+  transform: scale(0.8);
+  transition: all 0.2s ease;
+  z-index: 10;
+}
+
+.attachmentItem:hover .attDelete {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.attDelete:hover {
+  background: #ef4444;
+  color: white;
+  transform: scale(1.1) !important;
 }
 
 .uploadBtn {

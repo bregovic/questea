@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { User, Mail, Plus, Trash2, HelpCircle, Save, CheckCircle, Sparkles, Smartphone, Download, Monitor } from "lucide-react";
+import { User, Mail, Plus, Trash2, HelpCircle, Save, CheckCircle, Sparkles, Smartphone, Download, Monitor, Bug } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function SettingsPage() {
@@ -196,6 +196,37 @@ export default function SettingsPage() {
               <Plus className="w-5 h-5" /> Přidat
             </button>
           </div>
+        </section>
+
+        {/* Maintenance Section */}
+        <section className="bg-white rounded-3xl p-6 shadow-sm border border-sand/30">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-amber-50 rounded-2xl">
+                <Bug className="w-6 h-6 text-amber-500" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-sand-dark">Údržba dat</h2>
+                <p className="text-sm text-sand-dark/60">Oprava typů záznamů a struktury.</p>
+              </div>
+            </div>
+
+            <button 
+              onClick={async () => {
+                if (confirm("Opravit typy všech záznamů v cestách na 'Zastávka'?")) {
+                  const res = await fetch("/api/maintenance/fix-types");
+                  const data = await res.json();
+                  alert(`Oprava dokončena! Aktualizováno záznamů: ${data.updatedCount}`);
+                }
+              }}
+              className="p-4 px-6 bg-amber-500 text-white rounded-2xl hover:bg-amber-600 transition-all flex items-center gap-3 font-bold"
+            >
+              <CheckCircle className="w-5 h-5" /> Opravit typy v cestách
+            </button>
+          </div>
+          <p className="text-xs text-sand-dark/40 italic">
+            Tato funkce projde všechny vaše „Cesty“ a zajistí, že všechny položky uvnitř nich mají správně nastavený typ „Zastávka“ místo obecné složky.
+          </p>
         </section>
 
         {/* PWA Installation Section */}

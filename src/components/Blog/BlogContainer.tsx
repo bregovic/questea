@@ -24,7 +24,12 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
     .map(p => {
       const loc = p.locations?.[0];
       if (loc && loc.latitude && loc.longitude) {
-        return { lat: loc.latitude, lng: loc.longitude, title: p.title };
+        const time = new Date(p.recordedAt || p.createdAt).toLocaleTimeString("cs-CZ", { hour: '2-digit', minute: '2-digit' });
+        return { 
+          lat: loc.latitude, 
+          lng: loc.longitude, 
+          title: p.taskType === "GPS_LOG" ? `📍 Poloha (${time})` : p.title 
+        };
       }
       return null;
     })
@@ -85,7 +90,7 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
   };
 
   const calibratedCorrections = getCalibratedDistances();
-  const visiblePosts = posts.filter(p => p.taskType !== "GPS_LOG");
+  const visiblePosts = posts.filter(p => p.taskType !== "GPS_LOG" || (p.locations && p.locations.length > 0));
 
   // Calculate distances between visible posts, including intermediate GPS_LOG points
   const getVisibleDistances = () => {
@@ -132,6 +137,31 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
         {[...visiblePosts].reverse().map((post, idx) => {
           const visualIndex = visiblePosts.length - idx;
           const date = new Date(post.recordedAt || post.createdAt);
+
+          if (post.taskType === "GPS_LOG") {
+            const loc = post.locations[0];
+            return (
+              <div key={post.id} className="relative flex justify-center py-8">
+                 <Reveal>
+                    <div className="flex flex-col items-center gap-4">
+                       <div className="flex items-center gap-3 px-4 py-2 bg-white/80 backdrop-blur-md border border-stone-100 rounded-full shadow-sm">
+                          <div className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
+                          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-500">
+                             Zapsána poloha: {date.toLocaleTimeString("cs-CZ", { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                       </div>
+                       <div className="h-32 w-48 rounded-3xl overflow-hidden border-4 border-white shadow-xl relative group cursor-pointer hover:scale-105 transition-all">
+                          <JourneyMap 
+                             id={`mini-map-${post.id}`}
+                             points={[{ lat: loc.latitude, lng: loc.longitude, title: "Zde" }]} 
+                             isMini 
+                          />
+                       </div>
+                    </div>
+                 </Reveal>
+              </div>
+            );
+          }
           const images = post.attachments?.filter((a: any) => a.type === "image") || [];
           const imageUrls = images.map((img: any) => img.url);
           

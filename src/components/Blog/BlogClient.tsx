@@ -152,7 +152,7 @@ export const Lightbox = ({ images, initialIndex, onClose }: { images: string[], 
     </motion.div>
   );
 };
-export const JourneyMap = ({ points }: { points: { lat: number, lng: number, title: string }[] }) => {
+export const JourneyMap = ({ points, isMini = false, id = "journey-map" }: { points: { lat: number, lng: number, title: string }[], isMini?: boolean, id?: string }) => {
   useEffect(() => {
     // Load Leaflet from CDN
     if (!(window as any).L) {
@@ -173,13 +173,15 @@ export const JourneyMap = ({ points }: { points: { lat: number, lng: number, tit
       const L = (window as any).L;
       if (!L || !points.length) return;
 
-      const container = document.getElementById('journey-map');
+      const container = document.getElementById(id);
       if (!container || (container as any)._leaflet_id) return;
 
-      const map = L.map('journey-map', {
+      const map = L.map(id, {
         zoomControl: false,
         scrollWheelZoom: false,
-        attributionControl: false
+        attributionControl: false,
+        dragging: !isMini,
+        touchZoom: !isMini
       });
 
       L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
@@ -192,7 +194,7 @@ export const JourneyMap = ({ points }: { points: { lat: number, lng: number, tit
       if (latlngs.length > 1) {
         L.polyline(latlngs, {
           color: '#ea580c',
-          weight: 3,
+          weight: isMini ? 2 : 3,
           opacity: 0.5,
           dashArray: '10, 10'
         }).addTo(map);
@@ -205,27 +207,34 @@ export const JourneyMap = ({ points }: { points: { lat: number, lng: number, tit
         
         const icon = L.divIcon({
           className: 'custom-div-icon',
-          html: `<div style="background-color: ${color}; width: 12px; height: 12px; border: 2px solid white; border-radius: 50%; box-shadow: 0 0 10px rgba(0,0,0,0.2);"></div>`,
-          iconSize: [12, 12],
-          iconAnchor: [6, 6]
+          html: `<div style="background-color: ${color}; width: ${isMini ? '8px' : '12px'}; height: ${isMini ? '8px' : '12px'}; border: 2px solid white; border-radius: 50%; box-shadow: 0 0 10px rgba(0,0,0,0.2);"></div>`,
+          iconSize: [isMini ? 8 : 12, isMini ? 8 : 12],
+          iconAnchor: [isMini ? 4 : 6, isMini ? 4 : 6]
         });
 
-        L.marker([p.lat, p.lng], { icon }).addTo(map)
-          .bindPopup(`<b style="font-family: sans-serif; font-size: 12px;">${p.title}</b>`);
+        const marker = L.marker([p.lat, p.lng], { icon }).addTo(map);
+        if (!isMini) {
+           marker.bindPopup(`<b style="font-family: sans-serif; font-size: 12px;">${p.title}</b>`);
+        }
       });
 
       const bounds = L.latLngBounds(latlngs);
-      map.fitBounds(bounds, { padding: [50, 50] });
+      map.fitBounds(bounds, { padding: isMini ? [5, 5] : [50, 50] });
+      if (isMini && points.length === 1) {
+        map.setZoom(12);
+      }
     }
-  }, [points]);
+  }, [points, isMini, id]);
 
   return (
-    <div className="relative w-full h-[400px] md:h-[600px] rounded-3xl overflow-hidden border border-white/10 shadow-2xl bg-stone-100">
-      <div id="journey-map" className="w-full h-full z-10" />
-      <div className="absolute top-6 left-6 z-20 bg-white/80 backdrop-blur-md px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg flex items-center gap-2">
-        <Navigation size={14} className="text-orange-500" />
-        Mapa expedice
-      </div>
+    <div className={`relative w-full ${isMini ? 'h-full' : 'h-[400px] md:h-[600px]'} rounded-3xl overflow-hidden border border-white/10 shadow-2xl bg-stone-100`}>
+      <div id={id} className="w-full h-full z-10" />
+      {!isMini && (
+        <div className="absolute top-6 left-6 z-20 bg-white/80 backdrop-blur-md px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg flex items-center gap-2">
+          <Navigation size={14} className="text-orange-500" />
+          Mapa expedice
+        </div>
+      )}
     </div>
   );
 };

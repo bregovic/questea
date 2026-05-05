@@ -49,12 +49,40 @@ export default async function BlogPage({ params }: { params: Promise<{ id: strin
   const posts = folder.subTasks;
   const template = folder.blogTemplate || "MODERN";
 
+  // Odometer Calibration for Total KM
+  const odoPosts = posts.filter(p => p.odometer !== null && p.odometer !== undefined);
   let totalKm = 0;
-  for (let i = 0; i < posts.length - 1; i++) {
-    const l1 = posts[i].locations?.[0];
-    const l2 = posts[i+1].locations?.[0];
-    if (l1 && l2) {
-      totalKm += calculateDistance(l1.latitude, l1.longitude, l2.latitude, l2.longitude);
+
+  if (odoPosts.length >= 2) {
+    const firstOdo = odoPosts[0];
+    const lastOdo = odoPosts[odoPosts.length - 1];
+    
+    // Distance between first and last odometer readings
+    totalKm = Math.abs(lastOdo.odometer - firstOdo.odometer);
+    
+    // Add GPS distance BEFORE the first odometer reading
+    const firstOdoIndex = posts.findIndex(p => p.id === firstOdo.id);
+    for (let i = 0; i < firstOdoIndex; i++) {
+      const l1 = posts[i].locations?.[0];
+      const l2 = posts[i+1].locations?.[0];
+      if (l1 && l2) totalKm += calculateDistance(l1.latitude, l1.longitude, l2.latitude, l2.longitude);
+    }
+    
+    // Add GPS distance AFTER the last odometer reading
+    const lastOdoIndex = posts.findIndex(p => p.id === lastOdo.id);
+    for (let i = lastOdoIndex; i < posts.length - 1; i++) {
+      const l1 = posts[i].locations?.[0];
+      const l2 = posts[i+1].locations?.[0];
+      if (l1 && l2) totalKm += calculateDistance(l1.latitude, l1.longitude, l2.latitude, l2.longitude);
+    }
+  } else {
+    // Pure GPS Fallback
+    for (let i = 0; i < posts.length - 1; i++) {
+      const l1 = posts[i].locations?.[0];
+      const l2 = posts[i+1].locations?.[0];
+      if (l1 && l2) {
+        totalKm += calculateDistance(l1.latitude, l1.longitude, l2.latitude, l2.longitude);
+      }
     }
   }
 

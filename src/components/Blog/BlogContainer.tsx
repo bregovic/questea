@@ -41,6 +41,45 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
     return R * c;
   };
 
+  // Odometer Calibration Logic
+  const getCalibratedDistances = () => {
+    const odoPosts = posts.filter(p => p.odometer !== null && p.odometer !== undefined);
+    const corrections: Record<string, number> = {};
+
+    if (odoPosts.length < 2) return corrections;
+
+    for (let i = 0; i < odoPosts.length - 1; i++) {
+      const p1 = odoPosts[i];
+      const p2 = odoPosts[i+1];
+      const realSegmentDist = Math.abs(p2.odometer - p1.odometer);
+      
+      const segmentStartIndex = posts.findIndex(p => p.id === p1.id);
+      const segmentEndIndex = posts.findIndex(p => p.id === p2.id);
+      const segmentPosts = posts.slice(segmentStartIndex, segmentEndIndex + 1);
+      
+      let gpsSegmentDist = 0;
+      const segmentStepDistances: {id: string, dist: number}[] = [];
+      
+      for (let j = 0; j < segmentPosts.length - 1; j++) {
+        const l1 = segmentPosts[j].locations?.[0];
+        const l2 = segmentPosts[j+1].locations?.[0];
+        if (l1 && l2) {
+          const d = calculateDistance(l1.latitude, l1.longitude, l2.latitude, l2.longitude);
+          gpsSegmentDist += d;
+          segmentStepDistances.push({ id: segmentPosts[j].id, dist: d });
+        }
+      }
+      
+      const ratio = gpsSegmentDist > 0 ? realSegmentDist / gpsSegmentDist : 1;
+      segmentStepDistances.forEach(step => {
+        corrections[step.id] = step.dist * ratio;
+      });
+    }
+    return corrections;
+  };
+
+  const calibratedCorrections = getCalibratedDistances();
+
   return (
     <>
       {/* Interactive Map Section */}
@@ -61,9 +100,14 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
           
           let distToNext = 0;
           if (nextPost) {
-            const l1 = post.locations?.[0];
-            const l2 = nextPost.locations?.[0];
-            if (l1 && l2) distToNext = calculateDistance(l1.latitude, l1.longitude, l2.latitude, l2.longitude);
+            // Use calibrated distance if available, fallback to GPS
+            if (calibratedCorrections[post.id] !== undefined) {
+              distToNext = calibratedCorrections[post.id];
+            } else {
+              const l1 = post.locations?.[0];
+              const l2 = nextPost.locations?.[0];
+              if (l1 && l2) distToNext = calculateDistance(l1.latitude, l1.longitude, l2.latitude, l2.longitude);
+            }
           }
 
           // Content Interleaving Logic - improved to handle single newlines if needed

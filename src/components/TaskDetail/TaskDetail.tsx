@@ -7,7 +7,7 @@ import {
   Plus, Trash2, Mail, Layers, Lock, Unlock, RotateCcw, 
   Wallet, DollarSign, Building, MapPin, Loader2, Navigation, Camera, Mic, Square, Play, Pause,
   ChevronUp, ChevronDown, Search, Clock, Eye, ChevronRight, AlertCircle, FolderOpen,
-  Bug, Lightbulb, CheckSquare
+  Bug, Lightbulb, CheckSquare, Video
 } from "lucide-react";
 import styles from "./TaskDetail.module.css";
 
@@ -27,6 +27,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
   const [slug, setSlug] = useState(task.slug || "");
   const [blogTemplate, setBlogTemplate] = useState(task.blogTemplate || "MODERN");
   const [isUploading, setIsUploading] = useState(false);
+  const [isGeneratingClip, setIsGeneratingClip] = useState(false);
   const [description, setDescription] = useState(task.description || "");
   const [priority, setPriority] = useState(task.priority);
   const [parentId, setParentId] = useState(task.parentId || "");
@@ -148,38 +149,61 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
     setIsUploading(true);
     for (const file of files) {
       try {
-        const base64 = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = (event) => {
-            const img = new Image();
-            img.onload = () => {
-              const canvas = document.createElement("canvas");
-              const MAX_WIDTH = 1200;
-              const MAX_HEIGHT = 1200;
-              let width = img.width;
-              let height = img.height;
-              if (width > height) {
-                if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
-              } else {
-                if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
-              }
-              canvas.width = width;
-              canvas.height = height;
-              const ctx = canvas.getContext("2d");
-              ctx?.drawImage(img, 0, 0, width, height);
-              resolve(canvas.toDataURL("image/jpeg", 0.7));
+        let finalUrl = "";
+        let type = "file";
+
+        if (file.type.startsWith("image/")) {
+          type = "image";
+          finalUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+              const img = new Image();
+              img.onload = () => {
+                const canvas = document.createElement("canvas");
+                const MAX_WIDTH = 1600;
+                const MAX_HEIGHT = 1600;
+                let width = img.width;
+                let height = img.height;
+                if (width > height) {
+                  if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
+                } else {
+                  if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
+                }
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext("2d");
+                ctx?.drawImage(img, 0, 0, width, height);
+                resolve(canvas.toDataURL("image/jpeg", 0.8));
+              };
+              img.onerror = () => reject(new Error("Image load error"));
+              img.src = event.target?.result as string;
             };
-            img.onerror = () => reject(new Error("Image load error"));
-            img.src = event.target?.result as string;
-          };
-          reader.onerror = () => reject(new Error("File read error"));
-          reader.readAsDataURL(file);
-        });
+            reader.onerror = () => reject(new Error("File read error"));
+            reader.readAsDataURL(file);
+          });
+        } else if (file.type.startsWith("video/")) {
+          type = "video";
+          if (file.size > 20 * 1024 * 1024) {
+            alert("Video je příliš velké (max 20MB).");
+            continue;
+          }
+          finalUrl = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target?.result as string);
+            reader.readAsDataURL(file);
+          });
+        } else {
+          finalUrl = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target?.result as string);
+            reader.readAsDataURL(file);
+          });
+        }
 
         const res = await fetch(`/api/tasks/${task.id}/attachments`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: file.name, url: base64, type: "image" })
+          body: JSON.stringify({ name: file.name, url: finalUrl, type })
         });
         if (res.ok) {
           const newAtt = await res.json();
@@ -190,7 +214,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
       }
     }
     setIsUploading(false);
-    e.target.value = "";
+    if (e.target) e.target.value = "";
   };
 
   const startRecording = async () => {
@@ -400,6 +424,27 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
       console.error("Failed to fetch nearby places", err);
     } finally {
       setLoadingNearby(false);
+    }
+  };
+
+  const handleGenerateClip = async () => {
+    if (!confirm("Vytvořit krátký sestřih z nahraných videí? (Z každého videa vybereme nejlepší vteřiny a spojíme je do jednoho klipu)")) return;
+    
+    setIsGeneratingClip(true);
+    try {
+      const res = await fetch(`/api/tasks/${task.id}/generate-clip`, { method: "POST" });
+      if (res.ok) {
+        const newAtt = await res.json();
+        setAttachments((prev: any) => [...prev, newAtt]);
+        alert("Film byl úspěšně vygenerován a přidán do příloh!");
+      } else {
+        const err = await res.json();
+        alert(`Chyba při generování filmu: ${err.error || "Neznámá chyba"}`);
+      }
+    } catch (err) {
+      alert("Nepodařilo se spustit generování filmu.");
+    } finally {
+      setIsGeneratingClip(false);
     }
   };
 
@@ -848,6 +893,13 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
                 <div key={att.id} className={styles.attachmentItem}>
                   {att.type === 'image' ? (
                     <img src={att.url} alt={att.name} />
+                  ) : att.type === 'video' ? (
+                    <div className="relative w-full h-full bg-black rounded-xl overflow-hidden">
+                      <video src={att.url} className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <Play size={20} className="text-white opacity-50" />
+                      </div>
+                    </div>
                   ) : (
                     <div className={styles.audioPlaceholder}>
                       <Mic size={20} className="text-coral" />
@@ -866,7 +918,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
                     {isUploading ? <Loader2 className="animate-spin" size={20} /> : <Camera size={20} />}
                     <input 
                       type="file" 
-                      accept="image/*" 
+                      accept="image/*,video/*" 
                       multiple
                       onChange={handleFileUpload}
                       disabled={isUploading}
@@ -884,6 +936,28 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
                 </button>
               )}
             </div>
+
+            {attachments.some(a => a.type === 'video') && (
+              <div className="mt-4">
+                <button 
+                  onClick={handleGenerateClip}
+                  disabled={isGeneratingClip}
+                  className="w-full flex items-center justify-center gap-3 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:grayscale"
+                >
+                  {isGeneratingClip ? (
+                    <>
+                      <Loader2 className="animate-spin" size={16} />
+                      Stříhám film...
+                    </>
+                  ) : (
+                    <>
+                      <Video size={16} />
+                      Vytvořit automatický sestřih
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
           </section>
         )}
       </div>

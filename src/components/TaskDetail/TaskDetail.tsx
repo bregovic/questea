@@ -937,7 +937,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
               )}
             </div>
 
-            {attachments.some(a => a.type === 'video') && (
+            {attachments.some((a: any) => a.type === 'video') && (
               <div className="mt-4">
                 <button 
                   onClick={handleGenerateClip}

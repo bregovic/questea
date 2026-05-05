@@ -570,6 +570,8 @@ export const TaskList = () => {
             }}
             onSelect={handleLocationSelect}
             autoGPS={locationModalMode === 'GPS'}
+          />
+        )}
         {isSettingsOpen && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
             <motion.div 

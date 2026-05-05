@@ -4,7 +4,7 @@ import { MapPin, Clock, Navigation, Calendar, ChevronDown, Camera } from "lucide
 import { Reveal, RevealImage, FloatingHeader, BlogStyles } from "@/components/Blog/BlogClient";
 import { BlogContainer } from "@/components/Blog/BlogContainer";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 async function getBlogData(idOrSlug: string) {
   const folder = await prisma.task.findFirst({
@@ -94,7 +94,7 @@ export default async function BlogPage({ params }: { params: Promise<{ id: strin
             <Reveal delay={0.2}>
               <div className="mb-10 inline-block">
                 <div className={`backdrop-blur-2xl px-8 py-2.5 rounded-full border border-white/10 text-[12px] font-black uppercase tracking-[0.5em] ${isAdventure ? 'bg-[#d4a373]/20 text-[#d4a373]' : isElegant ? 'bg-[#c5a059]/20 text-[#c5a059]' : 'bg-[#ea580c]/20 text-[#ea580c]'}`}>
-                  {isAdventure ? 'Diary' : isElegant ? 'Collection' : 'Voyage'}
+                  {isAdventure ? 'Deník' : isElegant ? 'Kolekce' : 'Expedice'}
                 </div>
               </div>
             </Reveal>

@@ -7,7 +7,7 @@ import {
   Plus, Trash2, Mail, Layers, Lock, Unlock, RotateCcw, 
   Wallet, DollarSign, Building, MapPin, Loader2, Navigation, Camera, Mic, Square, Play, Pause,
   ChevronUp, ChevronDown, Search, Clock, Eye, ChevronRight, AlertCircle, FolderOpen,
-  Bug, Lightbulb, CheckSquare, Video
+  Bug, Lightbulb, CheckSquare, Video, Save, Maximize2
 } from "lucide-react";
 import styles from "./TaskDetail.module.css";
 

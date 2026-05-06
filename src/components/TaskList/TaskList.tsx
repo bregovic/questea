@@ -7,7 +7,7 @@ import { TaskDetail } from "../TaskDetail/TaskDetail";
 import { QuickExpenseModal } from "../QuickExpenseModal/QuickExpenseModal";
 import { LocationSelectionModal } from "../LocationSelectionModal/LocationSelectionModal";
 import { LocationTracker } from "../LocationTracker/LocationTracker";
-import { Search, Grid, List as ListIcon, Home, ChevronRight, Maximize2, Minimize2, Wallet, Tag, Building, X, Save, MapPin, Share, CheckSquare, FolderOpen, Navigation, Settings as SettingsIcon } from "lucide-react";
+import { Search, Grid, List as ListIcon, Home, ChevronRight, Maximize2, Minimize2, Wallet, Tag, Building, X, Save, MapPin, Share, CheckSquare, FolderOpen, Navigation, Settings as SettingsIcon, FileUp, FileDown } from "lucide-react";
 import InstallPWA from "../InstallPWA/InstallPWA";
 import styles from "./TaskList.module.css";
 import { motion, AnimatePresence } from "framer-motion";
@@ -500,6 +500,59 @@ export const TaskList = () => {
     setTouchStart(null);
   };
 
+  const handleExportXml = () => {
+    const currentTasks = tasks.filter(t => t.parentId === currentParentId);
+    let xml = '<?xml version="1.0" encoding="UTF-8"?>\n<Expedition>\n';
+    currentTasks.forEach(t => {
+      xml += '  <Entry>\n';
+      xml += `    <Id>${t.id}</Id>\n`;
+      xml += `    <Title><![CDATA[${t.title}]]></Title>\n`;
+      xml += `    <Notes><![CDATA[${t.description || ''}]]></Notes>\n`;
+      xml += '  </Entry>\n';
+    });
+    xml += '</Expedition>';
+
+    const blob = new Blob([xml], { type: 'text/xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `expedition_${currentParentId || 'root'}.xml`;
+    a.click();
+  };
+
+  const handleImportXml = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const text = event.target?.result as string;
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(text, "text/xml");
+      const entries = xmlDoc.getElementsByTagName("Entry");
+
+      for (let i = 0; i < entries.length; i++) {
+        const id = entries[i].getElementsByTagName("Id")[0]?.textContent;
+        const notes = entries[i].getElementsByTagName("Notes")[0]?.textContent;
+
+        if (id && notes !== undefined) {
+          try {
+            await fetch(`/api/tasks/${id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ description: notes })
+            });
+          } catch (err) {
+            console.error(`Failed to update task ${id}`, err);
+          }
+        }
+      }
+      fetchTasks();
+      alert("Import dokončen!");
+    };
+    reader.readAsText(file);
+  };
+
   return (
     <div 
       className={styles.container}
@@ -639,6 +692,15 @@ export const TaskList = () => {
                   <h2 className={styles.currentFolderTitle}>
                     {tasks.find(t => t.id === currentParentId)?.title || "Zpět"}
                   </h2>
+                  <div className="flex items-center gap-1 ml-2 opacity-20 hover:opacity-100 transition-opacity">
+                     <button onClick={handleExportXml} title="Exportovat XML" className="p-1 hover:text-orange-600">
+                        <FileDown size={14} />
+                     </button>
+                     <label className="p-1 hover:text-orange-600 cursor-pointer">
+                        <FileUp size={14} />
+                        <input type="file" accept=".xml" className="hidden" onChange={handleImportXml} />
+                     </label>
+                  </div>
                 </div>
               ) : (
                 <div className={styles.breadcrumbContainer}>

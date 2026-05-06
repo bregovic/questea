@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { revalidatePath } from "next/cache";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -69,6 +70,23 @@ export async function POST(req: Request) {
         userId: session.user.id,
       },
     });
+
+    // Trigger revalidation for the public blog (Hierarchical)
+    if (task.id) {
+      if (task.slug) revalidatePath(`/blog/${task.slug}`);
+      revalidatePath(`/blog/${task.id}`);
+      if (task.parentId) {
+        const p = await prisma.task.findUnique({
+          where: { id: task.parentId },
+          select: { id: true, slug: true }
+        });
+        if (p) {
+          if (p.slug) revalidatePath(`/blog/${p.slug}`);
+          revalidatePath(`/blog/${p.id}`);
+        }
+      }
+    }
+
     return NextResponse.json(task);
   } catch (error) {
     console.error(error);

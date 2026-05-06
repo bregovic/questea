@@ -68,13 +68,28 @@ export async function PATCH(
       });
     }
 
-    // Trigger revalidation for the public blog
-    if (task.slug) {
-      revalidatePath(`/blog/${task.slug}`);
-      revalidatePath(`/blog/${task.id}`);
-    } else {
-      revalidatePath(`/blog/${task.id}`);
-    }
+    // Trigger revalidation for the public blog (Hierarchical)
+    const triggerRevalidate = async (tId: string) => {
+      const t = await prisma.task.findUnique({ 
+        where: { id: tId },
+        select: { id: true, slug: true, parentId: true }
+      });
+      if (!t) return;
+      if (t.slug) revalidatePath(`/blog/${t.slug}`);
+      revalidatePath(`/blog/${t.id}`);
+      if (t.parentId) {
+        const p = await prisma.task.findUnique({
+          where: { id: t.parentId },
+          select: { id: true, slug: true }
+        });
+        if (p) {
+          if (p.slug) revalidatePath(`/blog/${p.slug}`);
+          revalidatePath(`/blog/${p.id}`);
+        }
+      }
+    };
+
+    await triggerRevalidate(task.id);
 
     return NextResponse.json(task);
   } catch (error) {

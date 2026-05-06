@@ -41,13 +41,25 @@ export async function POST(req: Request) {
       }
     });
 
-    // Revalidate the blog if taskId exists
+    // Revalidate the blog (Hierarchical)
     if (data.taskId) {
-      // Find the task slug first to revalidate both ID and Slug paths
-      const task = await prisma.task.findUnique({ where: { id: data.taskId } });
+      const task = await prisma.task.findUnique({ 
+        where: { id: data.taskId },
+        select: { id: true, slug: true, parentId: true }
+      });
       if (task) {
         if (task.slug) revalidatePath(`/blog/${task.slug}`);
         revalidatePath(`/blog/${task.id}`);
+        if (task.parentId) {
+          const p = await prisma.task.findUnique({
+            where: { id: task.parentId },
+            select: { id: true, slug: true }
+          });
+          if (p) {
+            if (p.slug) revalidatePath(`/blog/${p.slug}`);
+            revalidatePath(`/blog/${p.id}`);
+          }
+        }
       }
     }
 

@@ -273,3 +273,28 @@ export const JourneyMap = ({ points, isMini = false, id = "journey-map" }: { poi
     </div>
   );
 };
+
+export const ViewCounter = ({ blogId }: { blogId: string }) => {
+  const [views, setViews] = useState<number | null>(null);
+
+  useEffect(() => {
+    // Increment and fetch views
+    fetch(`/api/blog/${blogId}/view`, { method: "POST" })
+      .then(res => res.json())
+      .then(data => {
+        if (data.viewCount !== undefined) setViews(data.viewCount);
+      })
+      .catch(err => console.error("Failed to track views", err));
+  }, [blogId]);
+
+  if (views === null) return null;
+
+  return (
+    <div className="flex flex-col items-center gap-4 opacity-30 hover:opacity-100 transition-opacity duration-1000 group">
+      <div className="h-px w-12 bg-stone-300" />
+      <div className="flex items-center gap-2 text-stone-900 text-[9px] font-black uppercase tracking-[0.4em]">
+        {views.toLocaleString("cs-CZ")} návštěv
+      </div>
+    </div>
+  );
+};

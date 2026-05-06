@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { MapPin, Clock, Navigation, Calendar, ChevronDown, Camera } from "lucide-react";
-import { Reveal, RevealImage, FloatingHeader, BlogStyles } from "@/components/Blog/BlogClient";
+import { Reveal, RevealImage, FloatingHeader, BlogStyles, ViewCounter } from "@/components/Blog/BlogClient";
 import { BlogContainer } from "@/components/Blog/BlogContainer";
 
 export const revalidate = 60;
@@ -212,8 +212,9 @@ export default async function BlogPage({ params }: { params: Promise<{ id: strin
         <BlogContainer posts={posts} folder={folder} template={template} />
       </main>
 
-      <footer className="mt-80 pb-60 text-center opacity-30">
+      <footer className="mt-80 pb-60 text-center flex flex-col items-center gap-12">
          <div className={`h-2 w-32 mx-auto ${isAdventure ? 'bg-[#d4a373]' : isElegant ? 'bg-[#c5a059]' : isDark ? 'bg-white' : 'bg-[#ea580c]'}`} />
+         <ViewCounter blogId={folder.slug || folder.id} />
       </footer>
     </div>
   );

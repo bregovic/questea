@@ -476,6 +476,8 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
     }
   };
 
+  const [isNotesFullScreen, setIsNotesFullScreen] = useState(false);
+
   return (
     <motion.div 
       initial={{ x: "100%" }}
@@ -484,6 +486,30 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
       transition={{ type: "spring", damping: 25, stiffness: 200 }}
       className={styles.sidebar}
     >
+      {isNotesFullScreen && (
+        <div className="fixed inset-0 z-[3000] bg-white flex flex-col p-6 animate-in slide-in-from-bottom duration-300">
+           <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-black text-stone-950 uppercase tracking-widest">Deníček</h3>
+              <button 
+                onClick={() => {
+                  setIsNotesFullScreen(false);
+                  handleSaveDescription();
+                }} 
+                className="p-3 bg-stone-100 rounded-2xl active:scale-95 transition-transform"
+              >
+                <Save size={24} className="text-stone-950" />
+              </button>
+           </div>
+           <textarea 
+              className="flex-1 w-full p-6 text-lg leading-relaxed bg-stone-50 rounded-[40px] outline-none border-2 border-stone-100 focus:border-stone-200 transition-colors"
+              value={description}
+              autoFocus
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Pište své zážitky..."
+           />
+        </div>
+      )}
+
       <header className={styles.header}>
         <div className={styles.titleSection}>
           <input 
@@ -808,20 +834,33 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
           <div className={styles.sectionHeader}>
             <FileText size={18} />
             <span>{taskType === "LOCATION_HISTORY" ? "Zápisky / Deníček" : "Deníček / Poznámky"}</span>
-            <button 
-              className={`${styles.dictateBtn} ${isDictating ? styles.dictating : ""}`}
-              onClick={isDictating ? stopDictation : startDictation}
-              type="button"
-            >
-              <Mic size={16} />
-              {isDictating && <span className={styles.pulseDot} />}
-            </button>
+            <div className="flex items-center gap-2 ml-auto">
+              <button 
+                className={styles.dictateBtn}
+                onClick={() => setIsNotesFullScreen(true)}
+                title="Celá obrazovka"
+              >
+                <Maximize2 size={16} />
+              </button>
+              <button 
+                className={`${styles.dictateBtn} ${isDictating ? styles.dictating : ""}`}
+                onClick={isDictating ? stopDictation : startDictation}
+                type="button"
+              >
+                <Mic size={16} />
+                {isDictating && <span className={styles.pulseDot} />}
+              </button>
+            </div>
           </div>
           <textarea 
             className={styles.textarea}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             onBlur={handleSaveDescription}
+            onFocus={() => {
+              if (window.innerWidth < 768) setIsNotesFullScreen(true);
+            }}
+            onDoubleClick={() => setIsNotesFullScreen(true)}
             placeholder="Detailní popis..."
           />
         </section>

@@ -76,47 +76,6 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
     return R * c;
   };
 
-  // Odometer Calibration Logic
-  const calibratedCorrections = useMemo(() => {
-    let odoPosts = posts.filter(p => p.odometer !== null && p.odometer !== undefined);
-    
-    if (posts.length > 0 && (odoPosts.length === 0 || odoPosts[0].id !== posts[0].id)) {
-      odoPosts = [{ ...posts[0], odometer: 0 }, ...odoPosts];
-    }
-
-    const corrections: Record<string, number> = {};
-    if (odoPosts.length < 2) return corrections;
-
-    for (let i = 0; i < odoPosts.length - 1; i++) {
-      const p1 = odoPosts[i];
-      const p2 = odoPosts[i+1];
-      const realSegmentDist = Math.abs((p2.odometer || 0) - (p1.odometer || 0));
-      
-      const segmentStartIndex = posts.findIndex(p => p.id === p1.id);
-      const segmentEndIndex = posts.findIndex(p => p.id === p2.id);
-      const segmentPosts = posts.slice(segmentStartIndex, segmentEndIndex + 1);
-      
-      let gpsSegmentDist = 0;
-      const segmentStepDistances: {id: string, dist: number}[] = [];
-      
-      for (let j = 0; j < segmentPosts.length - 1; j++) {
-        const l1 = segmentPosts[j].locations?.[0];
-        const l2 = segmentPosts[j+1].locations?.[0];
-        if (l1 && l2) {
-          const d = calculateDistance(l1.latitude, l1.longitude, l2.latitude, l2.longitude);
-          gpsSegmentDist += d;
-          segmentStepDistances.push({ id: segmentPosts[j].id, dist: d });
-        }
-      }
-      
-      const ratio = gpsSegmentDist > 0 ? realSegmentDist / gpsSegmentDist : 1;
-      segmentStepDistances.forEach(step => {
-        corrections[step.id] = step.dist * ratio;
-      });
-    }
-    return corrections;
-  }, [posts]);
-
   const visiblePosts = useMemo(() => posts.filter(p => p.taskType !== "GPS_LOG"), [posts]);
 
   // Calculate distances between visible posts, including intermediate GPS_LOG points
@@ -134,8 +93,8 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
         const pA = posts[j];
         const pB = posts[j+1];
         
-        if (calibratedCorrections[pA.id] !== undefined) {
-          totalDist += calibratedCorrections[pA.id];
+        if (pA.calculatedDistance !== null && pA.calculatedDistance !== undefined) {
+          totalDist += pA.calculatedDistance;
         } else {
           const l1 = pA.locations?.[0];
           const l2 = pB.locations?.[0];
@@ -145,7 +104,7 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
       dists[current.id] = totalDist;
     }
     return dists;
-  }, [visiblePosts, posts, calibratedCorrections]);
+  }, [visiblePosts, posts]);
 
   return (
     <>

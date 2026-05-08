@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { recalculateTaskDistances } from "@/lib/odometer";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -72,6 +73,11 @@ export async function POST(req: Request) {
         userId: session.user.id,
       },
     });
+
+    // Recalculate distances if part of a journey
+    if (task.parentId) {
+      await recalculateTaskDistances(task.parentId);
+    }
 
     // Trigger revalidation for the public blog (Hierarchical)
     if (task.id) {

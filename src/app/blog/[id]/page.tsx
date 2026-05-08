@@ -38,6 +38,8 @@ async function getBlogData(idOrSlug: string) {
         where: { isDeleted: false },
         include: {
           locations: true,
+          odometer: true,
+          calculatedDistance: true,
           attachments: {
             select: {
               id: true,
@@ -82,48 +84,18 @@ export default async function BlogPage({ params }: { params: Promise<{ id: strin
   }));
   const template = folder.blogTemplate || "MODERN";
 
-  // Odometer Calibration for Total KM
-  let odoPosts = posts.filter(p => p.odometer !== null && p.odometer !== undefined);
-  
-  // Support "Trip Odometer" mode: Assume start at 0 if not provided
-  if (posts.length > 0 && (odoPosts.length === 0 || odoPosts[0].id !== posts[0].id)) {
-    odoPosts = [{ ...posts[0], odometer: 0 }, ...odoPosts];
-  }
-
+  // Calculate Total KM using DB values where possible
   let totalKm = 0;
-
-  if (odoPosts.length >= 2) {
-    const firstOdo = odoPosts[0];
-    const lastOdo = odoPosts[odoPosts.length - 1];
-    
-    // Distance between first and last odometer readings
-    totalKm = Math.abs((lastOdo.odometer || 0) - (firstOdo.odometer || 0));
-    
-    // Add GPS distance BEFORE the first odometer reading
-    const firstOdoIndex = posts.findIndex(p => p.id === firstOdo.id);
-    for (let i = 0; i < firstOdoIndex; i++) {
-      const l1 = posts[i].locations?.[0];
+  posts.forEach((p, i) => {
+    if (p.calculatedDistance !== null && p.calculatedDistance !== undefined) {
+      totalKm += p.calculatedDistance;
+    } else if (i < posts.length - 1) {
+      // Fallback for non-calculated segments
+      const l1 = p.locations?.[0];
       const l2 = posts[i+1].locations?.[0];
       if (l1 && l2) totalKm += calculateDistance(l1.latitude, l1.longitude, l2.latitude, l2.longitude);
     }
-    
-    // Add GPS distance AFTER the last odometer reading
-    const lastOdoIndex = posts.findIndex(p => p.id === lastOdo.id);
-    for (let i = lastOdoIndex; i < posts.length - 1; i++) {
-      const l1 = posts[i].locations?.[0];
-      const l2 = posts[i+1].locations?.[0];
-      if (l1 && l2) totalKm += calculateDistance(l1.latitude, l1.longitude, l2.latitude, l2.longitude);
-    }
-  } else {
-    // Pure GPS Fallback
-    for (let i = 0; i < posts.length - 1; i++) {
-      const l1 = posts[i].locations?.[0];
-      const l2 = posts[i+1].locations?.[0];
-      if (l1 && l2) {
-        totalKm += calculateDistance(l1.latitude, l1.longitude, l2.latitude, l2.longitude);
-      }
-    }
-  }
+  });
 
   const startDate = posts.length > 0 ? new Date(posts[0].recordedAt || posts[0].createdAt).toLocaleDateString("cs-CZ") : "";
   const endDate = posts.length > 0 ? new Date(posts[posts.length-1].recordedAt || posts[posts.length-1].createdAt).toLocaleDateString("cs-CZ") : "";

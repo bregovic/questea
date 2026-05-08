@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { recalculateTaskDistances } from "@/lib/odometer";
 
 export async function GET(
   req: Request,
@@ -123,6 +124,11 @@ export async function PATCH(
         }
       }
     };
+
+    // Recalculate distances if part of a journey
+    if (task.parentId) {
+      await recalculateTaskDistances(task.parentId);
+    }
 
     await triggerRevalidate(task.id);
 

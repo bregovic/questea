@@ -151,6 +151,7 @@ model Task {
   orderIndex  Int      @default(0)
   recordedAt  DateTime? // Kdy se to skutečně stalo (pro historii)
   odometer    Float?      // Manual odometer reading (km)
+  calculatedDistance Float?   // Vypočtená vzdálenost od předchozího bodu (km)
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

@@ -130,9 +130,11 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
           // Sentence-based Granular Interleaving
           const getSentenceChunks = (text: string) => {
             if (!text) return [];
-            // Split by sentences (dot, exclamation, question mark followed by space or end)
-            const sentences = text.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 0);
-            if (sentences.length <= 3) return [text]; // Too short to split aggressively
+            // Split by sentences, but ignore dots after numbers (Czech ordinals)
+            // Splitting at [.!?] followed by space, but ONLY if dot is NOT preceded by a digit
+            const sentences = text.split(/(?<=[!?])\s+|(?<=[^0-9]\.)\s+/).filter(s => s.trim().length > 0);
+            
+            if (sentences.length < 2) return [text]; 
             
             const chunks = [];
             for (let i = 0; i < sentences.length; i += 2) {

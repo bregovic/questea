@@ -224,8 +224,8 @@ model PostComment {
   id        String   @id @default(cuid())
   taskId    String
   task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   content   String   @db.Text
   createdAt DateTime @default(now())
 }

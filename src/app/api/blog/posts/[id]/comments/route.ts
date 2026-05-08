@@ -36,34 +36,32 @@ export async function POST(
   try {
     const { id } = await params;
     const session = await getServerSession(authOptions);
-
-    if (!session || !session.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const { content } = await req.json();
+
     if (!content || content.trim().length === 0) {
       return NextResponse.json({ error: "Content is required" }, { status: 400 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email }
-    });
+    let userId = null;
 
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    if (session?.user?.email) {
+      const user = await prisma.user.findUnique({
+        where: { email: session.user.email }
+      });
+      if (user) userId = user.id;
     }
 
     const comment = await prisma.postComment.create({
       data: {
         taskId: id,
-        userId: user.id,
+        userId: userId,
         content: content
       },
       include: {
         user: {
           select: {
             name: true,
+            email: true,
             image: true
           }
         }

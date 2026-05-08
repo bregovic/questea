@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Heart, MessageCircle, Send, X, LogIn, UserPlus } from "lucide-react";
+import { Heart, MessageCircle, Send, X, LogIn, UserPlus, User } from "lucide-react";
 import { useSession, signIn } from "next-auth/react";
 import { Reveal } from "./BlogClient";
 import { AnimatePresence, motion } from "framer-motion";
@@ -12,8 +12,9 @@ interface PostComment {
   createdAt: string;
   user: {
     name: string | null;
+    email: string | null;
     image: string | null;
-  };
+  } | null;
 }
 
 interface SocialActionsProps {
@@ -46,7 +47,6 @@ export const BlogSocial: React.FC<SocialActionsProps> = ({
   const [showAuthModal, setShowAuthModal] = useState(false);
 
   const handleLike = async () => {
-    // Optimistic update
     const prevLiked = liked;
     setLiked(!prevLiked);
     setLikesCount(prevLiked ? likesCount - 1 : likesCount + 1);
@@ -54,9 +54,7 @@ export const BlogSocial: React.FC<SocialActionsProps> = ({
     try {
       const res = await fetch(`/api/blog/posts/${taskId}/like`, { method: "POST" });
       const data = await res.json();
-      if (data.liked !== undefined) {
-        setLiked(data.liked);
-      }
+      if (data.liked !== undefined) setLiked(data.liked);
     } catch (error) {
       setLiked(prevLiked);
       setLikesCount(initialLikes);
@@ -78,17 +76,11 @@ export const BlogSocial: React.FC<SocialActionsProps> = ({
   };
 
   useEffect(() => {
-    if (showComments) {
-      fetchComments();
-    }
+    if (showComments) fetchComments();
   }, [showComments]);
 
   const handlePostComment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!session) {
-      setShowAuthModal(true);
-      return;
-    }
     if (!newComment.trim()) return;
 
     setSubmitting(true);
@@ -107,6 +99,13 @@ export const BlogSocial: React.FC<SocialActionsProps> = ({
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const getUserName = (comment: PostComment) => {
+    if (!comment.user) return "Anonym";
+    if (comment.user.name) return comment.user.name;
+    if (comment.user.email) return comment.user.email.split('@')[0];
+    return "Uživatel";
   };
 
   return (
@@ -137,88 +136,98 @@ export const BlogSocial: React.FC<SocialActionsProps> = ({
         {showComments && (
           <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
             <motion.div 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }} 
-              exit={{ opacity: 0 }}
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={() => setShowComments(false)}
               className="absolute inset-0 bg-black/60 backdrop-blur-md" 
             />
             
             <motion.div 
-              initial={{ opacity: 0, y: 50, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 50, scale: 0.95 }}
-              className={`relative w-full max-w-xl max-h-[80vh] flex flex-col rounded-3xl overflow-hidden shadow-2xl ${theme.isDark ? 'bg-[#1a1a1a] text-white' : 'bg-white text-stone-900'}`}
+              initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 50 }}
+              className={`relative w-full max-w-xl max-h-[85vh] flex flex-col rounded-[32px] overflow-hidden shadow-2xl ${theme.isDark ? 'bg-[#1a1a1a] text-white border border-white/5' : 'bg-white text-stone-900 border border-stone-100'}`}
             >
-              <div className="flex items-center justify-between p-6 border-b border-white/10">
-                <h3 className="font-black uppercase tracking-widest text-xs">Komentáře ({commentsCount})</h3>
-                <button onClick={() => setShowComments(false)} className="opacity-40 hover:opacity-100 transition-opacity">
+              <div className="flex items-center justify-between p-6 px-8 border-b border-white/5 bg-white/5">
+                <h3 className="font-black uppercase tracking-[0.2em] text-[10px] opacity-50">Diskuze ({commentsCount})</h3>
+                <button onClick={() => setShowComments(false)} className="opacity-40 hover:opacity-100 transition-opacity p-2">
                   <X size={20} />
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-6 space-y-8">
+              <div className="flex-1 overflow-y-auto p-8 space-y-10 custom-scrollbar">
                 {loadingComments ? (
-                  <div className="flex justify-center py-12">
-                    <div className="w-6 h-6 border-2 border-current/20 border-t-current rounded-full animate-spin" />
+                  <div className="flex justify-center py-20">
+                    <div className="w-8 h-8 border-2 border-current/10 border-t-current rounded-full animate-spin" />
                   </div>
                 ) : comments.length > 0 ? (
                   comments.map(comment => (
-                    <div key={comment.id} className="flex gap-4">
-                      <div className="w-10 h-10 rounded-full bg-stone-100 overflow-hidden flex-shrink-0">
-                        {comment.user.image ? (
-                          <img src={comment.user.image} alt={comment.user.name || ""} className="w-full h-full object-cover" />
+                    <div key={comment.id} className="flex gap-5 group">
+                      <div className={`w-12 h-12 rounded-2xl overflow-hidden flex-shrink-0 shadow-sm border border-black/5 ${theme.isDark ? 'bg-white/5' : 'bg-stone-50'}`}>
+                        {comment.user?.image ? (
+                          <img src={comment.user.image} alt={getUserName(comment)} className="w-full h-full object-cover" />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-stone-200 text-stone-500 font-bold text-xs">
-                            {comment.user.name?.charAt(0).toUpperCase() || "?"}
+                          <div className="w-full h-full flex items-center justify-center opacity-40">
+                            <User size={20} />
                           </div>
                         )}
                       </div>
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-3">
-                          <span className="font-black text-xs uppercase tracking-wider">{comment.user.name || "Anonym"}</span>
-                          <span className="text-[10px] opacity-30 font-bold">{new Date(comment.createdAt).toLocaleDateString("cs-CZ")}</span>
+                      <div className="space-y-1.5 flex-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-black text-[11px] uppercase tracking-widest opacity-80">{getUserName(comment)}</span>
+                          <span className="text-[9px] opacity-30 font-black tracking-widest uppercase">{new Date(comment.createdAt).toLocaleDateString("cs-CZ")}</span>
                         </div>
-                        <p className="text-sm opacity-70 leading-relaxed">{comment.content}</p>
+                        <p className="text-[15px] opacity-70 leading-relaxed font-medium">{comment.content}</p>
                       </div>
                     </div>
                   ))
                 ) : (
-                  <div className="text-center py-12 opacity-30 italic text-sm">Zatím žádné komentáře. Buďte první!</div>
+                  <div className="text-center py-20">
+                     <div className="opacity-10 mb-4 flex justify-center"><MessageCircle size={40} /></div>
+                     <p className="opacity-30 italic text-sm font-medium">Zatím žádné komentáře. Buďte první!</p>
+                  </div>
                 )}
               </div>
 
-              <div className="p-6 border-t border-white/10">
-                {session ? (
-                  <form onSubmit={handlePostComment} className="relative">
+              <div className={`p-8 border-t border-white/5 ${theme.isDark ? 'bg-white/[0.02]' : 'bg-stone-50/50'}`}>
+                <form onSubmit={handlePostComment} className="flex flex-col gap-4">
+                  <div className="relative group">
                     <textarea 
-                      placeholder="Napište komentář..." 
+                      placeholder={session ? "Napište něco..." : "Napište anonymní komentář..."}
                       value={newComment}
                       onChange={(e) => setNewComment(e.target.value)}
-                      className={`w-full bg-stone-100/10 border-0 rounded-2xl p-4 pr-12 text-sm focus:ring-2 focus:ring-current/20 transition-all resize-none ${theme.isDark ? 'placeholder-white/20' : 'placeholder-stone-400'}`}
+                      className={`w-full bg-stone-100/10 border-2 border-transparent rounded-2xl p-5 pr-12 text-[15px] font-medium focus:border-current/10 focus:bg-stone-100/20 transition-all outline-none resize-none ${theme.isDark ? 'placeholder-white/20' : 'placeholder-stone-400'}`}
                       rows={2}
                     />
-                    <button 
-                      disabled={submitting || !newComment.trim()}
-                      className="absolute right-3 bottom-3 p-2 rounded-xl bg-current text-stone-900 disabled:opacity-20 hover:scale-105 active:scale-95 transition-all"
-                    >
-                      {submitting ? <div className="w-4 h-4 border-2 border-stone-900/20 border-t-stone-900 rounded-full animate-spin" /> : <Send size={16} />}
-                    </button>
-                  </form>
-                ) : (
-                  <div className="flex flex-col items-center gap-4 py-4">
-                    <p className="text-xs font-bold opacity-40 uppercase tracking-widest text-center">Pro přidání komentáře se prosím přihlaste</p>
-                    <div className="flex gap-4">
+                    {!session && (
                       <button 
+                        type="button"
                         onClick={() => setShowAuthModal(true)}
-                        className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all hover:scale-105 active:scale-95 bg-white text-black shadow-xl`}
+                        className="absolute right-4 top-4 opacity-30 hover:opacity-100 transition-opacity"
+                        title="Přihlásit se pro jméno a fotku"
                       >
-                        <LogIn size={14} />
-                        Přihlásit
+                        <LogIn size={18} />
                       </button>
-                    </div>
+                    )}
                   </div>
-                )}
+                  
+                  <div className="flex items-center justify-between px-1">
+                     {!session && (
+                       <span className="text-[10px] font-black uppercase tracking-widest opacity-20">Píšete jako anonym</span>
+                     )}
+                     <div className="flex-1" />
+                     <button 
+                        disabled={submitting || !newComment.trim()}
+                        className={`flex items-center gap-3 px-8 py-3.5 rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] transition-all transform hover:scale-[1.02] active:scale-95 disabled:opacity-30 disabled:scale-100 ${theme.isDark ? 'bg-white text-black' : 'bg-stone-900 text-white shadow-xl shadow-stone-200'}`}
+                      >
+                        {submitting ? (
+                          <div className="w-4 h-4 border-2 border-current/20 border-t-current rounded-full animate-spin" />
+                        ) : (
+                          <>
+                            Odeslat
+                            <Send size={14} />
+                          </>
+                        )}
+                      </button>
+                  </div>
+                </form>
               </div>
             </motion.div>
           </div>
@@ -227,25 +236,21 @@ export const BlogSocial: React.FC<SocialActionsProps> = ({
         {showAuthModal && (
           <div className="fixed inset-0 z-[11000] flex items-center justify-center p-4">
             <motion.div 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }} 
-              exit={{ opacity: 0 }}
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={() => setShowAuthModal(false)}
               className="absolute inset-0 bg-black/80 backdrop-blur-xl" 
             />
             <motion.div 
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
+              initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
               className="relative w-full max-w-sm bg-white rounded-[40px] p-10 text-stone-900 shadow-2xl flex flex-col items-center text-center gap-8"
             >
               <div className="w-16 h-16 bg-[#ea580c]/10 rounded-3xl flex items-center justify-center text-[#ea580c]">
-                 <UserPlus size={32} />
+                 <LogIn size={32} />
               </div>
               <div className="space-y-2">
-                <h2 className="text-2xl font-black tracking-tight">Připojte se k nám</h2>
+                <h2 className="text-2xl font-black tracking-tight">Přihlásit se</h2>
                 <p className="text-sm text-stone-500 font-medium leading-relaxed">
-                  Questea je místo pro sdílení zážitků. Přihlaste se a buďte součástí naší komunity.
+                  Chcete u komentáře zobrazit své jméno a fotku? Přihlaste se ke svému Questea účtu.
                 </p>
               </div>
               <div className="w-full space-y-3">
@@ -255,16 +260,14 @@ export const BlogSocial: React.FC<SocialActionsProps> = ({
                 >
                   Přihlásit se
                 </button>
+                <div className="py-2 text-[10px] font-black uppercase tracking-[0.2em] opacity-20">Nebo pokračujte anonymně</div>
                 <button 
-                   onClick={() => window.location.href = '/register'}
+                   onClick={() => setShowAuthModal(false)}
                    className="w-full py-4 rounded-2xl bg-stone-100 text-stone-600 font-black uppercase tracking-widest text-[11px] hover:bg-stone-200 transition-colors"
                 >
-                   Vytvořit účet
+                   Psát jako anonym
                 </button>
               </div>
-              <button onClick={() => setShowAuthModal(false)} className="text-[10px] font-bold uppercase tracking-widest opacity-30 hover:opacity-100 transition-opacity">
-                Možná později
-              </button>
             </motion.div>
           </div>
         )}

@@ -247,12 +247,7 @@ export const JourneyMap = ({ points, isMini = false, id = "journey-map" }: { poi
       <div id={id} className="w-full h-full z-10" />
       
       {!isMini && !isUnlocked && (
-        <div className="absolute inset-0 z-30 bg-black/5 backdrop-blur-[2px] flex items-center justify-center cursor-pointer group-hover:bg-black/10 transition-all">
-          <div className="bg-white/90 backdrop-blur-md px-6 py-3 rounded-2xl shadow-xl flex items-center gap-3 scale-100 group-hover:scale-105 transition-transform">
-             <Navigation size={20} className="text-orange-500" />
-             <span className="text-xs font-black uppercase tracking-widest text-stone-900">Klepnutím aktivovat mapu</span>
-          </div>
-        </div>
+        <div className="absolute inset-0 z-30 cursor-pointer group-hover:bg-black/5 transition-all" />
       )}
 
       {!isMini && (

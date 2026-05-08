@@ -20,6 +20,10 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
     setMounted(true);
   }, []);
 
+  if (!mounted) {
+    return <div className="min-h-screen opacity-0" />;
+  }
+
   if (onlyMap) {
     const loc = onlyMap.locations?.[0];
     if (!loc) return null;

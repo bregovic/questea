@@ -19,11 +19,19 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
     const loc = onlyMap.locations?.[0];
     if (!loc) return null;
     return (
-       <JourneyMap 
-          id={`header-mini-map`}
-          points={[{ lat: loc.latitude, lng: loc.longitude, title: "Aktuálně" }]} 
-          isMini 
-       />
+       <div 
+         className="cursor-pointer hover:scale-105 transition-transform duration-300"
+         onClick={() => {
+           const mainMap = document.getElementById('main-journey-map');
+           if (mainMap) mainMap.scrollIntoView({ behavior: 'smooth', block: 'center' });
+         }}
+       >
+         <JourneyMap 
+            id={`header-mini-map`}
+            points={[{ lat: loc.latitude, lng: loc.longitude, title: "Aktuálně" }]} 
+            isMini 
+         />
+       </div>
     );
   }
 
@@ -139,7 +147,7 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
     <>
       {/* Interactive Map Section */}
       {mapPoints.length > 1 && (
-        <div className="mb-48">
+        <div className="mb-48" id="main-journey-map">
           <Reveal>
             <JourneyMap points={mapPoints} />
           </Reveal>

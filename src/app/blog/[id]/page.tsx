@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { MapPin, Clock, Navigation, Calendar, ChevronDown, Camera } from "lucide-react";
 import { Reveal, RevealImage, FloatingHeader, BlogStyles, ViewCounter } from "@/components/Blog/BlogClient";
 import { BlogContainer } from "@/components/Blog/BlogContainer";
+import { headers } from "next/headers";
 
 import { Metadata } from "next";
 
@@ -25,7 +26,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   };
 }
 
-async function getBlogData(idOrSlug: string) {
+async function getBlogData(idOrSlug: string, userIp: string) {
   const folder = await prisma.task.findFirst({
     where: {
       OR: [
@@ -46,6 +47,16 @@ async function getBlogData(idOrSlug: string) {
               createdAt: true
               // url is excluded to save bandwidth, served via /api/images/[id]
             }
+          },
+          _count: {
+            select: {
+              likes: true,
+              comments: true
+            }
+          },
+          likes: {
+            where: { ipAddress: userIp },
+            take: 1
           }
         },
         orderBy: { recordedAt: "asc" }
@@ -70,7 +81,10 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 
 export default async function BlogPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const folder = await getBlogData(id);
+  const headerList = await headers();
+  const userIp = headerList.get("x-forwarded-for")?.split(",")[0] || "0.0.0.0";
+
+  const folder = await getBlogData(id, userIp);
   if (!folder) notFound();
 
   const posts = folder.subTasks.map(post => ({

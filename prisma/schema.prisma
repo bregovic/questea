@@ -52,6 +52,7 @@ model User {
   aliasEmails     AliasEmail[]
   locations       LocationCheckIn[]
   payees          Payee[]
+  comments        PostComment[]
 }
 
 model VerificationToken {
@@ -155,6 +156,9 @@ model Task {
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  likes       PostLike[]
+  comments    PostComment[]
 }
 
 model Payee {
@@ -203,5 +207,25 @@ model LocationCheckIn {
   taskId    String?
   task      Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
 
+  createdAt DateTime @default(now())
+}
+
+model PostLike {
+  id        String   @id @default(cuid())
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  ipAddress String
+  createdAt DateTime @default(now())
+
+  @@unique([taskId, ipAddress])
+}
+
+model PostComment {
+  id        String   @id @default(cuid())
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content   String   @db.Text
   createdAt DateTime @default(now())
 }

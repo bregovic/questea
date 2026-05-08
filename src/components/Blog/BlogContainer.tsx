@@ -4,6 +4,7 @@ import React, { useState, useMemo } from "react";
 import { MapPin, Clock, Navigation, Calendar, ChevronDown, Camera } from "lucide-react";
 import { Reveal, RevealImage, FloatingHeader, Lightbox, JourneyMap } from "./BlogClient";
 import { AnimatePresence } from "framer-motion";
+import { BlogSocial } from "./BlogSocial";
 
 interface BlogContainerProps {
   posts: any[];
@@ -105,6 +106,8 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
   const isAdventure = template === "ADVENTURE";
   const isElegant = template === "ELEGANT";
   const isDark = template === "DARK";
+
+  const accentColor = isAdventure ? "#d4a373" : isElegant ? "#c5a059" : "#ea580c";
 
   return (
     <>
@@ -252,6 +255,16 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
                        </div>
                      )}
                   </div>
+
+                  <Reveal delay={0.2}>
+                    <BlogSocial 
+                      taskId={post.id}
+                      initialLikes={post._count?.likes || 0}
+                      initialComments={post._count?.comments || 0}
+                      initiallyLiked={post.likes?.length > 0}
+                      theme={{ isDark, accent: accentColor }}
+                    />
+                  </Reveal>
                 </div>
               </div>
 

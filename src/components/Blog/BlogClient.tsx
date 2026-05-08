@@ -152,7 +152,7 @@ export const Lightbox = ({ images, initialIndex, onClose }: { images: string[], 
     </motion.div>
   );
 };
-export const JourneyMap = ({ points, isMini = false, id = "journey-map" }: { points: { lat: number, lng: number, title: string }[], isMini?: boolean, id?: string }) => {
+export const JourneyMap = ({ points, isMini = false, id = "journey-map", className = "" }: { points: { lat: number, lng: number, title: string }[], isMini?: boolean, id?: string, className?: string }) => {
   const [isUnlocked, setIsUnlocked] = useState(false);
   const mapRef = useRef<any>(null);
 
@@ -241,7 +241,7 @@ export const JourneyMap = ({ points, isMini = false, id = "journey-map" }: { poi
 
   return (
     <div 
-      className={`relative w-full ${isMini ? 'h-full' : 'h-[400px] md:h-[600px]'} rounded-3xl overflow-hidden border border-white/10 shadow-2xl bg-stone-100 group transition-all duration-500 ${isUnlocked ? 'ring-4 ring-orange-500/20' : ''}`}
+      className={`relative w-full ${className || (isMini ? 'h-full' : 'h-[400px] md:h-[600px]')} rounded-3xl overflow-hidden border border-white/10 shadow-2xl bg-stone-100 group transition-all duration-500 ${isUnlocked ? 'ring-4 ring-orange-500/20' : ''}`}
       onClick={() => !isMini && setIsUnlocked(true)}
     >
       <div id={id} className="w-full h-full z-10" />

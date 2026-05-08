@@ -14,6 +14,7 @@ interface BlogContainerProps {
 
 export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, template, onlyMap }) => {
   const [lightbox, setLightbox] = useState<{ images: string[], index: number } | null>(null);
+  const [showMapModal, setShowMapModal] = useState(false);
   const [mounted, setMounted] = React.useState(false);
 
   React.useEffect(() => {
@@ -29,14 +30,11 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
     if (!loc) return null;
     return (
        <div 
-         className="cursor-pointer hover:scale-105 transition-transform duration-300"
-         onClick={() => {
-           const mainMap = document.getElementById('main-journey-map');
-           if (mainMap) mainMap.scrollIntoView({ behavior: 'smooth', block: 'center' });
-         }}
+         className="w-full h-full cursor-pointer hover:scale-105 transition-transform duration-300"
+         onClick={() => setShowMapModal(true)}
        >
          <JourneyMap 
-            id={`header-mini-map`}
+            id={`header-mini-map-${folder.id}`}
             points={[{ lat: loc.latitude, lng: loc.longitude, title: "Aktuálně" }]} 
             isMini 
          />
@@ -330,6 +328,19 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
             initialIndex={lightbox.index} 
             onClose={() => setLightbox(null)} 
           />
+        )}
+        {showMapModal && (
+           <div className="fixed inset-0 z-[9999] bg-black/90 backdrop-blur-xl flex items-center justify-center p-4 md:p-12" onClick={() => setShowMapModal(false)}>
+              <div className="relative w-full max-w-5xl h-[80vh] bg-white rounded-3xl overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
+                 <JourneyMap points={mapPoints} id="modal-journey-map" className="h-full" />
+                 <button 
+                    onClick={() => setShowMapModal(false)}
+                    className="absolute top-6 right-6 z-50 bg-black/50 text-white p-3 rounded-full hover:bg-black transition-colors"
+                 >
+                    <ChevronDown size={24} className="rotate-180" />
+                 </button>
+              </div>
+           </div>
         )}
       </AnimatePresence>
     </>

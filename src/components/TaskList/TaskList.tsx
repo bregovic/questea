@@ -20,6 +20,7 @@ export const TaskList = () => {
   const [addingType, setAddingType] = useState<any>(null);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [selectedTask, setSelectedTask] = useState<any | null>(null);
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -183,6 +184,22 @@ export const TaskList = () => {
     }
   };
 
+  const openTaskDetail = async (task: any) => {
+    setIsLoadingDetail(true);
+    setSelectedTask(task); // Show partial data immediately
+    try {
+      const res = await fetch(`/api/tasks/${task.id}`);
+      if (res.ok) {
+        const fullTask = await res.json();
+        setSelectedTask(fullTask);
+      }
+    } catch (err) {
+      console.error("Failed to fetch task detail", err);
+    } finally {
+      setIsLoadingDetail(false);
+    }
+  };
+
   // Derived breadcrumbs (resilient even if parent is not in the list)
   const currentFolder = tasks.find(t => t.id === currentParentId);
   const isEvidenceView = currentFolder?.taskType === "EXPENSE" || currentFolder?.taskType === "LOCATION_HISTORY";
@@ -314,9 +331,10 @@ export const TaskList = () => {
 
   // Auto-calculate progress based on subtasks if not set manually
   const getTaskProgress = (task: any) => {
-    if (task.subTasks && task.subTasks.length > 0) {
-      const doneCount = task.subTasks.filter((st: any) => st.status === "DONE").length;
-      return Math.round((doneCount / task.subTasks.length) * 100);
+    const children = tasks.filter(t => t.parentId === task.id && !t.isDeleted);
+    if (children.length > 0) {
+      const doneCount = children.filter((st: any) => st.status === "DONE").length;
+      return Math.round((doneCount / children.length) * 100);
     }
     return task.progress || 0;
   };
@@ -568,6 +586,12 @@ export const TaskList = () => {
             onUpdate={handleUpdate}
             onDelete={handleDelete}
           />
+        )}
+        {isLoadingDetail && (
+           <div className="fixed top-4 right-4 z-[3000] bg-white/80 backdrop-blur-md px-4 py-2 rounded-full shadow-lg flex items-center gap-2 border border-orange-100 animate-in fade-in slide-in-from-top-4">
+              <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-orange-600">Načítám detaily...</span>
+           </div>
         )}
         {quickActionTask && (
           <QuickExpenseModal 
@@ -1033,7 +1057,7 @@ export const TaskList = () => {
                       onUpdate={(data: any) => handleUpdate(task.id, data)}
                       onDelete={handleDelete}
                       onOpen={() => goToFolder(task.id)}
-                      onOpenDetail={() => setSelectedTask(task)}
+                      onOpenDetail={() => openTaskDetail(task)}
                       isEvidence={isEvidenceView}
                     />
                     {isLocationHistoryFolder && nextTask && (

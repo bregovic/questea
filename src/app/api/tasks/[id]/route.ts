@@ -4,6 +4,41 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
+export async function GET(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id } = await params;
+
+  try {
+    const task = await prisma.task.findUnique({
+      where: {
+        id: id,
+        userId: session.user.id
+      },
+      include: {
+        category: true,
+        attachments: true,
+        locations: {
+          orderBy: { createdAt: "desc" }
+        },
+        subTasks: {
+          include: { category: true },
+          orderBy: { orderIndex: "asc" }
+        }
+      }
+    });
+
+    if (!task) return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    return NextResponse.json(task);
+  } catch (error) {
+    return NextResponse.json({ error: "Failed to fetch task" }, { status: 500 });
+  }
+}
+
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }

@@ -74,7 +74,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
         onClick={() => {
           // 1. Leaf types always open detail
           const isLeafType = ["LOCATION", "EXPENSE", "GPS_LOG", "TASK", "BUG", "IDEA"].includes(task.taskType);
-          const hasChildren = task.subTasks?.length > 0;
+          const hasChildren = (task.subTasks?.length || 0) > 0 || (task._count?.subTasks || 0) > 0;
 
           if (isLeafType && !hasChildren) {
             onOpenDetail?.();
@@ -105,7 +105,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
           <>
             <div className={styles.mainInfo}>
               <div className={styles.titleRow}>
-                {task.subTasks?.length > 0 && <FolderOpen size={14} className="text-coral mr-1.5" />}
+                {((task.subTasks?.length || 0) > 0 || (task._count?.subTasks || 0) > 0) && <FolderOpen size={14} className="text-coral mr-1.5" />}
                 <h3 className={styles.title}>{task.title}</h3>
               </div>
               <div className={styles.metaRow}>
@@ -190,7 +190,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
                 </button>
               ) : (
                 <div className="flex items-center gap-3">
-                  {task.subTasks?.length > 0 && (
+                  {((task.subTasks?.length || 0) > 0 || (task._count?.subTasks || 0) > 0) && (
                     <button 
                       className={styles.cardActionBtn}
                       style={{ background: '#f5f5f4', borderColor: '#e5e5e4', color: '#737373' }}
@@ -202,7 +202,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
                       <Plus size={16} />
                     </button>
                   )}
-                  {task.subTasks?.length > 0 && (
+                  {((task.subTasks?.length || 0) > 0 || (task._count?.subTasks || 0) > 0) && (
                     <div className={styles.gaugeWrapper}>
                       <svg width="44" height="44" className={styles.gauge}>
                         <circle cx="22" cy="22" r={radius} stroke="#f5f5f4" strokeWidth="3" fill="none" />

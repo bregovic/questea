@@ -21,13 +21,15 @@ export async function GET() {
         parent: {
           select: { id: true, title: true, parentId: true }
         },
-        subTasks: {
-          include: { category: true },
-          orderBy: { orderIndex: "asc" }
-        },
-        attachments: true,
         locations: {
+          select: { id: true, latitude: true, longitude: true, address: true, placeName: true, createdAt: true, mileage: true },
           orderBy: { createdAt: "desc" }
+        },
+        _count: {
+          select: { 
+            subTasks: true,
+            attachments: true 
+          }
         }
       },
       orderBy: { createdAt: "desc" },

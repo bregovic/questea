@@ -12,6 +12,17 @@ interface BlogContainerProps {
   onlyMap?: any;
 }
 
+const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+  const R = 6371; 
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+};
+
 export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, template, onlyMap }) => {
   const [lightbox, setLightbox] = useState<{ images: string[], index: number } | null>(null);
   const [showMapModal, setShowMapModal] = useState(false);
@@ -21,39 +32,14 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
     setMounted(true);
   }, []);
 
-  if (!mounted) {
-    return <div className="min-h-screen opacity-0" />;
-  }
-
-  if (onlyMap) {
-    const loc = onlyMap.locations?.[0];
-    if (!loc) return null;
-    return (
-       <div 
-         className="w-full h-full cursor-pointer hover:scale-105 transition-transform duration-300"
-         onClick={() => setShowMapModal(true)}
-       >
-         <JourneyMap 
-            id={`header-mini-map-${folder.id}`}
-            points={[{ lat: loc.latitude, lng: loc.longitude, title: "Aktuálně" }]} 
-            isMini 
-         />
-       </div>
-    );
-  }
-
-  const isMinimal = template === "MINIMAL";
-  const isAdventure = template === "ADVENTURE";
-  const isElegant = template === "ELEGANT";
-  const isDark = template === "DARK";
-
-  // Extract map points
+  // 1. Move all hooks to the top
   const mapPoints = useMemo(() => {
+    if (!mounted) return [];
     return posts
       .map(p => {
         const loc = p.locations?.[0];
         if (loc && loc.latitude && loc.longitude) {
-          const time = mounted ? new Date(p.recordedAt || p.createdAt).toLocaleTimeString("cs-CZ", { hour: '2-digit', minute: '2-digit' }) : "";
+          const time = new Date(p.recordedAt || p.createdAt).toLocaleTimeString("cs-CZ", { hour: '2-digit', minute: '2-digit' });
           return { 
             lat: loc.latitude, 
             lng: loc.longitude, 
@@ -65,20 +51,8 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
       .filter(Boolean) as { lat: number, lng: number, title: string }[];
   }, [posts, mounted]);
 
-  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-    const R = 6371; 
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-              Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c;
-  };
-
   const visiblePosts = useMemo(() => posts.filter(p => p.taskType !== "GPS_LOG"), [posts]);
 
-  // Calculate distances between visible posts, including intermediate GPS_LOG points
   const visibleDistances = useMemo(() => {
     const dists: Record<string, number> = {};
     for (let i = 0; i < visiblePosts.length - 1; i++) {
@@ -105,6 +79,32 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
     }
     return dists;
   }, [visiblePosts, posts]);
+
+  if (!mounted) {
+    return <div className="min-h-screen opacity-0" />;
+  }
+
+  if (onlyMap) {
+    const loc = onlyMap.locations?.[0];
+    if (!loc) return null;
+    return (
+       <div 
+         className="w-full h-full cursor-pointer hover:scale-105 transition-transform duration-300"
+         onClick={() => setShowMapModal(true)}
+       >
+         <JourneyMap 
+            id={`header-mini-map-${folder.id}`}
+            points={[{ lat: loc.latitude, lng: loc.longitude, title: "Aktuálně" }]} 
+            isMini 
+         />
+       </div>
+    );
+  }
+
+  const isMinimal = template === "MINIMAL";
+  const isAdventure = template === "ADVENTURE";
+  const isElegant = template === "ELEGANT";
+  const isDark = template === "DARK";
 
   return (
     <>

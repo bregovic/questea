@@ -127,16 +127,21 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
           
           const distToNext = visibleDistances[post.id] || 0;
 
-          // Content Interleaving Logic - improved to handle single newlines if needed
-          let paragraphs = post.description ? post.description.split(/\n\s*\n/).filter(Boolean) : [];
-          
-          // Fallback: If we have one giant block but it contains single newlines, split by those
-          if (paragraphs.length === 1 && post.description && post.description.includes('\n')) {
-            paragraphs = post.description.split('\n').filter((p: string) => p.trim().length > 20);
-          }
-          
-          // Safety: If still only 1 paragraph but very long, we could split by sentences, 
-          // but usually single newline split above covers most cases.
+          // Sentence-based Granular Interleaving
+          const getSentenceChunks = (text: string) => {
+            if (!text) return [];
+            // Split by sentences (dot, exclamation, question mark followed by space or end)
+            const sentences = text.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 0);
+            if (sentences.length <= 3) return [text]; // Too short to split aggressively
+            
+            const chunks = [];
+            for (let i = 0; i < sentences.length; i += 2) {
+              chunks.push(sentences.slice(i, i + 2).join(" ").trim());
+            }
+            return chunks;
+          };
+
+          let paragraphs = getSentenceChunks(post.description || "");
           
           return (
             <article key={post.id} className="relative group blog-article">

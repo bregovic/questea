@@ -4,7 +4,26 @@ import { MapPin, Clock, Navigation, Calendar, ChevronDown, Camera } from "lucide
 import { Reveal, RevealImage, FloatingHeader, BlogStyles, ViewCounter } from "@/components/Blog/BlogClient";
 import { BlogContainer } from "@/components/Blog/BlogContainer";
 
+import { Metadata } from "next";
+
 export const revalidate = 60;
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const folder = await prisma.task.findFirst({
+    where: { OR: [{ id }, { slug: id }] },
+    select: { title: true }
+  });
+
+  return {
+    title: folder?.title || "Questea Blog",
+    description: "Zápis z cesty",
+    openGraph: {
+      title: folder?.title || "Questea Blog",
+      description: "Sdílený deník z Questea",
+    }
+  };
+}
 
 async function getBlogData(idOrSlug: string) {
   const folder = await prisma.task.findFirst({

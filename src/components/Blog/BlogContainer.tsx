@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { MapPin, Clock, Navigation, Calendar, ChevronDown, Camera } from "lucide-react";
 import { Reveal, RevealImage, FloatingHeader, Lightbox, JourneyMap } from "./BlogClient";
 import { AnimatePresence } from "framer-motion";
@@ -48,20 +48,22 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
   const isDark = template === "DARK";
 
   // Extract map points
-  const mapPoints = posts
-    .map(p => {
-      const loc = p.locations?.[0];
-      if (loc && loc.latitude && loc.longitude) {
-        const time = mounted ? new Date(p.recordedAt || p.createdAt).toLocaleTimeString("cs-CZ", { hour: '2-digit', minute: '2-digit' }) : "";
-        return { 
-          lat: loc.latitude, 
-          lng: loc.longitude, 
-          title: p.taskType === "GPS_LOG" ? `📍 Poloha (${time})` : p.title 
-        };
-      }
-      return null;
-    })
-    .filter(Boolean) as { lat: number, lng: number, title: string }[];
+  const mapPoints = useMemo(() => {
+    return posts
+      .map(p => {
+        const loc = p.locations?.[0];
+        if (loc && loc.latitude && loc.longitude) {
+          const time = mounted ? new Date(p.recordedAt || p.createdAt).toLocaleTimeString("cs-CZ", { hour: '2-digit', minute: '2-digit' }) : "";
+          return { 
+            lat: loc.latitude, 
+            lng: loc.longitude, 
+            title: p.taskType === "GPS_LOG" ? `📍 Poloha (${time})` : p.title 
+          };
+        }
+        return null;
+      })
+      .filter(Boolean) as { lat: number, lng: number, title: string }[];
+  }, [posts, mounted]);
 
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
     const R = 6371; 
@@ -75,11 +77,9 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
   };
 
   // Odometer Calibration Logic
-  const getCalibratedDistances = () => {
+  const calibratedCorrections = useMemo(() => {
     let odoPosts = posts.filter(p => p.odometer !== null && p.odometer !== undefined);
     
-    // Support "Trip Odometer" mode: If the first post doesn't have an odometer, 
-    // assume it started at 0 for the sake of calibration.
     if (posts.length > 0 && (odoPosts.length === 0 || odoPosts[0].id !== posts[0].id)) {
       odoPosts = [{ ...posts[0], odometer: 0 }, ...odoPosts];
     }
@@ -115,13 +115,12 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
       });
     }
     return corrections;
-  };
+  }, [posts]);
 
-  const calibratedCorrections = getCalibratedDistances();
-  const visiblePosts = posts.filter(p => p.taskType !== "GPS_LOG");
+  const visiblePosts = useMemo(() => posts.filter(p => p.taskType !== "GPS_LOG"), [posts]);
 
   // Calculate distances between visible posts, including intermediate GPS_LOG points
-  const getVisibleDistances = () => {
+  const visibleDistances = useMemo(() => {
     const dists: Record<string, number> = {};
     for (let i = 0; i < visiblePosts.length - 1; i++) {
       const current = visiblePosts[i];
@@ -146,9 +145,7 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
       dists[current.id] = totalDist;
     }
     return dists;
-  };
-
-  const visibleDistances = getVisibleDistances();
+  }, [visiblePosts, posts, calibratedCorrections]);
 
   return (
     <>

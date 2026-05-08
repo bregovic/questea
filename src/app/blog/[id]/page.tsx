@@ -184,9 +184,9 @@ export default async function BlogPage({ params }: { params: Promise<{ id: strin
                             />
                          </div>
                          <div className="text-center">
-                            <div className="text-white font-black text-sm mb-1 uppercase tracking-wider">
-                               {posts[posts.length - 1].locations[0].placeName || "Na cestě"}
-                            </div>
+                             <div className="text-white font-black text-sm mb-1 uppercase tracking-wider">
+                                {posts[posts.length - 1].title || "Na cestě"}
+                             </div>
                             <div className="text-white/40 text-[10px] font-bold uppercase tracking-[0.2em]">
                                {new Date(posts[posts.length - 1].recordedAt || posts[posts.length - 1].createdAt).toLocaleString("cs-CZ", { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                             </div>

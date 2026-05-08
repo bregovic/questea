@@ -927,7 +927,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
               <span>Přílohy & Účtenky</span>
             </div>
             
-            <div className={styles.attachmentGrid} data-count={attachments.length}>
+            <div className={styles.attachmentGrid}>
               {attachments.map((att: any) => (
                 <div key={att.id} className={styles.attachmentItem}>
                   {att.type === 'image' ? (
@@ -952,9 +952,9 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
               ))}
               
               {!isRecording ? (
-                <div className="flex gap-2">
-                  <label className={`${styles.uploadBtn} ${isUploading ? 'opacity-50 animate-pulse' : ''}`}>
-                    {isUploading ? <Loader2 className="animate-spin" size={20} /> : <Camera size={20} />}
+                <>
+                  <label className={`${styles.uploadItem} ${isUploading ? styles.uploading : ''}`}>
+                    {isUploading ? <Loader2 className="animate-spin" size={24} /> : <Camera size={24} />}
                     <input 
                       type="file" 
                       accept="image/*,video/*" 
@@ -964,12 +964,12 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
                       hidden 
                     />
                   </label>
-                  <button onClick={startRecording} className={styles.uploadBtn}>
-                    <Mic size={20} />
+                  <button onClick={startRecording} className={styles.uploadItem}>
+                    <Mic size={24} />
                   </button>
-                </div>
+                </>
               ) : (
-                <button onClick={stopRecording} className={`${styles.uploadBtn} ${styles.recording}`}>
+                <button onClick={stopRecording} className={`${styles.uploadItem} ${styles.recording}`}>
                   <Square size={20} fill="currentColor" />
                   <span className={styles.recordTimer}>{Math.floor(recordingTime / 60)}:{(recordingTime % 60).toString().padStart(2, '0')}</span>
                 </button>

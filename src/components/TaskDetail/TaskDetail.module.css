@@ -500,14 +500,6 @@
   width: 100%;
 }
 
-.attachmentGrid[data-count="1"] {
-  grid-template-columns: 1fr;
-}
-
-.attachmentGrid[data-count="2"] {
-  grid-template-columns: repeat(2, 1fr);
-}
-
 .attachmentItem {
   position: relative;
   aspect-ratio: 1;
@@ -517,10 +509,6 @@
   background: #fbfaf9;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-}
-
-.attachmentGrid[data-count="1"] .attachmentItem {
-  aspect-ratio: 16 / 9;
 }
 
 .attachmentItem:hover {
@@ -567,22 +555,29 @@
   transform: scale(1.1) !important;
 }
 
-.uploadBtn {
+.uploadItem {
   aspect-ratio: 1;
-  border: 2px dashed var(--panel-border);
-  border-radius: 12px;
+  border: 2px dashed #e7e5e4;
+  border-radius: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--text-muted);
   cursor: pointer;
+  background: #fafaf9;
   transition: all 0.2s;
 }
 
-.uploadBtn:hover {
-  background: #fafaf9;
+.uploadItem:hover {
+  background: #f5f5f4;
   border-color: var(--accent-primary);
   color: var(--accent-primary);
+  transform: translateY(-2px);
+}
+
+.uploadItem.uploading {
+  opacity: 0.5;
+  animation: pulse 1.5s infinite;
 }
 
 .spin {

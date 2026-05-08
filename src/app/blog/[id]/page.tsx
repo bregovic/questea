@@ -38,8 +38,6 @@ async function getBlogData(idOrSlug: string) {
         where: { isDeleted: false },
         include: {
           locations: true,
-          odometer: true,
-          calculatedDistance: true,
           attachments: {
             select: {
               id: true,

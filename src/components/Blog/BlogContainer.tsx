@@ -219,11 +219,6 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
                                               alt={att.name} 
                                               className="w-full h-auto object-contain transition-transform duration-1000 group-hover:scale-105" 
                                             />
-                                            <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 invisible group-hover:visible transition-all duration-300 pointer-events-none">
-                                              <div className="bg-white/20 backdrop-blur-md p-4 rounded-full border border-white/30 text-white scale-90 group-hover:scale-100 transition-transform duration-300">
-                                                <Camera size={24} />
-                                              </div>
-                                            </div>
                                           </div>
                                         </RevealImage>
                                       );
@@ -245,11 +240,6 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
                             >
                                <div className={`relative group overflow-hidden shadow-xl ${isAdventure ? 'border-[12px] border-white p-1' : isElegant ? 'rounded-none' : 'rounded-2xl md:rounded-3xl'}`}>
                                  <img src={att.url} alt={att.name} className="w-full h-auto object-contain transition-transform duration-1000 group-hover:scale-105" />
-                                 <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 invisible group-hover:visible transition-all duration-300 pointer-events-none">
-                                   <div className="bg-white/20 backdrop-blur-md p-4 rounded-full border border-white/30 text-white scale-90 group-hover:scale-100 transition-transform duration-300">
-                                     <Camera size={24} />
-                                   </div>
-                                 </div>
                                </div>
                             </RevealImage>
                           ))}

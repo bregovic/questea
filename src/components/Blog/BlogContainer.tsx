@@ -14,6 +14,11 @@ interface BlogContainerProps {
 
 export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, template, onlyMap }) => {
   const [lightbox, setLightbox] = useState<{ images: string[], index: number } | null>(null);
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   if (onlyMap) {
     const loc = onlyMap.locations?.[0];
@@ -45,7 +50,7 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
     .map(p => {
       const loc = p.locations?.[0];
       if (loc && loc.latitude && loc.longitude) {
-        const time = new Date(p.recordedAt || p.createdAt).toLocaleTimeString("cs-CZ", { hour: '2-digit', minute: '2-digit' });
+        const time = mounted ? new Date(p.recordedAt || p.createdAt).toLocaleTimeString("cs-CZ", { hour: '2-digit', minute: '2-digit' }) : "";
         return { 
           lat: loc.latitude, 
           lng: loc.longitude, 
@@ -187,8 +192,8 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
                           {visualIndex}
                        </div>
                        <div className={`text-[11px] font-black space-y-2 opacity-60 ${isDark ? 'text-white/30' : 'text-stone-400'}`}>
-                          <div>{date.toLocaleTimeString("cs-CZ", { hour: '2-digit', minute: '2-digit' })}</div>
-                          <div>{date.toLocaleDateString("cs-CZ")}</div>
+                          <div>{mounted ? date.toLocaleTimeString("cs-CZ", { hour: '2-digit', minute: '2-digit' }) : "--:--"}</div>
+                          <div>{mounted ? date.toLocaleDateString("cs-CZ") : "--.--.----"}</div>
                        </div>
                      </Reveal>
                   </div>

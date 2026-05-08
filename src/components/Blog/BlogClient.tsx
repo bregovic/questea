@@ -271,8 +271,10 @@ export const JourneyMap = ({ points, isMini = false, id = "journey-map" }: { poi
 
 export const ViewCounter = ({ blogId }: { blogId: string }) => {
   const [views, setViews] = useState<number | null>(null);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     // Increment and fetch views
     fetch(`/api/blog/${blogId}/view`, { method: "POST" })
       .then(res => res.json())
@@ -282,7 +284,7 @@ export const ViewCounter = ({ blogId }: { blogId: string }) => {
       .catch(err => console.error("Failed to track views", err));
   }, [blogId]);
 
-  if (views === null) return null;
+  if (views === null || !mounted) return null;
 
   return (
     <div className="flex flex-col items-center gap-4 opacity-30 hover:opacity-100 transition-opacity duration-1000 group">

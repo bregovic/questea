@@ -39,6 +39,10 @@ export const BlogStyles = () => {
       .blog-article {
         container-type: inline-size;
       }
+      @keyframes pulse {
+        0% { transform: scale(1); opacity: 0.5; }
+        100% { transform: scale(3); opacity: 0; }
+      }
     `}</style>
   );
 };
@@ -213,9 +217,13 @@ export const JourneyMap = ({ points, isMini = false, id = "journey-map", classNa
         
         const icon = L.divIcon({
           className: 'custom-div-icon',
-          html: `<div style="background-color: ${color}; width: ${isMini ? '8px' : '12px'}; height: ${isMini ? '8px' : '12px'}; border: 2px solid white; border-radius: 50%; box-shadow: 0 0 10px rgba(0,0,0,0.2);"></div>`,
-          iconSize: [isMini ? 8 : 12, isMini ? 8 : 12],
-          iconAnchor: [isMini ? 4 : 6, isMini ? 4 : 6]
+          html: `
+            <div style="position: relative; background-color: ${color}; width: ${isMini ? '12px' : '12px'}; height: ${isMini ? '12px' : '12px'}; border: 2px solid white; border-radius: 50%; box-shadow: 0 0 10px rgba(0,0,0,0.3);">
+              ${isLast ? `<div style="position: absolute; inset: -8px; border-radius: 50%; background: ${color}; opacity: 0.3; animation: pulse 2s infinite;"></div>` : ''}
+            </div>
+          `,
+          iconSize: [isMini ? 12 : 12, isMini ? 12 : 12],
+          iconAnchor: [isMini ? 6 : 6, isMini ? 6 : 6]
         });
 
         const marker = L.marker([p.lat, p.lng], { icon }).addTo(map);
@@ -227,7 +235,7 @@ export const JourneyMap = ({ points, isMini = false, id = "journey-map", classNa
       const bounds = L.latLngBounds(latlngs);
       map.fitBounds(bounds, { padding: isMini ? [5, 5] : [50, 50] });
       if (isMini && points.length === 1) {
-        map.setZoom(12);
+        map.setZoom(6);
       }
     }
 

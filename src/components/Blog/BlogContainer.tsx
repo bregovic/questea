@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { MapPin, Clock, Navigation, Calendar, ChevronDown, Camera } from "lucide-react";
+import { MapPin, Clock, Navigation, Calendar, ChevronDown, Camera, X } from "lucide-react";
 import { Reveal, RevealImage, FloatingHeader, Lightbox, JourneyMap } from "./BlogClient";
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { BlogSocial } from "./BlogSocial";
 
 interface BlogContainerProps {
@@ -295,17 +295,29 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
           />
         )}
         {showMapModal && (
-           <div className="fixed inset-0 z-[9999] bg-black/90 backdrop-blur-xl flex items-center justify-center p-4 md:p-12" onClick={() => setShowMapModal(false)}>
-              <div className="relative w-full max-w-5xl h-[80vh] bg-white rounded-3xl overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
+           <motion.div 
+             initial={{ opacity: 0 }}
+             animate={{ opacity: 1 }}
+             exit={{ opacity: 0 }}
+             className="fixed inset-0 z-[9999] bg-black/95 backdrop-blur-xl flex items-center justify-center p-4 md:p-12" 
+             onClick={() => setShowMapModal(false)}
+           >
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                className="relative w-full max-w-6xl h-[85vh] bg-stone-100 rounded-[32px] overflow-hidden shadow-2xl border border-white/10" 
+                onClick={e => e.stopPropagation()}
+              >
                  <JourneyMap points={mapPoints} id="modal-journey-map" className="h-full" />
                  <button 
                     onClick={() => setShowMapModal(false)}
-                    className="absolute top-6 right-6 z-50 bg-black/50 text-white p-3 rounded-full hover:bg-black transition-colors"
+                    className="absolute top-8 right-8 z-50 bg-white/20 hover:bg-white text-black p-4 rounded-full backdrop-blur-md transition-all hover:scale-110 active:scale-95 border border-white/20 shadow-xl"
                  >
-                    <ChevronDown size={24} className="rotate-180" />
+                    <X size={24} />
                  </button>
-              </div>
-           </div>
+              </motion.div>
+           </motion.div>
         )}
       </AnimatePresence>
     </>

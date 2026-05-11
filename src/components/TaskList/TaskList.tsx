@@ -7,7 +7,7 @@ import { TaskDetail } from "../TaskDetail/TaskDetail";
 import { QuickExpenseModal } from "../QuickExpenseModal/QuickExpenseModal";
 import { LocationSelectionModal } from "../LocationSelectionModal/LocationSelectionModal";
 import { LocationTracker } from "../LocationTracker/LocationTracker";
-import { Search, Grid, List as ListIcon, Home, ChevronRight, Maximize2, Minimize2, Wallet, Tag, Building, X, Save, MapPin, Share, CheckSquare, FolderOpen, Navigation, Settings as SettingsIcon, FileUp, FileDown } from "lucide-react";
+import { Search, Grid, List as ListIcon, Home, ChevronRight, Maximize2, Minimize2, Wallet, Tag, Building, X, Save, MapPin, Share, CheckSquare, FolderOpen, Navigation, Settings as SettingsIcon, FileUp, FileDown, Command, PlusCircle, LayoutGrid, FileText } from "lucide-react";
 import InstallPWA from "../InstallPWA/InstallPWA";
 import styles from "./TaskList.module.css";
 import { motion, AnimatePresence } from "framer-motion";
@@ -41,6 +41,8 @@ export const TaskList = () => {
   const [locationTargetFolderId, setLocationTargetFolderId] = useState<string | null>(null);
   const [categories, setCategories] = useState<any[]>([]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isLookupOpen, setIsLookupOpen] = useState(false);
+  const [lookupQuery, setLookupQuery] = useState("");
 
   const toggleZen = () => {
     const nextZen = !isZen;
@@ -117,11 +119,16 @@ export const TaskList = () => {
     };
     window.addEventListener("addTask", handleAddTaskEvent);
 
-    const handleKeyDown = (e: KeyboardEvent) => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        setIsLookupOpen(true);
+      }
       if (e.key === "Escape") {
         if (selectedTask) setSelectedTask(null);
         else if (quickActionTask) setQuickActionTask(null);
         else if (isAddingTask) setIsAddingTask(false);
+        else if (isLookupOpen) setIsLookupOpen(false);
         else goUp();
       }
     };
@@ -139,13 +146,13 @@ export const TaskList = () => {
     };
     window.addEventListener("quickAction", handleQuickActionEvent as any);
 
-    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keydown", handleGlobalKeyDown);
     fetchCategories();
 
     return () => {
       window.removeEventListener("addTask", handleAddTaskEvent);
       window.removeEventListener("quickAction", handleQuickActionEvent as any);
-      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keydown", handleGlobalKeyDown);
     };
   }, [goUp, selectedTask, isAddingTask]);
 
@@ -702,6 +709,54 @@ export const TaskList = () => {
             </motion.div>
           </div>
         )}
+        {isLookupOpen && (
+          <div className="fixed inset-0 z-[12000] flex items-start justify-center pt-20 px-4">
+             <motion.div 
+               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+               className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm"
+               onClick={() => setIsLookupOpen(false)}
+             />
+             <motion.div 
+               initial={{ opacity: 0, y: -20, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -20, scale: 0.95 }}
+               className="relative w-full max-w-lg bg-white rounded-[32px] shadow-2xl overflow-hidden border border-stone-100"
+             >
+                <div className="flex items-center gap-4 p-6 border-b border-stone-50">
+                   <Command size={20} className="text-stone-400" />
+                   <input 
+                     autoFocus
+                     placeholder="Hledejte funkci nebo akci..."
+                     className="flex-1 bg-transparent outline-none text-lg font-bold placeholder-stone-300"
+                     value={lookupQuery}
+                     onChange={(e) => setLookupQuery(e.target.value)}
+                   />
+                </div>
+                <div className="max-h-[60vh] overflow-y-auto p-4 space-y-2">
+                   {[
+                     { id: 'add-folder', name: 'Nová složka / Projekt', icon: FolderOpen, action: () => { setAddingType('FOLDER'); setIsAddingTask(true); } },
+                     { id: 'add-location', name: 'Zaznamenat polohu / Zastávku', icon: MapPin, action: () => setIsSelectingLocation(true) },
+                     { id: 'add-expense', name: 'Zapsat výdaj', icon: Wallet, action: () => { if (currentParentId) { setQuickActionTask(tasks.find(t => t.id === currentParentId)); } else alert("Otevřete nejprve složku"); } },
+                     { id: 'share-blog', name: 'Otevřít blog cesty', icon: Share, action: () => { const shareId = currentFolder?.slug || currentParentId; if (shareId) window.open(`/blog/${shareId}`, "_blank"); else alert("Otevřete složku cesty"); } },
+                     { id: 'export-xml', name: 'Exportovat data (XML)', icon: FileDown, action: handleExportXml },
+                     { id: 'import-xml', name: 'Importovat data (XML)', icon: FileUp, action: () => document.getElementById('global-xml-import')?.click() },
+                     { id: 'zen-mode', name: 'Přepnout Zen režim', icon: Maximize2, action: toggleZen },
+                     { id: 'pwa-install', name: 'Instalovat jako aplikaci', icon: LayoutGrid, action: () => setIsSettingsOpen(false) },
+                   ].filter(a => a.name.toLowerCase().includes(lookupQuery.toLowerCase())).map(action => (
+                     <button 
+                       key={action.id}
+                       onClick={() => { action.action(); setIsLookupOpen(false); setLookupQuery(""); }}
+                       className="w-full flex items-center gap-4 p-4 hover:bg-stone-50 rounded-2xl transition-colors group text-left"
+                     >
+                        <div className="p-2.5 bg-stone-50 rounded-xl group-hover:bg-white transition-colors">
+                           <action.icon size={18} className="text-stone-400 group-hover:text-orange-600" />
+                        </div>
+                        <span className="font-bold text-stone-600 group-hover:text-stone-950 transition-colors">{action.name}</span>
+                     </button>
+                   ))}
+                </div>
+                <input type="file" id="global-xml-import" accept=".xml" className="hidden" onChange={handleImportXml} />
+             </motion.div>
+          </div>
+        )}
       </AnimatePresence>
 
       {!isZen ? (
@@ -717,6 +772,9 @@ export const TaskList = () => {
                     {tasks.find(t => t.id === currentParentId)?.title || "Zpět"}
                   </h2>
                   <div className="flex items-center gap-1 ml-2 opacity-20 hover:opacity-100 transition-opacity">
+                     <button onClick={() => setIsLookupOpen(true)} title="Vyhledat funkci" className="p-1 hover:text-orange-600">
+                        <Command size={14} />
+                     </button>
                      <button onClick={handleExportXml} title="Exportovat XML" className="p-1 hover:text-orange-600">
                         <FileDown size={14} />
                      </button>
@@ -743,8 +801,14 @@ export const TaskList = () => {
                     </React.Fragment>
                   ))}
                   <button 
-                    onClick={() => setIsSettingsOpen(true)}
+                    onClick={() => setIsLookupOpen(true)}
                     className="ml-auto p-2 text-stone-300 hover:text-stone-950 transition-colors"
+                  >
+                    <Command size={20} />
+                  </button>
+                  <button 
+                    onClick={() => setIsSettingsOpen(true)}
+                    className="p-2 text-stone-300 hover:text-stone-950 transition-colors"
                   >
                     <SettingsIcon size={20} />
                   </button>
@@ -794,10 +858,10 @@ export const TaskList = () => {
                         const shareId = currentFolder?.slug || currentParentId;
                         const url = `${window.location.origin}/blog/${shareId}`;
                         navigator.clipboard.writeText(url);
-                        alert("Odkaz na blog byl zkopírován do schránky!");
+                        window.open(url, "_blank");
                       }}
                       className={styles.headerActionBtn}
-                      title="Sdílet cestu (Blog)"
+                      title="Sdílet a otevřít blog"
                     >
                       <Share size={18} />
                     </button>

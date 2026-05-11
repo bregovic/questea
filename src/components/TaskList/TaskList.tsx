@@ -7,7 +7,8 @@ import { TaskDetail } from "../TaskDetail/TaskDetail";
 import { QuickExpenseModal } from "../QuickExpenseModal/QuickExpenseModal";
 import { LocationSelectionModal } from "../LocationSelectionModal/LocationSelectionModal";
 import { LocationTracker } from "../LocationTracker/LocationTracker";
-import { Search, Grid, List as ListIcon, Home, ChevronRight, Maximize2, Minimize2, Wallet, Tag, Building, X, Save, MapPin, Share, CheckSquare, FolderOpen, Navigation, Settings as SettingsIcon, FileUp, FileDown, Command, PlusCircle, LayoutGrid, FileText } from "lucide-react";
+import { PrintEditor } from "../PrintEditor/PrintEditor";
+import { Search, Grid, List as ListIcon, Home, ChevronRight, Maximize2, Minimize2, Wallet, Tag, Building, X, Save, MapPin, Share, CheckSquare, FolderOpen, Navigation, Settings as SettingsIcon, FileUp, FileDown, Command, PlusCircle, LayoutGrid, FileText, Printer } from "lucide-react";
 import InstallPWA from "../InstallPWA/InstallPWA";
 import styles from "./TaskList.module.css";
 import { motion, AnimatePresence } from "framer-motion";
@@ -42,6 +43,7 @@ export const TaskList = () => {
   const [categories, setCategories] = useState<any[]>([]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isLookupOpen, setIsLookupOpen] = useState(false);
+  const [isPrintEditorOpen, setIsPrintEditorOpen] = useState(false);
   const [lookupQuery, setLookupQuery] = useState("");
 
   const toggleZen = () => {
@@ -646,6 +648,13 @@ export const TaskList = () => {
             }}
           />
         )}
+        {isPrintEditorOpen && currentFolder && (
+          <PrintEditor 
+            folder={currentFolder}
+            tasks={tasks.filter(t => t.parentId === currentParentId)}
+            onClose={() => setIsPrintEditorOpen(false)}
+          />
+        )}
         {isSelectingLocation && (
           <LocationSelectionModal 
             onClose={() => {
@@ -735,6 +744,7 @@ export const TaskList = () => {
                      { id: 'add-folder', name: 'Nová složka / Projekt', icon: FolderOpen, action: () => { setAddingType('FOLDER'); setIsAddingTask(true); } },
                      { id: 'add-location', name: 'Zaznamenat polohu / Zastávku', icon: MapPin, action: () => setIsSelectingLocation(true) },
                      { id: 'add-expense', name: 'Zapsat výdaj', icon: Wallet, action: () => { if (currentParentId) { setQuickActionTask(tasks.find(t => t.id === currentParentId)); } else alert("Otevřete nejprve složku"); } },
+                     { id: 'print-project', name: 'Tisk projektu / Fotokniha', icon: Printer, action: () => { if (currentParentId) setIsPrintEditorOpen(true); else alert("Otevřete nejprve složku projektu"); } },
                      { id: 'share-blog', name: 'Otevřít blog cesty', icon: Share, action: () => { const shareId = currentFolder?.slug || currentParentId; if (shareId) window.open(`/blog/${shareId}`, "_blank"); else alert("Otevřete složku cesty"); } },
                      { id: 'export-xml', name: 'Exportovat data (XML)', icon: FileDown, action: handleExportXml },
                      { id: 'import-xml', name: 'Importovat data (XML)', icon: FileUp, action: () => document.getElementById('global-xml-import')?.click() },

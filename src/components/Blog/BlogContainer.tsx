@@ -116,12 +116,12 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
     // Masonry approach using CSS columns
     const getColumns = () => {
       if (count === 1) return "columns-1";
-      if (count === 2) return "columns-1 md:columns-2";
-      return "columns-1 md:columns-2 lg:columns-2 xl:columns-3";
+      if (count <= 4) return "columns-1 md:columns-2";
+      return "columns-1 md:columns-2 lg:columns-3";
     };
 
     return (
-      <div className={`${getColumns()} gap-6 space-y-6`}>
+      <div className={`${getColumns()} gap-8 space-y-8 max-w-5xl`}>
         {images.map((att: any, idx: number) => {
           const rotation = isAdventure ? (idx % 2 === 0 ? -1.5 : 1.5) : 0;
           return (

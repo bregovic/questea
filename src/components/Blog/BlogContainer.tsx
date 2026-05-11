@@ -113,42 +113,32 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
     const count = images.length;
     if (count === 0) return null;
 
-    // Mobile: always stack
-    // Desktop: smart layouts
-    const getGridClass = () => {
-      if (count === 1) return "grid-cols-1";
-      if (count === 2) return "grid-cols-1 md:grid-cols-2";
-      if (count === 3) return "grid-cols-1 md:grid-cols-3 md:grid-rows-2";
-      if (count === 4) return "grid-cols-1 md:grid-cols-2";
-      return "grid-cols-1 md:grid-cols-4";
-    };
-
-    const getItemClass = (idx: number) => {
-      if (count === 3 && idx === 0) return "md:col-span-2 md:row-span-2";
-      if (count === 5 && idx === 0) return "md:col-span-2 md:row-span-2";
-      if (count === 6 && (idx === 0 || idx === 3)) return "md:col-span-2";
-      return "";
+    // Masonry approach using CSS columns
+    const getColumns = () => {
+      if (count === 1) return "columns-1";
+      if (count === 2) return "columns-1 md:columns-2";
+      return "columns-1 md:columns-2 lg:columns-2 xl:columns-3";
     };
 
     return (
-      <div className={`grid gap-4 md:gap-6 ${getGridClass()}`}>
+      <div className={`${getColumns()} gap-6 space-y-6`}>
         {images.map((att: any, idx: number) => {
           const rotation = isAdventure ? (idx % 2 === 0 ? -1.5 : 1.5) : 0;
           return (
-            <div key={att.id} className={getItemClass(idx)}>
+            <div key={att.id} className="break-inside-avoid mb-6">
               <RevealImage 
                 delay={idx * 0.1} 
                 rotation={rotation}
                 onClick={() => onLightbox(idx)}
               >
-                <div className={`relative group overflow-hidden shadow-xl transition-all duration-700 h-full ${isAdventure ? 'border-[10px] border-white p-0.5 rounded-sm shadow-stone-400/20' : isElegant ? 'rounded-none' : 'rounded-2xl md:rounded-3xl'}`}>
+                <div className={`relative group overflow-hidden shadow-xl transition-all duration-700 ${isAdventure ? 'border-[10px] border-white p-0.5 rounded-sm shadow-stone-400/20' : isElegant ? 'rounded-none' : 'rounded-2xl md:rounded-3xl'}`}>
                   {isAdventure && idx % 3 === 0 && (
                     <div className="absolute top-[-15px] left-1/2 -translate-x-1/2 w-20 h-8 washi-tape z-20 rotate-[-3deg] pointer-events-none opacity-60" />
                   )}
                   <img 
                     src={att.url} 
                     alt={att.name} 
-                    className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105 min-h-[300px]" 
+                    className="w-full h-auto object-contain transition-transform duration-1000 group-hover:scale-105" 
                   />
                 </div>
               </RevealImage>

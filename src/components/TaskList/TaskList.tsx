@@ -648,11 +648,13 @@ export const TaskList = () => {
             }}
           />
         )}
-        {isPrintEditorOpen && currentFolder && (
+        {isPrintEditorOpen && quickActionTask && (
           <PrintEditor 
-            folder={currentFolder}
-            tasks={tasks.filter(t => t.parentId === currentParentId)}
-            onClose={() => setIsPrintEditorOpen(false)}
+            folder={quickActionTask}
+            onClose={() => { 
+              setIsPrintEditorOpen(false);
+              setQuickActionTask(null);
+            }}
           />
         )}
         {isSelectingLocation && (
@@ -744,7 +746,17 @@ export const TaskList = () => {
                      { id: 'add-folder', name: 'Nová složka / Projekt', icon: FolderOpen, action: () => { setAddingType('FOLDER'); setIsAddingTask(true); } },
                      { id: 'add-location', name: 'Zaznamenat polohu / Zastávku', icon: MapPin, action: () => setIsSelectingLocation(true) },
                      { id: 'add-expense', name: 'Zapsat výdaj', icon: Wallet, action: () => { if (currentParentId) { setQuickActionTask(tasks.find(t => t.id === currentParentId)); } else alert("Otevřete nejprve složku"); } },
-                     { id: 'print-project', name: 'Tisk projektu / Fotokniha', icon: Printer, action: () => { if (currentParentId) setIsPrintEditorOpen(true); else alert("Otevřete nejprve složku projektu"); } },
+                     { id: 'print-project', name: 'Tisk projektu / Fotokniha', icon: Printer, action: async () => { 
+                       if (currentParentId) {
+                         setIsLoadingDetail(true);
+                         try {
+                           const res = await fetch(`/api/tasks/${currentParentId}`);
+                           const fullFolder = await res.json();
+                           setQuickActionTask(fullFolder); // Temporarily reuse this or just open editor
+                           setIsPrintEditorOpen(true);
+                         } catch (err) {} finally { setIsLoadingDetail(false); }
+                       } else alert("Otevřete nejprve složku projektu"); 
+                     } },
                      { id: 'share-blog', name: 'Otevřít blog cesty', icon: Share, action: () => { const shareId = currentFolder?.slug || currentParentId; if (shareId) window.open(`/blog/${shareId}`, "_blank"); else alert("Otevřete složku cesty"); } },
                      { id: 'export-xml', name: 'Exportovat data (XML)', icon: FileDown, action: handleExportXml },
                      { id: 'import-xml', name: 'Importovat data (XML)', icon: FileUp, action: () => document.getElementById('global-xml-import')?.click() },

@@ -27,8 +27,12 @@ export async function GET(
           orderBy: { createdAt: "desc" }
         },
         subTasks: {
-          include: { category: true },
-          orderBy: { orderIndex: "asc" }
+          include: { 
+            category: true,
+            attachments: true,
+            locations: true
+          },
+          orderBy: { recordedAt: "asc" }
         }
       }
     });

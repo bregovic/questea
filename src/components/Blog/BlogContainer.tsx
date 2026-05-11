@@ -109,6 +109,56 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
 
   const accentColor = isAdventure ? "#d4a373" : isElegant ? "#c5a059" : "#ea580c";
 
+  const SmartImageGrid = ({ images, imageUrls, onLightbox }: { images: any[], imageUrls: string[], onLightbox: (idx: number) => void }) => {
+    const count = images.length;
+    if (count === 0) return null;
+
+    // Mobile: always stack
+    // Desktop: smart layouts
+    const getGridClass = () => {
+      if (count === 1) return "grid-cols-1";
+      if (count === 2) return "grid-cols-1 md:grid-cols-2";
+      if (count === 3) return "grid-cols-1 md:grid-cols-3 md:grid-rows-2";
+      if (count === 4) return "grid-cols-1 md:grid-cols-2";
+      return "grid-cols-1 md:grid-cols-4";
+    };
+
+    const getItemClass = (idx: number) => {
+      if (count === 3 && idx === 0) return "md:col-span-2 md:row-span-2";
+      if (count === 5 && idx === 0) return "md:col-span-2 md:row-span-2";
+      if (count === 6 && (idx === 0 || idx === 3)) return "md:col-span-2";
+      return "";
+    };
+
+    return (
+      <div className={`grid gap-4 md:gap-6 ${getGridClass()}`}>
+        {images.map((att: any, idx: number) => {
+          const rotation = isAdventure ? (idx % 2 === 0 ? -1.5 : 1.5) : 0;
+          return (
+            <div key={att.id} className={getItemClass(idx)}>
+              <RevealImage 
+                delay={idx * 0.1} 
+                rotation={rotation}
+                onClick={() => onLightbox(idx)}
+              >
+                <div className={`relative group overflow-hidden shadow-xl transition-all duration-700 h-full ${isAdventure ? 'border-[10px] border-white p-0.5 rounded-sm shadow-stone-400/20' : isElegant ? 'rounded-none' : 'rounded-2xl md:rounded-3xl'}`}>
+                  {isAdventure && idx % 3 === 0 && (
+                    <div className="absolute top-[-15px] left-1/2 -translate-x-1/2 w-20 h-8 washi-tape z-20 rotate-[-3deg] pointer-events-none opacity-60" />
+                  )}
+                  <img 
+                    src={att.url} 
+                    alt={att.name} 
+                    className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105 min-h-[300px]" 
+                  />
+                </div>
+              </RevealImage>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   return (
     <>
       {/* Interactive Map Section */}
@@ -206,54 +256,26 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
                                  </div>
                                </Reveal>
 
-                               {paraImages.length > 0 && (
-                                 <div className={`grid gap-6 ${paraImages.length === 1 ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
-                                   {paraImages.map((att: any, imgIdx: number) => {
-                                      const absoluteImgIdx = images.indexOf(att);
-                                      const rotation = isAdventure ? (imgIdx % 2 === 0 ? -2.5 : 2.5) : 0;
-                                      
-                                      return (
-                                        <RevealImage 
-                                          key={att.id} 
-                                          delay={imgIdx * 0.1} 
-                                          rotation={rotation}
-                                          onClick={() => setLightbox({ images: imageUrls, index: absoluteImgIdx })}
-                                        >
-                                          <div className={`relative group overflow-hidden shadow-xl transition-all duration-700 ${isAdventure ? 'border-[12px] border-white p-1 rounded-sm shadow-stone-400/30' : isElegant ? 'rounded-none border border-stone-100' : 'rounded-2xl md:rounded-3xl'}`}>
-                                            {isAdventure && (
-                                              <div className="absolute top-[-15px] left-1/2 -translate-x-1/2 w-24 h-10 washi-tape z-20 rotate-[-2deg] pointer-events-none opacity-80" />
-                                            )}
-                                            <img 
-                                              src={att.url} 
-                                              alt={att.name} 
-                                              className="w-full h-auto object-contain transition-transform duration-1000 group-hover:scale-105" 
-                                            />
-                                          </div>
-                                        </RevealImage>
-                                      );
-                                   })}
-                                 </div>
-                               )}
-                             </div>
-                           );
-                         })}
-                       </div>
-                     ) : (
-                       // Fallback for posts with only images
-                       <div className={`grid gap-6 ${images.length === 1 ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'}`}>
-                          {images.map((att: any, imgIdx: number) => (
-                            <RevealImage 
-                              key={att.id} 
-                              delay={imgIdx * 0.1}
-                              onClick={() => setLightbox({ images: imageUrls, index: imgIdx })}
-                            >
-                               <div className={`relative group overflow-hidden shadow-xl ${isAdventure ? 'border-[12px] border-white p-1' : isElegant ? 'rounded-none' : 'rounded-2xl md:rounded-3xl'}`}>
-                                 <img src={att.url} alt={att.name} className="w-full h-auto object-contain transition-transform duration-1000 group-hover:scale-105" />
-                               </div>
-                            </RevealImage>
-                          ))}
-                       </div>
-                     )}
+                                <SmartImageGrid 
+                                  images={paraImages} 
+                                  imageUrls={imageUrls} 
+                                  onLightbox={(localIdx) => {
+                                    const absoluteIdx = images.indexOf(paraImages[localIdx]);
+                                    setLightbox({ images: imageUrls, index: absoluteIdx });
+                                  }}
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        // Fallback for posts with only images
+                        <SmartImageGrid 
+                          images={images} 
+                          imageUrls={imageUrls} 
+                          onLightbox={(idx) => setLightbox({ images: imageUrls, index: idx })}
+                        />
+                      )}
                   </div>
 
                   <Reveal delay={0.2}>

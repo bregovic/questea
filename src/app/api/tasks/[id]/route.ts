@@ -148,14 +148,29 @@ export async function DELETE(
   const { id } = await params;
 
   try {
-    await prisma.task.delete({
-      where: { 
-        id: id,
-        userId: session.user.id 
-      },
+    const task = await prisma.task.findUnique({
+      where: { id, userId: session.user.id }
     });
+
+    if (!task) return NextResponse.json({ error: "Task not found" }, { status: 404 });
+
+    await prisma.task.delete({
+      where: { id: id },
+    });
+
+    // Recalculate distances if part of a journey
+    if (task.parentId) {
+      await recalculateTaskDistances(task.parentId);
+      
+      // Revalidate parent blog
+      revalidatePath(`/blog/${task.parentId}`);
+      const parentTask = await prisma.task.findUnique({ where: { id: task.parentId } });
+      if (parentTask?.slug) revalidatePath(`/blog/${parentTask.slug}`);
+    }
+
     return NextResponse.json({ success: true });
   } catch (error) {
+    console.error("Delete error:", error);
     return NextResponse.json({ error: "Failed to delete task" }, { status: 500 });
   }
 }

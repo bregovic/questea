@@ -20,21 +20,27 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
  * Implements GPS calculation + Odometer calibration.
  */
 export async function recalculateTaskDistances(parentId: string) {
+  // Use the same ordering as the public blog for consistency
   const tasks = await prisma.task.findMany({
     where: { parentId, isDeleted: false },
-    orderBy: { orderIndex: 'asc' },
     include: { locations: true }
   });
 
   if (tasks.length < 2) return;
 
+  // Sort by recordedAt or createdAt to match blog's timeline
+  tasks.sort((a, b) => {
+    const timeA = new Date(a.recordedAt || a.createdAt).getTime();
+    const timeB = new Date(b.recordedAt || b.createdAt).getTime();
+    return timeA - timeB;
+  });
+
   const corrections: Record<string, number> = {};
   
-  // 1. Identify segments with odometer readings
+  // 1. Identify tasks with manual odometer readings
   let odoPosts = tasks.filter(t => t.odometer !== null && t.odometer !== undefined);
   
-  // Fallback: If first post doesn't have odo, assume 0 for calibration baseline if needed
-  // (matching frontend logic)
+  // Fallback: If first post doesn't have odo, assume 0 for calibration baseline
   if (tasks.length > 0 && (odoPosts.length === 0 || odoPosts[0].id !== tasks[0].id)) {
     odoPosts = [{ ...tasks[0], odometer: 0 }, ...odoPosts];
   }
@@ -44,8 +50,11 @@ export async function recalculateTaskDistances(parentId: string) {
     for (let i = 0; i < odoPosts.length - 1; i++) {
       const t1 = odoPosts[i];
       const t2 = odoPosts[i+1];
-      const realSegmentDist = Math.abs((t2.odometer || 0) - (t1.odometer || 0));
+      const realSegmentDist = (t2.odometer || 0) - (t1.odometer || 0);
       
+      // We only apply calibration if distance is positive
+      if (realSegmentDist <= 0) continue;
+
       const sIdx = tasks.findIndex(t => t.id === t1.id);
       const eIdx = tasks.findIndex(t => t.id === t2.id);
       const segmentTasks = tasks.slice(sIdx, eIdx + 1);
@@ -76,7 +85,6 @@ export async function recalculateTaskDistances(parentId: string) {
     const next = tasks[i+1];
     let dist = 0;
 
-    // We only care about distance from current to next
     if (corrections[current.id] !== undefined) {
       dist = corrections[current.id];
     } else {

@@ -17,6 +17,19 @@ export async function POST(
 
   try {
     const { name, url, type } = await req.json();
+
+    // Check for duplicity by name and taskId
+    const existing = await prisma.attachment.findFirst({
+      where: {
+        taskId: id,
+        name: name
+      }
+    });
+
+    if (existing) {
+      return NextResponse.json(existing);
+    }
+
     let finalUrl = url;
 
     // If it's a base64 image and we have R2 configured, upload it
@@ -36,10 +49,16 @@ export async function POST(
           ContentType: contentType,
         }));
 
-        finalUrl = `${PUBLIC_URL}/${key}`;
+        if (PUBLIC_URL) {
+          finalUrl = `${PUBLIC_URL}/${key}`;
+        } else {
+          // Fallback if PUBLIC_URL is missing but R2 is set - use the base64
+          console.warn("R2_PUBLIC_URL is missing, falling back to base64 for visibility");
+          finalUrl = url;
+        }
       } catch (r2Error) {
         console.error("R2 Upload failed, falling back to DB storage:", r2Error);
-        // Fallback to storing base64 in DB if R2 fails
+        finalUrl = url;
       }
     }
 

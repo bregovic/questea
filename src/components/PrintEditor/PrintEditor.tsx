@@ -62,10 +62,10 @@ const paginateAllSubtasks = (
 
   const getElementWeight = (el: PrintElement, density: string = "standard") => {
     const isFirstPage = el.startParagraphIndex === 0;
-    const headerWeight = isFirstPage ? 16 : 0;
+    const headerWeight = isFirstPage ? 12 : 0;
     
     const parasCount = (el.endParagraphIndex || 0) - (el.startParagraphIndex || 0);
-    const paraWeight = parasCount * 10;
+    const paraWeight = parasCount * 6;
     
     const shownImagesCount = el.content.attachments?.filter((a: any) => 
       a.type === "image" && !(el.hiddenImageIds || []).includes(a.id)
@@ -73,7 +73,18 @@ const paginateAllSubtasks = (
     
     const imagesPerRow = density === "compact" ? 3 : density === "thumbnail" ? 4 : density === "hidden" ? 9999 : 2;
     const numRows = density === "hidden" ? 0 : Math.ceil(shownImagesCount / imagesPerRow);
-    const imagesWeight = numRows * 22;
+    
+    const imgSize = el.imageSize || "medium";
+    let baseRowWeight = 16;
+    if (imgSize === "small") baseRowWeight = 11;
+    else if (imgSize === "large") baseRowWeight = 24;
+    else if (imgSize === "original") baseRowWeight = 22;
+    
+    let densityFactor = 1.0;
+    if (density === "compact") densityFactor = 0.85;
+    else if (density === "thumbnail") densityFactor = 0.75;
+    
+    const imagesWeight = numRows * Math.ceil(baseRowWeight * densityFactor);
     
     return headerWeight + paraWeight + imagesWeight;
   };
@@ -90,6 +101,30 @@ const paginateAllSubtasks = (
     const N = allParas.length;
     const M = allImages.length;
     
+    const getCandidateWeight = (start: number, end: number, shownImageIds: string[]) => {
+      const tempEl: PrintElement = {
+        id: "temp",
+        type: "blog-entry",
+        content: { ...t, attachments: allImages },
+        x: 0,
+        y: 0,
+        width: 100,
+        fontSize: savedStyle.fontSize || "base",
+        imageDensity: density,
+        paddingY: savedStyle.paddingY || "medium",
+        themeStyle: savedStyle.themeStyle || defaultThemeStyle,
+        borderStyle: savedStyle.borderStyle || defaultBorderStyle,
+        photoStyle: savedStyle.photoStyle || defaultPhotoStyle,
+        imageSize: savedStyle.imageSize || "medium",
+        startParagraphIndex: start,
+        endParagraphIndex: end,
+        hiddenImageIds: allImages
+          .filter((img: any) => !shownImageIds.includes(img.id))
+          .map((img: any) => img.id)
+      };
+      return getElementWeight(tempEl, density);
+    };
+
     if (N === 0 && M === 0) {
       // Empty subtask - just a header
       let added = false;
@@ -101,7 +136,7 @@ const paginateAllSubtasks = (
           lastPage.elements.forEach(el => {
             lastPageWeight += getElementWeight(el, el.imageDensity || "standard");
           });
-          if (lastPageWeight + 16 <= 100) {
+          if (lastPageWeight + 12 <= 100) {
             lastPage.elements.push({
               id: `entry-${t.id}`,
               type: "blog-entry",
@@ -182,7 +217,7 @@ const paginateAllSubtasks = (
               lastPage.elements.forEach(el => {
                 lastPageWeight += getElementWeight(el, el.imageDensity || "standard");
               });
-              const itemWeight = 16 + Math.ceil(chunk.length / imagesPerRow) * 22;
+              const itemWeight = getCandidateWeight(0, 0, chunkImageIds);
               if (lastPageWeight + itemWeight <= 100) {
                 lastPage.elements.push({
                   id: `entry-${t.id}-img-${imgIdx}`,
@@ -247,22 +282,14 @@ const paginateAllSubtasks = (
             lastPageWeight += getElementWeight(el, el.imageDensity || "standard");
           });
           
-          const isSubtaskStart = (currentStart === 0);
-          const headerWeight = isSubtaskStart ? 16 : 0;
-          
           for (let endCandidate = currentStart + 1; endCandidate <= N; endCandidate++) {
-            const candidateParasCount = endCandidate - currentStart;
-            const paraWeight = candidateParasCount * 10;
-            
             const shownImageIdsOnPage: string[] = [];
             for (let p = currentStart; p < endCandidate; p++) {
               const paraImgs = imagesByParaIdx[p] || [];
               paraImgs.forEach((img: any) => shownImageIdsOnPage.push(img.id));
             }
-            const numRows = Math.ceil(shownImageIdsOnPage.length / imagesPerRow);
-            const imagesWeight = numRows * 22;
             
-            const itemWeight = headerWeight + paraWeight + imagesWeight;
+            const itemWeight = getCandidateWeight(currentStart, endCandidate, shownImageIdsOnPage);
             if (lastPageWeight + itemWeight <= 100) {
               bestEnd = endCandidate;
               fitsOnLastPage = true;
@@ -275,21 +302,15 @@ const paginateAllSubtasks = (
       
       if (!fitsOnLastPage) {
         bestEnd = currentStart + 1;
-        const headerWeight = (currentStart === 0) ? 16 : 0;
         
         for (let endCandidate = currentStart + 1; endCandidate <= N; endCandidate++) {
-          const candidateParasCount = endCandidate - currentStart;
-          const paraWeight = candidateParasCount * 10;
-          
           const shownImageIdsOnPage: string[] = [];
           for (let p = currentStart; p < endCandidate; p++) {
             const paraImgs = imagesByParaIdx[p] || [];
             paraImgs.forEach((img: any) => shownImageIdsOnPage.push(img.id));
           }
-          const numRows = Math.ceil(shownImageIdsOnPage.length / imagesPerRow);
-          const imagesWeight = numRows * 22;
           
-          const itemWeight = headerWeight + paraWeight + imagesWeight;
+          const itemWeight = getCandidateWeight(currentStart, endCandidate, shownImageIdsOnPage);
           if (itemWeight <= 100) {
             bestEnd = endCandidate;
           } else {

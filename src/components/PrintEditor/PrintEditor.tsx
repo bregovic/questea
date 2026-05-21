@@ -20,6 +20,9 @@ interface PrintElement {
   hiddenImageIds?: string[];
   largeImageIds?: string[];
   imageSize?: "small" | "medium" | "large" | "original";
+  themeStyle?: "clean" | "journal" | "magazine" | "travelbook";
+  borderStyle?: "none" | "solid-accent" | "dashed-warm" | "double-vintage" | "solid-block";
+  photoStyle?: "standard" | "polaroid" | "scrapbook" | "tilted" | "circle-oval";
 }
 
 interface PrintPage {
@@ -406,11 +409,96 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
 
     const showDropCap = el.fontSize !== "sm" && el.fontSize !== "base";
 
+    const themeStyle = el.themeStyle || "clean";
+
+    // Resolve border style based on borderStyle property or themeStyle defaults
+    let border = el.borderStyle;
+    if (!border) {
+      if (themeStyle === "journal") border = "dashed-warm";
+      else if (themeStyle === "travelbook") border = "double-vintage";
+      else border = "none";
+    }
+
+    // Resolve photo style based on photoStyle property or themeStyle defaults
+    let pStyle = el.photoStyle;
+    if (!pStyle) {
+      if (themeStyle === "journal") pStyle = "polaroid";
+      else if (themeStyle === "travelbook") pStyle = "scrapbook";
+      else if (themeStyle === "magazine") pStyle = "circle-oval";
+      else pStyle = "standard";
+    }
+
+    const isSolidBlock = border === "solid-block";
+    const customAccentColor = isAdventure ? "#d4a373" : "#ea580c";
+
+    let articleClass = `blog-article-print transition-all duration-300 ${paddingClass} `;
+    let styleObj: React.CSSProperties = {};
+
+    if (border === "dashed-warm") {
+      articleClass += "bg-[#FAF7F0] border-2 border-dashed border-[#E4DEC6] rounded-[24px] shadow-[0_8px_20px_rgba(180,170,140,0.15)] mx-2 my-3 relative overflow-hidden";
+    } else if (border === "solid-accent") {
+      articleClass += "bg-white border-[4px] rounded-none shadow-lg mx-2 my-3";
+      styleObj = { borderColor: customAccentColor };
+    } else if (border === "double-vintage") {
+      articleClass += "bg-[#FCFAF2] border-[5px] border-double border-[#5C4D3C] rounded-[4px] shadow-[0_6px_22px_rgba(90,80,60,0.12)] mx-2 my-3";
+    } else if (border === "solid-block") {
+      const blockBg = isAdventure ? "#1E3E54" : "#853E2B"; // deep navy or terracotta block
+      articleClass += "text-stone-50 rounded-[16px] shadow-[0_10px_25px_rgba(0,0,0,0.08)] mx-2 my-3 border border-transparent";
+      styleObj = { backgroundColor: blockBg };
+    } else {
+      // none or default
+      if (themeStyle === "magazine") {
+        articleClass += "bg-gradient-to-br from-white to-stone-50/70 border border-stone-200/80 border-l-[6px] border-orange-500 shadow-[0_10px_25px_rgba(0,0,0,0.03)] rounded-r-3xl rounded-l-md mx-2 my-3";
+      } else if (themeStyle === "travelbook") {
+        articleClass += "bg-[#FCFAF2] border border-[#5C4D3C]/30 rounded-lg shadow-md mx-2 my-3";
+      } else {
+        articleClass += "bg-transparent border-none";
+      }
+    }
+
+    // Adapt typography styling depending on themeStyle and dark block layout overrides
+    const headerColorClass = isSolidBlock 
+      ? "text-white" 
+      : themeStyle === "journal" 
+      ? "text-[#3C362A]" 
+      : themeStyle === "travelbook"
+      ? "text-[#4E3629]"
+      : themeStyle === "magazine"
+      ? "text-orange-600 font-extrabold uppercase tracking-tight"
+      : "text-stone-950";
+
+    const titleFontClass = 
+      themeStyle === "journal" 
+        ? "serif-font italic" 
+        : themeStyle === "magazine" 
+        ? "title-font font-black tracking-tight"
+        : themeStyle === "travelbook"
+        ? "serif-font font-black italic text-[#4E3629]"
+        : isAdventure || isElegant ? 'serif-font italic' : 'title-font';
+
+    const textFontClass = 
+      themeStyle === "journal" 
+        ? "text-[#4A4335] font-serif tracking-wide" 
+        : themeStyle === "travelbook"
+        ? "text-[#3E342F] font-serif tracking-wide leading-relaxed"
+        : themeStyle === "magazine" 
+        ? "text-stone-900 leading-relaxed pl-4 border-l-2 border-stone-200" 
+        : "text-stone-800";
+
+    const textColorClass = isSolidBlock ? "text-stone-100" : textFontClass;
+    const metaColorClass = isSolidBlock ? "text-stone-300" : "text-stone-400";
+
     return (
-      <article className={`blog-article-print ${paddingClass}`}>
+      <article className={articleClass} style={styleObj}>
         <div className="w-full">
           {/* Metadata banner under Title to fully recover 100% horizontal space */}
-          <header className="mb-6 border-b border-stone-200 pb-4">
+          <header className={`mb-6 pb-4 border-b ${
+            isSolidBlock
+              ? "border-white/20"
+              : themeStyle === "journal" 
+              ? "border-[#E4DEC6]/60" 
+              : "border-stone-200"
+          }`}>
             <h2 
               contentEditable={isInteractive}
               suppressContentEditableWarning
@@ -418,19 +506,19 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                 const newTitle = e.currentTarget.innerText;
                 handleUpdateElement(el.id, { content: { ...post, title: newTitle } });
               }}
-              className={`text-4xl font-black leading-tight mb-3 text-stone-950 outline-none ${isAdventure || isElegant ? 'serif-font italic' : 'title-font'}`}
+              className={`text-4xl font-black leading-tight mb-3 outline-none ${titleFontClass} ${headerColorClass}`}
             >
               {post.title}
             </h2>
             
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-stone-400">
-              <span style={{ color: accentColor }}>
+            <div className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[10px] font-black uppercase tracking-[0.2em] ${metaColorClass}`}>
+              <span style={isSolidBlock ? {} : { color: customAccentColor }}>
                 {date.toLocaleDateString("cs-CZ")} o {date.toLocaleTimeString("cs-CZ", { hour: '2-digit', minute: '2-digit' })}
               </span>
               {post.locations?.[0] && (
                 <div className="flex items-center gap-1.5">
                   <span className="opacity-40">•</span>
-                  <MapPin size={12} style={{ color: accentColor }} />
+                  <MapPin size={12} style={isSolidBlock ? {} : { color: customAccentColor }} />
                   <span>{post.locations[0].placeName || post.locations[0].address}</span>
                 </div>
               )}
@@ -454,9 +542,17 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
 
               return (
                 <div key={pIdx} className="space-y-4">
-                  <div className={`relative font-medium text-stone-800 ${fontSizeClass}`}>
+                  <div className={`relative font-medium ${fontSizeClass} ${textColorClass}`}>
                     {pIdx === 0 && showDropCap && (
-                      <span className="drop-cap-print">
+                      <span className={`drop-cap-print ${
+                        themeStyle === "journal" 
+                          ? "text-[#8C7A5F] opacity-50 font-serif" 
+                          : themeStyle === "travelbook"
+                          ? "text-[#5C4D3C] opacity-50 font-serif"
+                          : themeStyle === "magazine" 
+                          ? "text-orange-600 opacity-80" 
+                          : ""
+                      }`}>
                         {para.charAt(0)}
                       </span>
                     )}
@@ -478,18 +574,70 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
 
                   {density !== "hidden" && paraImages.length > 0 && (
                     <div className={`${columnClass} w-full`}>
-                      {paraImages.map((att: any) => {
+                      {paraImages.map((att: any, attIdx: number) => {
                         const isLarge = largeImageIds.includes(att.id);
-                        const wrapperClass = isAdventure
-                          ? `break-inside-avoid block w-fit max-w-full mx-auto border-[8px] border-white bg-white p-0.5 shadow-md shadow-stone-400/30 rounded-sm relative group overflow-hidden ${mbClass}`
-                          : `break-inside-avoid block w-fit max-w-full mx-auto rounded-2xl shadow-xl bg-transparent relative group overflow-hidden ${mbClass}`;
+                        
+                        let wrapperStyle: React.CSSProperties = isLarge ? { columnSpan: "all" } : {};
+                        let actualWrapperClass = "";
+                        let showWashiTape = false;
+                        let showPhotoCorners = false;
+
+                        // Deterministic stable angle rotation computation
+                        const hash = att.id.split("").reduce((acc: number, c: string) => acc + c.charCodeAt(0), 0);
+                        
+                        if (pStyle === "polaroid") {
+                          const angle = (hash % 7) - 3; // -3 to +3
+                          wrapperStyle = {
+                            ...wrapperStyle,
+                            transform: `rotate(${angle}deg)`,
+                          };
+                          actualWrapperClass = `break-inside-avoid block w-fit max-w-full mx-auto border-[8px] border-b-[28px] border-white bg-white p-0.5 shadow-md shadow-stone-500/20 rounded-sm relative group overflow-hidden ${mbClass}`;
+                          showWashiTape = true;
+                        } else if (pStyle === "scrapbook") {
+                          const angle = (hash % 9) - 4; // -4 to +4
+                          wrapperStyle = {
+                            ...wrapperStyle,
+                            transform: `rotate(${angle}deg)`,
+                          };
+                          actualWrapperClass = `break-inside-avoid block w-fit max-w-full mx-auto border-[6px] border-white bg-[#F4EFE6] p-0.5 shadow-[2px_4px_12px_rgba(0,0,0,0.12)] rounded-sm relative group ${mbClass}`;
+                          showPhotoCorners = true;
+                        } else if (pStyle === "tilted") {
+                          const angle = attIdx % 2 === 0 ? -4 : 5;
+                          wrapperStyle = {
+                            ...wrapperStyle,
+                            transform: `rotate(${angle}deg)`,
+                          };
+                          actualWrapperClass = `break-inside-avoid block w-fit max-w-full mx-auto border-[6px] border-white bg-white p-0.5 shadow-xl relative group ${mbClass}`;
+                        } else if (pStyle === "circle-oval") {
+                          actualWrapperClass = `break-inside-avoid block w-fit max-w-full mx-auto rounded-t-[100px] rounded-b-[20px] shadow-lg border border-stone-200/40 bg-white p-1 relative group overflow-hidden ${mbClass}`;
+                        } else {
+                          // standard
+                          actualWrapperClass = isAdventure
+                            ? `break-inside-avoid block w-fit max-w-full mx-auto border-[8px] border-white bg-white p-0.5 shadow-md shadow-stone-400/30 rounded-sm relative group overflow-hidden ${mbClass}`
+                            : `break-inside-avoid block w-fit max-w-full mx-auto rounded-2xl shadow-xl bg-transparent relative group overflow-hidden ${mbClass}`;
+                        }
 
                         return (
                           <div 
                             key={att.id} 
-                            className={wrapperClass}
-                            style={isLarge ? { columnSpan: "all" } : undefined}
+                            className={actualWrapperClass}
+                            style={wrapperStyle}
                           >
+                            {showWashiTape && (
+                              // Semi-transparent washi tape holding the Polaroid in place!
+                              <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-10 h-3.5 bg-amber-100/40 border-l border-r border-amber-200/20 shadow-sm rotate-[-3deg] pointer-events-none select-none z-[10]" />
+                            )}
+
+                            {showPhotoCorners && (
+                              <>
+                                {/* Triangular leather corner overlays for authentic physical album scrapbooking */}
+                                <div className="absolute top-0 left-0 w-4 h-4 bg-[#3E2723] z-10 pointer-events-none border-r border-b border-black/10 shadow-sm" style={{ clipPath: "polygon(0 0, 100% 0, 0 100%)" }} />
+                                <div className="absolute top-0 right-0 w-4 h-4 bg-[#3E2723] z-10 pointer-events-none border-l border-b border-black/10 shadow-sm" style={{ clipPath: "polygon(0 0, 100% 0, 100% 100%)" }} />
+                                <div className="absolute bottom-0 left-0 w-4 h-4 bg-[#3E2723] z-10 pointer-events-none border-r border-t border-black/10 shadow-sm" style={{ clipPath: "polygon(0 0, 0 100%, 100% 100%)" }} />
+                                <div className="absolute bottom-0 right-0 w-4 h-4 bg-[#3E2723] z-10 pointer-events-none border-l border-t border-black/10 shadow-sm" style={{ clipPath: "polygon(100% 0, 0 100%, 100% 100%)" }} />
+                              </>
+                            )}
+
                             <img src={att.url} className={`${imgHeightClass} block mx-auto transition-all`} />
                             
                             {isInteractive && (
@@ -533,19 +681,68 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
             {/* Fallback for only images */}
             {paragraphs.length === 0 && density !== "hidden" && images.length > 0 && (
               <div className={density === "compact" ? "columns-3 gap-3 my-3 w-full" : density === "thumbnail" ? "columns-4 gap-2 my-2 w-full" : "columns-2 gap-4 my-4 w-full"}>
-                {images.map((att: any) => {
+                {images.map((att: any, attIdx: number) => {
                   const isLarge = largeImageIds.includes(att.id);
                   const mbClass = density === "compact" ? "mb-3" : density === "thumbnail" ? "mb-2" : "mb-4";
-                  const wrapperClass = isAdventure
-                    ? `break-inside-avoid block w-fit max-w-full mx-auto border-[8px] border-white bg-white p-0.5 shadow-md shadow-stone-400/30 rounded-sm relative group overflow-hidden ${mbClass}`
-                    : `break-inside-avoid block w-fit max-w-full mx-auto rounded-2xl shadow-xl bg-transparent relative group overflow-hidden ${mbClass}`;
+                  
+                  let wrapperStyle: React.CSSProperties = isLarge ? { columnSpan: "all" } : {};
+                  let actualWrapperClass = "";
+                  let showWashiTape = false;
+                  let showPhotoCorners = false;
+
+                  const hash = att.id.split("").reduce((acc: number, c: string) => acc + c.charCodeAt(0), 0);
+                  
+                  if (pStyle === "polaroid") {
+                    const angle = (hash % 7) - 3; // -3 to +3
+                    wrapperStyle = {
+                      ...wrapperStyle,
+                      transform: `rotate(${angle}deg)`,
+                    };
+                    actualWrapperClass = `break-inside-avoid block w-fit max-w-full mx-auto border-[8px] border-b-[28px] border-white bg-white p-0.5 shadow-md shadow-stone-500/20 rounded-sm relative group overflow-hidden ${mbClass}`;
+                    showWashiTape = true;
+                  } else if (pStyle === "scrapbook") {
+                    const angle = (hash % 9) - 4; // -4 to +4
+                    wrapperStyle = {
+                      ...wrapperStyle,
+                      transform: `rotate(${angle}deg)`,
+                    };
+                    actualWrapperClass = `break-inside-avoid block w-fit max-w-full mx-auto border-[6px] border-white bg-[#F4EFE6] p-0.5 shadow-[2px_4px_12px_rgba(0,0,0,0.12)] rounded-sm relative group ${mbClass}`;
+                    showPhotoCorners = true;
+                  } else if (pStyle === "tilted") {
+                    const angle = attIdx % 2 === 0 ? -4 : 5;
+                    wrapperStyle = {
+                      ...wrapperStyle,
+                      transform: `rotate(${angle}deg)`,
+                    };
+                    actualWrapperClass = `break-inside-avoid block w-fit max-w-full mx-auto border-[6px] border-white bg-white p-0.5 shadow-xl relative group ${mbClass}`;
+                  } else if (pStyle === "circle-oval") {
+                    actualWrapperClass = `break-inside-avoid block w-fit max-w-full mx-auto rounded-t-[100px] rounded-b-[20px] shadow-lg border border-stone-200/40 bg-white p-1 relative group overflow-hidden ${mbClass}`;
+                  } else {
+                    // standard
+                    actualWrapperClass = isAdventure
+                      ? `break-inside-avoid block w-fit max-w-full mx-auto border-[8px] border-white bg-white p-0.5 shadow-md shadow-stone-400/30 rounded-sm relative group overflow-hidden ${mbClass}`
+                      : `break-inside-avoid block w-fit max-w-full mx-auto rounded-2xl shadow-xl bg-transparent relative group overflow-hidden ${mbClass}`;
+                  }
 
                   return (
                     <div 
                       key={att.id} 
-                      className={wrapperClass}
-                      style={isLarge ? { columnSpan: "all" } : undefined}
+                      className={actualWrapperClass}
+                      style={wrapperStyle}
                     >
+                      {showWashiTape && (
+                        <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-10 h-3.5 bg-amber-100/40 border-l border-r border-amber-200/20 shadow-sm rotate-[-3deg] pointer-events-none select-none z-[10]" />
+                      )}
+
+                      {showPhotoCorners && (
+                        <>
+                          <div className="absolute top-0 left-0 w-4 h-4 bg-[#3E2723] z-10 pointer-events-none border-r border-b border-black/10 shadow-sm" style={{ clipPath: "polygon(0 0, 100% 0, 0 100%)" }} />
+                          <div className="absolute top-0 right-0 w-4 h-4 bg-[#3E2723] z-10 pointer-events-none border-l border-b border-black/10 shadow-sm" style={{ clipPath: "polygon(0 0, 100% 0, 100% 100%)" }} />
+                          <div className="absolute bottom-0 left-0 w-4 h-4 bg-[#3E2723] z-10 pointer-events-none border-r border-t border-black/10 shadow-sm" style={{ clipPath: "polygon(0 0, 0 100%, 100% 100%)" }} />
+                          <div className="absolute bottom-0 right-0 w-4 h-4 bg-[#3E2723] z-10 pointer-events-none border-l border-t border-black/10 shadow-sm" style={{ clipPath: "polygon(100% 0, 0 100%, 100% 100%)" }} />
+                        </>
+                      )}
+
                       <img src={att.url} className={`${imgHeightClass} block mx-auto transition-all`} />
                       
                       {isInteractive && (
@@ -802,6 +999,56 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                      </div>
                   </div>
                </div>
+
+                {/* Theme / Style Selector - For custom-text and blog-entry */}
+                {(selectedElement.type === "blog-entry" || selectedElement.type === "custom-text") && (
+                  <div className="space-y-4">
+                     <div className="space-y-1">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-white/50 block">Styl rozvržení</span>
+                        <div className="grid grid-cols-2 gap-1 text-[8px] font-black uppercase tracking-wider text-center bg-white/5 p-1 rounded-xl">
+                           {(["clean", "journal", "magazine", "travelbook"] as const).map(style => (
+                              <button 
+                                key={style} 
+                                onClick={() => handleUpdateElement(selectedElementId!, { themeStyle: style })}
+                                className={`py-1.5 rounded-lg transition-all ${selectedElement.themeStyle === style || (!selectedElement.themeStyle && style === "clean") ? 'bg-white text-black font-black shadow-md' : 'hover:bg-white/5 text-white/60'}`}
+                              >
+                                 {style === "clean" ? "Modern" : style === "journal" ? "Deník" : style === "magazine" ? "Editorial" : "Cestokniha"}
+                              </button>
+                           ))}
+                        </div>
+                     </div>
+
+                     <div className="space-y-1">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-white/50 block">Ohraničení textu (Rámeček)</span>
+                        <div className="grid grid-cols-2 gap-1 text-[8px] font-black uppercase tracking-wider text-center bg-white/5 p-1 rounded-xl">
+                           {(["none", "solid-accent", "dashed-warm", "double-vintage", "solid-block"] as const).map(bStyle => (
+                              <button 
+                                key={bStyle} 
+                                onClick={() => handleUpdateElement(selectedElementId!, { borderStyle: bStyle })}
+                                className={`py-1.5 rounded-lg transition-all ${selectedElement.borderStyle === bStyle || (!selectedElement.borderStyle && bStyle === "none") ? 'bg-white text-black font-black shadow-md' : 'hover:bg-white/5 text-white/60'} ${bStyle === "solid-block" ? "col-span-2" : ""}`}
+                              >
+                                 {bStyle === "none" ? "Bez rámečku" : bStyle === "solid-accent" ? "Dolce Vita" : bStyle === "dashed-warm" ? "Deníkový" : bStyle === "double-vintage" ? "Retro dvojitý" : "Accent barevný blok"}
+                              </button>
+                           ))}
+                        </div>
+                     </div>
+
+                     <div className="space-y-1">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-white/50 block">Styl a úhly fotek</span>
+                        <div className="grid grid-cols-2 gap-1 text-[8px] font-black uppercase tracking-wider text-center bg-white/5 p-1 rounded-xl">
+                           {(["standard", "polaroid", "scrapbook", "tilted", "circle-oval"] as const).map(pStyle => (
+                              <button 
+                                key={pStyle} 
+                                onClick={() => handleUpdateElement(selectedElementId!, { photoStyle: pStyle })}
+                                className={`py-1.5 rounded-lg transition-all ${selectedElement.photoStyle === pStyle || (!selectedElement.photoStyle && pStyle === "standard") ? 'bg-white text-black font-black shadow-md' : 'hover:bg-white/5 text-white/60'} ${pStyle === "circle-oval" ? "col-span-2" : ""}`}
+                              >
+                                 {pStyle === "standard" ? "Standard" : pStyle === "polaroid" ? "Polaroid" : pStyle === "scrapbook" ? "Scrapbook (rožky)" : pStyle === "tilted" ? "Koláž (úhly)" : "Magazínový oblouk"}
+                              </button>
+                           ))}
+                        </div>
+                     </div>
+                  </div>
+                )}
 
                {/* Typography - For custom-text and blog-entry */}
                {(selectedElement.type === "blog-entry" || selectedElement.type === "custom-text") && (

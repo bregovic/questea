@@ -633,6 +633,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
             position: relative !important;
             width: 100% !important;
             height: 100% !important;
+            overflow: hidden !important;
             page-break-after: always !important;
             page-break-inside: avoid !important;
             box-shadow: none !important;

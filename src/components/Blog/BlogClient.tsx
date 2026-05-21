@@ -201,12 +201,12 @@ const JourneyMapFullscreen = ({ points, id }: { points: { lat: number, lng: numb
       if (latlngs.length > 1) {
         L.polyline(latlngs, {
           color: '#431407',
-          weight: 10,
-          opacity: 0.5
+          weight: 5,
+          opacity: 0.4
         }).addTo(map);
         L.polyline(latlngs, {
           color: '#f97316',
-          weight: 6,
+          weight: 3,
           opacity: 1.0
         }).addTo(map);
       }
@@ -305,12 +305,12 @@ export const JourneyMap = ({ points, isMini = false, id = "journey-map", classNa
         } else {
           L.polyline(latlngs, {
             color: '#431407',
-            weight: 12,
-            opacity: 0.6
+            weight: 5,
+            opacity: 0.4
           }).addTo(map);
           L.polyline(latlngs, {
             color: '#ea580c',
-            weight: 8,
+            weight: 3,
             opacity: 1.0
           }).addTo(map);
         }
@@ -398,7 +398,7 @@ export const JourneyMap = ({ points, isMini = false, id = "journey-map", classNa
         {!isMini && (
           <button
             onClick={(e) => { e.stopPropagation(); setIsFullscreen(true); }}
-            className="absolute top-6 right-6 z-40 bg-white/80 hover:bg-white backdrop-blur-md text-stone-900 p-2.5 rounded-full shadow-lg border border-white/20 transition-all duration-300 hover:scale-110 active:scale-95 flex items-center justify-center group/btn cursor-pointer"
+            className="no-print absolute top-6 right-6 z-40 bg-white/80 hover:bg-white backdrop-blur-md text-stone-900 p-2.5 rounded-full shadow-lg border border-white/20 transition-all duration-300 hover:scale-110 active:scale-95 flex items-center justify-center group/btn cursor-pointer"
             title="Maximalizovat mapu"
           >
             <Maximize2 size={15} className="text-stone-700 transition-transform group-hover/btn:scale-110" />

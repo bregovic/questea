@@ -42,7 +42,13 @@ interface PageConfig {
   shownImageIds: string[];
 }
 
-const paginateSubtask = (t: any, density: string = "standard"): PageConfig[] => {
+const paginateAllSubtasks = (
+  subTasks: any[],
+  subtaskStyles: Record<string, any>,
+  defaultThemeStyle: string,
+  defaultBorderStyle: string,
+  defaultPhotoStyle: string
+): PrintPage[] => {
   const getSentenceChunks = (text: string) => {
     if (!text) return [];
     const sentences = text.split(/(?<=[.!?])\s+(?=[A-Z\u00C0-\u017F0-9])/).filter((s: string) => s.trim().length > 0);
@@ -54,85 +60,291 @@ const paginateSubtask = (t: any, density: string = "standard"): PageConfig[] => 
     return chunks;
   };
 
-  const allParas = getSentenceChunks(t.description || "");
-  const allImages = t.attachments?.filter((a: any) => a.type === "image") || [];
-  
-  const N = allParas.length;
-  const M = allImages.length;
-  
-  if (N === 0 && M === 0) {
-    return [{ startPara: 0, endPara: 0, shownImageIds: [] }];
-  }
-  
-  // Proportional distribution of images
-  const imagesByParaIdx: Record<number, any[]> = {};
-  for (let i = 0; i < N; i++) {
-    imagesByParaIdx[i] = [];
-  }
-  allImages.forEach((img: any, idx: number) => {
-    const paraIdx = N > 0 ? Math.min(N - 1, Math.floor((idx / M) * N)) : 0;
-    if (!imagesByParaIdx[paraIdx]) imagesByParaIdx[paraIdx] = [];
-    imagesByParaIdx[paraIdx].push(img);
+  const getElementWeight = (el: PrintElement, density: string = "standard") => {
+    const isFirstPage = el.startParagraphIndex === 0;
+    const headerWeight = isFirstPage ? 16 : 0;
+    
+    const parasCount = (el.endParagraphIndex || 0) - (el.startParagraphIndex || 0);
+    const paraWeight = parasCount * 10;
+    
+    const shownImagesCount = el.content.attachments?.filter((a: any) => 
+      a.type === "image" && !(el.hiddenImageIds || []).includes(a.id)
+    ).length || 0;
+    
+    const imagesPerRow = density === "compact" ? 3 : density === "thumbnail" ? 4 : density === "hidden" ? 9999 : 2;
+    const numRows = density === "hidden" ? 0 : Math.ceil(shownImagesCount / imagesPerRow);
+    const imagesWeight = numRows * 22;
+    
+    return headerWeight + paraWeight + imagesWeight;
+  };
+
+  const paginated: PrintPage[] = [];
+
+  subTasks.forEach((t: any) => {
+    const savedStyle = subtaskStyles[t.id] || {};
+    const density = savedStyle.imageDensity || "standard";
+    const imagesPerRow = density === "compact" ? 3 : density === "thumbnail" ? 4 : density === "hidden" ? 9999 : 2;
+    const allImages = t.attachments?.filter((a: any) => a.type === "image") || [];
+    
+    const allParas = getSentenceChunks(t.description || "");
+    const N = allParas.length;
+    const M = allImages.length;
+    
+    if (N === 0 && M === 0) {
+      // Empty subtask - just a header
+      let added = false;
+      if (paginated.length > 0) {
+        const lastPage = paginated[paginated.length - 1];
+        const isMap = lastPage.elements.some(el => el.type === "journey-map");
+        if (!isMap) {
+          let lastPageWeight = 0;
+          lastPage.elements.forEach(el => {
+            lastPageWeight += getElementWeight(el, el.imageDensity || "standard");
+          });
+          if (lastPageWeight + 16 <= 100) {
+            lastPage.elements.push({
+              id: `entry-${t.id}`,
+              type: "blog-entry",
+              content: { ...t },
+              x: 0,
+              y: 0,
+              width: 100,
+              fontSize: savedStyle.fontSize || "base",
+              imageDensity: density,
+              paddingY: savedStyle.paddingY || "medium",
+              themeStyle: savedStyle.themeStyle || defaultThemeStyle,
+              borderStyle: savedStyle.borderStyle || defaultBorderStyle,
+              photoStyle: savedStyle.photoStyle || defaultPhotoStyle,
+              imageSize: savedStyle.imageSize || "medium",
+              startParagraphIndex: 0,
+              endParagraphIndex: 0,
+              hiddenImageIds: []
+            });
+            added = true;
+          }
+        }
+      }
+      if (!added) {
+        paginated.push({
+          elements: [{
+            id: `entry-${t.id}`,
+            type: "blog-entry",
+            content: { ...t },
+            x: 0,
+            y: 0,
+            width: 100,
+            fontSize: savedStyle.fontSize || "base",
+            imageDensity: density,
+            paddingY: savedStyle.paddingY || "medium",
+            themeStyle: savedStyle.themeStyle || defaultThemeStyle,
+            borderStyle: savedStyle.borderStyle || defaultBorderStyle,
+            photoStyle: savedStyle.photoStyle || defaultPhotoStyle,
+            imageSize: savedStyle.imageSize || "medium",
+            startParagraphIndex: 0,
+            endParagraphIndex: 0,
+            hiddenImageIds: []
+          }]
+        });
+      }
+      return;
+    }
+    
+    // Proportional distribution of images
+    const imagesByParaIdx: Record<number, any[]> = {};
+    for (let i = 0; i < N; i++) {
+      imagesByParaIdx[i] = [];
+    }
+    allImages.forEach((img: any, idx: number) => {
+      const paraIdx = N > 0 ? Math.min(N - 1, Math.floor((idx / M) * N)) : 0;
+      if (!imagesByParaIdx[paraIdx]) imagesByParaIdx[paraIdx] = [];
+      imagesByParaIdx[paraIdx].push(img);
+    });
+    
+    let currentStart = 0;
+    
+    while (currentStart < N || (currentStart === 0 && N === 0 && M > 0)) {
+      if (N === 0) {
+        const imagesPerPage = imagesPerRow * 2;
+        let imgIdx = 0;
+        while (imgIdx < M) {
+          const chunk = allImages.slice(imgIdx, imgIdx + imagesPerPage);
+          const chunkImageIds = chunk.map((img: any) => img.id);
+          const hiddenImageIds = allImages
+            .filter((img: any) => !chunkImageIds.includes(img.id))
+            .map((img: any) => img.id);
+            
+          let added = false;
+          if (paginated.length > 0) {
+            const lastPage = paginated[paginated.length - 1];
+            const isMap = lastPage.elements.some(el => el.type === "journey-map");
+            if (!isMap) {
+              let lastPageWeight = 0;
+              lastPage.elements.forEach(el => {
+                lastPageWeight += getElementWeight(el, el.imageDensity || "standard");
+              });
+              const itemWeight = 16 + Math.ceil(chunk.length / imagesPerRow) * 22;
+              if (lastPageWeight + itemWeight <= 100) {
+                lastPage.elements.push({
+                  id: `entry-${t.id}-img-${imgIdx}`,
+                  type: "blog-entry",
+                  content: { ...t },
+                  x: 0,
+                  y: 0,
+                  width: 100,
+                  fontSize: savedStyle.fontSize || "base",
+                  imageDensity: density,
+                  paddingY: savedStyle.paddingY || "medium",
+                  themeStyle: savedStyle.themeStyle || defaultThemeStyle,
+                  borderStyle: savedStyle.borderStyle || defaultBorderStyle,
+                  photoStyle: savedStyle.photoStyle || defaultPhotoStyle,
+                  imageSize: savedStyle.imageSize || "medium",
+                  startParagraphIndex: 0,
+                  endParagraphIndex: 0,
+                  hiddenImageIds: hiddenImageIds
+                });
+                added = true;
+              }
+            }
+          }
+          if (!added) {
+            paginated.push({
+              elements: [{
+                id: `entry-${t.id}-img-${imgIdx}`,
+                type: "blog-entry",
+                content: { ...t },
+                x: 0,
+                y: 0,
+                width: 100,
+                fontSize: savedStyle.fontSize || "base",
+                imageDensity: density,
+                paddingY: savedStyle.paddingY || "medium",
+                themeStyle: savedStyle.themeStyle || defaultThemeStyle,
+                borderStyle: savedStyle.borderStyle || defaultBorderStyle,
+                photoStyle: savedStyle.photoStyle || defaultPhotoStyle,
+                imageSize: savedStyle.imageSize || "medium",
+                startParagraphIndex: 0,
+                endParagraphIndex: 0,
+                hiddenImageIds: hiddenImageIds
+              }]
+            });
+          }
+          imgIdx += imagesPerPage;
+        }
+        break;
+      }
+      
+      let bestEnd = currentStart;
+      let fitsOnLastPage = false;
+      let useNewPage = false;
+      
+      if (paginated.length > 0) {
+        const lastPage = paginated[paginated.length - 1];
+        const isMap = lastPage.elements.some(el => el.type === "journey-map");
+        
+        if (!isMap) {
+          let lastPageWeight = 0;
+          lastPage.elements.forEach(el => {
+            lastPageWeight += getElementWeight(el, el.imageDensity || "standard");
+          });
+          
+          const isSubtaskStart = (currentStart === 0);
+          const headerWeight = isSubtaskStart ? 16 : 0;
+          
+          for (let endCandidate = currentStart + 1; endCandidate <= N; endCandidate++) {
+            const candidateParasCount = endCandidate - currentStart;
+            const paraWeight = candidateParasCount * 10;
+            
+            const shownImageIdsOnPage: string[] = [];
+            for (let p = currentStart; p < endCandidate; p++) {
+              const paraImgs = imagesByParaIdx[p] || [];
+              paraImgs.forEach((img: any) => shownImageIdsOnPage.push(img.id));
+            }
+            const numRows = Math.ceil(shownImageIdsOnPage.length / imagesPerRow);
+            const imagesWeight = numRows * 22;
+            
+            const itemWeight = headerWeight + paraWeight + imagesWeight;
+            if (lastPageWeight + itemWeight <= 100) {
+              bestEnd = endCandidate;
+              fitsOnLastPage = true;
+            } else {
+              break;
+            }
+          }
+        }
+      }
+      
+      if (!fitsOnLastPage) {
+        bestEnd = currentStart + 1;
+        const headerWeight = (currentStart === 0) ? 16 : 0;
+        
+        for (let endCandidate = currentStart + 1; endCandidate <= N; endCandidate++) {
+          const candidateParasCount = endCandidate - currentStart;
+          const paraWeight = candidateParasCount * 10;
+          
+          const shownImageIdsOnPage: string[] = [];
+          for (let p = currentStart; p < endCandidate; p++) {
+            const paraImgs = imagesByParaIdx[p] || [];
+            paraImgs.forEach((img: any) => shownImageIdsOnPage.push(img.id));
+          }
+          const numRows = Math.ceil(shownImageIdsOnPage.length / imagesPerRow);
+          const imagesWeight = numRows * 22;
+          
+          const itemWeight = headerWeight + paraWeight + imagesWeight;
+          if (itemWeight <= 100) {
+            bestEnd = endCandidate;
+          } else {
+            break;
+          }
+        }
+        useNewPage = true;
+      }
+      
+      const shownImageIdsOnPage: string[] = [];
+      for (let p = currentStart; p < bestEnd; p++) {
+        const paraImgs = imagesByParaIdx[p] || [];
+        paraImgs.forEach((img: any) => shownImageIdsOnPage.push(img.id));
+      }
+      const hiddenImageIds = allImages
+        .filter((img: any) => !shownImageIdsOnPage.includes(img.id))
+        .map((img: any) => img.id);
+        
+      const isFirstPageOfEntry = (currentStart === 0);
+      const elementId = isFirstPageOfEntry 
+        ? `entry-${t.id}` 
+        : `entry-${t.id}-split-${currentStart}-${Date.now()}`;
+        
+      const newElement: PrintElement = {
+        id: elementId,
+        type: "blog-entry",
+        content: { ...t },
+        x: 0,
+        y: 0,
+        width: 100,
+        fontSize: savedStyle.fontSize || "base",
+        imageDensity: density,
+        paddingY: savedStyle.paddingY || "medium",
+        themeStyle: savedStyle.themeStyle || defaultThemeStyle,
+        borderStyle: savedStyle.borderStyle || defaultBorderStyle,
+        photoStyle: savedStyle.photoStyle || defaultPhotoStyle,
+        imageSize: savedStyle.imageSize || "medium",
+        startParagraphIndex: currentStart,
+        endParagraphIndex: bestEnd,
+        hiddenImageIds: hiddenImageIds
+      };
+      
+      if (useNewPage || paginated.length === 0) {
+        paginated.push({
+          elements: [newElement]
+        });
+      } else {
+        paginated[paginated.length - 1].elements.push(newElement);
+      }
+      
+      currentStart = bestEnd;
+    }
   });
 
-  const pages: PageConfig[] = [];
-  let currentStart = 0;
-  const imagesPerRow = density === "compact" ? 3 : density === "thumbnail" ? 4 : density === "hidden" ? 9999 : 2;
-  
-  while (currentStart < N || (currentStart === 0 && N === 0 && M > 0)) {
-    if (N === 0) {
-      const imagesPerPage = imagesPerRow * 2;
-      let imgIdx = 0;
-      while (imgIdx < M) {
-        const chunk = allImages.slice(imgIdx, imgIdx + imagesPerPage);
-        pages.push({
-          startPara: 0,
-          endPara: 0,
-          shownImageIds: chunk.map((img: any) => img.id)
-        });
-        imgIdx += imagesPerPage;
-      }
-      break;
-    }
-
-    const isFirstPage = pages.length === 0;
-    let currentEnd = currentStart;
-    const shownImageIdsOnPage: string[] = [];
-
-    while (currentEnd < N) {
-      const nextParaImgs = imagesByParaIdx[currentEnd] || [];
-      const candidateParagraphsCount = (currentEnd - currentStart) + 1;
-      const candidateImagesCount = shownImageIdsOnPage.length + nextParaImgs.length;
-      
-      const numRows = density === "hidden" ? 0 : Math.ceil(candidateImagesCount / imagesPerRow);
-      const paraWeight = candidateParagraphsCount * 12;
-      const imgsWeight = numRows * 32;
-      
-      const baseWeight = isFirstPage ? 22 : 10;
-      const totalWeight = baseWeight + paraWeight + imgsWeight;
-
-      if (currentEnd > currentStart && totalWeight > 100) {
-        break;
-      }
-
-      nextParaImgs.forEach((img: any) => shownImageIdsOnPage.push(img.id));
-      currentEnd++;
-
-      if (totalWeight >= 100) {
-        break;
-      }
-    }
-
-    pages.push({
-      startPara: currentStart,
-      endPara: currentEnd,
-      shownImageIds: shownImageIdsOnPage
-    });
-
-    currentStart = currentEnd;
-  }
-
-  return pages;
+  return paginated;
 };
 
 export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => {
@@ -306,36 +518,8 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
     const defaultPhotoStyle = isAdventure ? "scrapbook" : isElegant ? "circle-oval" : "polaroid";
 
     // Flow each entry across pages based on capacity
-    subTasks.forEach((t: any) => {
-      const pageConfigs = paginateSubtask(t, "standard");
-      const allImages = t.attachments?.filter((a: any) => a.type === "image") || [];
-      
-      pageConfigs.forEach((config, idx) => {
-        const hiddenImageIds = allImages
-          .filter((img: any) => !config.shownImageIds.includes(img.id))
-          .map((img: any) => img.id);
-
-        paginated.push({
-          elements: [{
-            id: idx === 0 ? `entry-${t.id}` : `entry-${t.id}-split-${idx}-${Date.now()}`,
-            type: "blog-entry",
-            content: { ...t },
-            x: 0,
-            y: 0,
-            width: 100,
-            fontSize: "base",
-            imageDensity: "standard",
-            paddingY: "medium",
-            themeStyle: defaultThemeStyle,
-            borderStyle: defaultBorderStyle,
-            photoStyle: defaultPhotoStyle,
-            startParagraphIndex: config.startPara,
-            endParagraphIndex: config.endPara,
-            hiddenImageIds: hiddenImageIds
-          }]
-        });
-      });
-    });
+    const paginatedBody = paginateAllSubtasks(subTasks, {}, defaultThemeStyle, defaultBorderStyle, defaultPhotoStyle);
+    paginated.push(...paginatedBody);
 
     setPages(paginated.length > 0 ? paginated : [{ elements: [] }]);
     setIsLoaded(true);
@@ -666,39 +850,17 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
       });
     }
 
+    const template = folder.blogTemplate || "ADVENTURE";
+    const isAdventure = template === "ADVENTURE";
+    const isElegant = template === "ELEGANT";
+    
+    const defaultThemeStyle = isAdventure ? "travelbook" : isElegant ? "magazine" : "journal";
+    const defaultBorderStyle = isAdventure ? "double-vintage" : isElegant ? "solid-accent" : "dashed-warm";
+    const defaultPhotoStyle = isAdventure ? "scrapbook" : isElegant ? "circle-oval" : "polaroid";
+
     // 4. Paginate all subtasks using the helper
-    subTasks.forEach((t: any) => {
-      const savedStyle = subtaskStyles[t.id] || {};
-      const pageConfigs = paginateSubtask(t, savedStyle.imageDensity || "standard");
-      const allImages = t.attachments?.filter((a: any) => a.type === "image") || [];
-
-      pageConfigs.forEach((config, idx) => {
-        const hiddenImageIds = allImages
-          .filter((img: any) => !config.shownImageIds.includes(img.id))
-          .map((img: any) => img.id);
-
-        paginated.push({
-          elements: [{
-            id: idx === 0 ? `entry-${t.id}` : `entry-${t.id}-split-${idx}-${Date.now()}`,
-            type: "blog-entry",
-            content: { ...t },
-            x: 0,
-            y: 0,
-            width: 100,
-            fontSize: savedStyle.fontSize || "base",
-            imageDensity: savedStyle.imageDensity || "standard",
-            paddingY: savedStyle.paddingY || "medium",
-            themeStyle: savedStyle.themeStyle,
-            borderStyle: savedStyle.borderStyle,
-            photoStyle: savedStyle.photoStyle,
-            imageSize: savedStyle.imageSize,
-            startParagraphIndex: config.startPara,
-            endParagraphIndex: config.endPara,
-            hiddenImageIds: hiddenImageIds
-          }]
-        });
-      });
-    });
+    const paginatedBody = paginateAllSubtasks(subTasks, subtaskStyles, defaultThemeStyle, defaultBorderStyle, defaultPhotoStyle);
+    paginated.push(...paginatedBody);
 
     setPages(paginated.length > 0 ? paginated : [{ elements: [] }]);
     setCurrentPageIndex(0);
@@ -956,8 +1118,16 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                         // Deterministic stable angle rotation computation
                         const hash = att.id.split("").reduce((acc: number, c: string) => acc + c.charCodeAt(0), 0);
                         
+                        let baseHeight = 250;
+                        if (imgSize === "small") baseHeight = 160;
+                        else if (imgSize === "large") baseHeight = 360;
+
+                        // Dynamic height offset +/- 30px based on hash and local index
+                        const heightOffset = ((hash + attIdx * 31) % 7) * 10 - 30; // -30, -20, -10, 0, 10, 20, 30px
+                        const dynamicHeight = imgSize === "original" ? undefined : baseHeight + heightOffset;
+
                         if (pStyle === "polaroid") {
-                          const angle = (hash % 7) - 3; // -3 to +3
+                          const angle = ((hash + attIdx * 17) % 11) - 5; // -5 to +5 degrees
                           wrapperStyle = {
                             ...wrapperStyle,
                             transform: `rotate(${angle}deg)`,
@@ -965,7 +1135,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                           actualWrapperClass = `break-inside-avoid block w-fit max-w-full mx-auto border-[8px] border-b-[28px] border-white bg-white p-0.5 shadow-md shadow-stone-500/20 rounded-sm relative group overflow-hidden ${mbClass}`;
                           showWashiTape = true;
                         } else if (pStyle === "scrapbook") {
-                          const angle = (hash % 9) - 4; // -4 to +4
+                          const angle = ((hash + attIdx * 23) % 13) - 6; // -6 to +6 degrees
                           wrapperStyle = {
                             ...wrapperStyle,
                             transform: `rotate(${angle}deg)`,
@@ -973,7 +1143,9 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                           actualWrapperClass = `break-inside-avoid block w-fit max-w-full mx-auto border-[6px] border-white bg-[#F4EFE6] p-0.5 shadow-[2px_4px_12px_rgba(0,0,0,0.12)] rounded-sm relative group ${mbClass}`;
                           showPhotoCorners = true;
                         } else if (pStyle === "tilted") {
-                          const angle = attIdx % 2 === 0 ? -4 : 5;
+                          const baseAngle = attIdx % 2 === 0 ? -4 : 4;
+                          const offset = ((hash + attIdx * 19) % 7) - 3; // -3 to +3
+                          const angle = baseAngle + offset;
                           wrapperStyle = {
                             ...wrapperStyle,
                             transform: `rotate(${angle}deg)`,
@@ -1009,7 +1181,11 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                               </>
                             )}
 
-                            <img src={att.url} className={`${imgHeightClass} block mx-auto transition-all`} />
+                            <img 
+                              src={att.url} 
+                              className="w-auto max-w-full object-contain block mx-auto transition-all"
+                              style={{ height: dynamicHeight ? `${dynamicHeight}px` : undefined }} 
+                            />
                             
                             {isInteractive && (
                               <div className="no-print absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-black/75 backdrop-blur-sm p-1 rounded-lg z-[20]">
@@ -1063,8 +1239,16 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
 
                   const hash = att.id.split("").reduce((acc: number, c: string) => acc + c.charCodeAt(0), 0);
                   
+                  let baseHeight = 250;
+                  if (imgSize === "small") baseHeight = 160;
+                  else if (imgSize === "large") baseHeight = 360;
+
+                  // Dynamic height offset +/- 30px based on hash and local index
+                  const heightOffset = ((hash + attIdx * 31) % 7) * 10 - 30; // -30, -20, -10, 0, 10, 20, 30px
+                  const dynamicHeight = imgSize === "original" ? undefined : baseHeight + heightOffset;
+
                   if (pStyle === "polaroid") {
-                    const angle = (hash % 7) - 3; // -3 to +3
+                    const angle = ((hash + attIdx * 17) % 11) - 5; // -5 to +5 degrees
                     wrapperStyle = {
                       ...wrapperStyle,
                       transform: `rotate(${angle}deg)`,
@@ -1072,7 +1256,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                     actualWrapperClass = `break-inside-avoid block w-fit max-w-full mx-auto border-[8px] border-b-[28px] border-white bg-white p-0.5 shadow-md shadow-stone-500/20 rounded-sm relative group overflow-hidden ${mbClass}`;
                     showWashiTape = true;
                   } else if (pStyle === "scrapbook") {
-                    const angle = (hash % 9) - 4; // -4 to +4
+                    const angle = ((hash + attIdx * 23) % 13) - 6; // -6 to +6 degrees
                     wrapperStyle = {
                       ...wrapperStyle,
                       transform: `rotate(${angle}deg)`,
@@ -1080,7 +1264,9 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                     actualWrapperClass = `break-inside-avoid block w-fit max-w-full mx-auto border-[6px] border-white bg-[#F4EFE6] p-0.5 shadow-[2px_4px_12px_rgba(0,0,0,0.12)] rounded-sm relative group ${mbClass}`;
                     showPhotoCorners = true;
                   } else if (pStyle === "tilted") {
-                    const angle = attIdx % 2 === 0 ? -4 : 5;
+                    const baseAngle = attIdx % 2 === 0 ? -4 : 4;
+                    const offset = ((hash + attIdx * 19) % 7) - 3; // -3 to +3
+                    const angle = baseAngle + offset;
                     wrapperStyle = {
                       ...wrapperStyle,
                       transform: `rotate(${angle}deg)`,
@@ -1114,7 +1300,11 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                         </>
                       )}
 
-                      <img src={att.url} className={`${imgHeightClass} block mx-auto transition-all`} />
+                      <img 
+                        src={att.url} 
+                        className="w-auto max-w-full object-contain block mx-auto transition-all"
+                        style={{ height: dynamicHeight ? `${dynamicHeight}px` : undefined }} 
+                      />
                       
                       {isInteractive && (
                         <div className="no-print absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-black/75 backdrop-blur-sm p-1 rounded-lg z-[20]">
@@ -1700,16 +1890,32 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
            {/* The Interactive Page Canvas */}
            <div 
              ref={pageRef}
-             className={`print-page relative paper-bg shadow-2xl flex-shrink-0 transition-all duration-500 overflow-hidden text-stone-950 ${format === 'A4' ? 'w-[794px] h-[1123px]' : 'w-[559px] h-[794px]'}`}
+             className={`print-page relative paper-bg shadow-2xl flex-shrink-0 transition-all duration-500 overflow-y-auto overflow-x-hidden text-stone-950 p-6 ${format === 'A4' ? 'w-[794px] h-[1123px]' : 'w-[559px] h-[794px]'}`}
              onClick={() => setSelectedElementId(null)}
            >
-              {pages[currentPageIndex]?.elements.map((el) => (
-                <div 
-                  key={el.id}
-                  onClick={(e) => { e.stopPropagation(); setSelectedElementId(el.id); }}
-                  className={`absolute group transition-all absolute-element-container ${selectedElementId === el.id ? 'border border-orange-500 bg-orange-500/5 z-[100]' : 'border border-transparent hover:border-orange-500/10'}`}
-                  style={{ left: `${el.x}%`, top: `${el.y}%`, width: `${el.width}%`, transform: el.rotation ? `rotate(${el.rotation}deg)` : 'none' }}
-                >
+              {pages[currentPageIndex]?.elements.map((el, elIdx) => (
+                <React.Fragment key={el.id}>
+                   {elIdx > 0 && (
+                     <div className="w-full py-4 flex items-center justify-center select-none no-print">
+                       <div className="h-px w-24 bg-stone-400/20 border-dashed border-t" />
+                       <span className="mx-3 text-[8px] font-black uppercase tracking-[0.3em] text-stone-400">Další stanoviště</span>
+                       <div className="h-px w-24 bg-stone-400/20 border-dashed border-t" />
+                     </div>
+                   )}
+                   <div 
+                     onClick={(e) => { e.stopPropagation(); setSelectedElementId(el.id); }}
+                     className={`group transition-all absolute-element-container ${
+                       (el.x === 0 && el.y === 0 && el.type === 'blog-entry') ? 'relative w-full' : 'absolute'
+                     } ${selectedElementId === el.id ? 'border border-orange-500 bg-orange-500/5 z-[100]' : 'border border-transparent hover:border-orange-500/10'}`}
+                     style={{
+                       position: (el.x === 0 && el.y === 0 && el.type === 'blog-entry') ? 'relative' : 'absolute',
+                       left: (el.x === 0 && el.y === 0 && el.type === 'blog-entry') ? undefined : `${el.x}%`,
+                       top: (el.x === 0 && el.y === 0 && el.type === 'blog-entry') ? undefined : `${el.y}%`,
+                       width: `${el.width}%`,
+                       transform: el.rotation ? `rotate(${el.rotation}deg)` : 'none',
+                       marginBottom: (el.x === 0 && el.y === 0 && el.type === 'blog-entry') ? '1.5rem' : undefined
+                     }}
+                   >
                   {el.type === 'blog-entry' ? (
                     <BlogEntryRenderer post={el.content} el={el} isInteractive={true} />
                   ) : el.type === 'custom-text' ? (
@@ -1751,6 +1957,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                     </div>
                   ) : null}
                 </div>
+                </React.Fragment>
               ))}
               
               <div className="absolute bottom-10 left-0 w-full text-center text-[10px] font-black uppercase tracking-widest opacity-30">— {currentPageIndex + 1} —</div>
@@ -1795,14 +2002,31 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
          {pages.map((page, pageIdx) => (
            <div 
              key={pageIdx} 
-             className={`print-page relative paper-bg overflow-hidden text-stone-950 ${format === 'A4' ? 'w-[794px] h-[1123px]' : 'w-[559px] h-[794px]'}`}
+             className={`print-page relative paper-bg overflow-hidden text-stone-950 p-6 ${format === 'A4' ? 'w-[794px] h-[1123px]' : 'w-[559px] h-[794px]'}`}
            >
-              {page.elements.map((el) => (
-                <div 
-                  key={el.id}
-                  className="absolute"
-                  style={{ left: `${el.x}%`, top: `${el.y}%`, width: `${el.width}%`, transform: el.rotation ? `rotate(${el.rotation}deg)` : 'none' }}
-                >
+              {page.elements.map((el, elIdx) => (
+                <React.Fragment key={el.id}>
+                   {elIdx > 0 && (
+                     <div className="w-full py-4 flex items-center justify-center select-none">
+                       <div className="h-px w-24 bg-[#5C4D3C]/10 border-dashed border-t" />
+                       <span className="mx-3 text-[8px] font-black uppercase tracking-[0.3em] text-[#5C4D3C]/40">Další stanoviště</span>
+                       <div className="h-px w-24 bg-[#5C4D3C]/10 border-dashed border-t" />
+                     </div>
+                   )}
+                   <div 
+                     key={el.id}
+                     className={`${
+                       (el.x === 0 && el.y === 0 && el.type === 'blog-entry') ? 'relative w-full' : 'absolute'
+                     }`}
+                     style={{
+                       position: (el.x === 0 && el.y === 0 && el.type === 'blog-entry') ? 'relative' : 'absolute',
+                       left: (el.x === 0 && el.y === 0 && el.type === 'blog-entry') ? undefined : `${el.x}%`,
+                       top: (el.x === 0 && el.y === 0 && el.type === 'blog-entry') ? undefined : `${el.y}%`,
+                       width: `${el.width}%`,
+                       transform: el.rotation ? `rotate(${el.rotation}deg)` : 'none',
+                       marginBottom: (el.x === 0 && el.y === 0 && el.type === 'blog-entry') ? '1.5rem' : undefined
+                     }}
+                   >
                   {el.type === 'blog-entry' ? (
                     <BlogEntryRenderer post={el.content} el={el} isInteractive={false} />
                   ) : el.type === 'custom-text' ? (
@@ -1838,6 +2062,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                     </div>
                   ) : null}
                 </div>
+                </React.Fragment>
               ))}
               <div className="absolute bottom-10 left-0 w-full text-center text-[10px] font-black uppercase tracking-widest opacity-30">— {pageIdx + 1} —</div>
            </div>

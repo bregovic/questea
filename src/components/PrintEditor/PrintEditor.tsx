@@ -26,6 +26,7 @@ interface PrintElement {
   blockColor?: "default" | "terracotta" | "navy" | "sage" | "charcoal" | "plum" | "sand" | "rose";
   startParagraphIndex?: number;
   endParagraphIndex?: number;
+  isContinuation?: boolean;
 }
 
 interface PrintPage {
@@ -137,11 +138,11 @@ const paginateAllSubtasks = (
   };
 
   const getElementWeight = (el: PrintElement, density: string = "standard") => {
-    const isFirstPage = el.startParagraphIndex === 0;
-    const headerWeight = isFirstPage ? 12 : 0;
+    const isFirstPage = el.startParagraphIndex === 0 && !el.isContinuation;
+    const headerWeight = isFirstPage ? 5 : 0;
     
     const parasCount = (el.endParagraphIndex || 0) - (el.startParagraphIndex || 0);
-    const paraWeight = parasCount * 6;
+    const paraWeight = parasCount * 3.5;
     
     const shownImagesCount = el.content.attachments?.filter((a: any) => 
       a.type === "image" && !(el.hiddenImageIds || []).includes(a.id)
@@ -151,14 +152,14 @@ const paginateAllSubtasks = (
     const numRows = density === "hidden" ? 0 : Math.ceil(shownImagesCount / imagesPerRow);
     
     const imgSize = el.imageSize || "medium";
-    let baseRowWeight = 16;
-    if (imgSize === "small") baseRowWeight = 11;
-    else if (imgSize === "large") baseRowWeight = 24;
-    else if (imgSize === "original") baseRowWeight = 22;
+    let baseRowWeight = 12;
+    if (imgSize === "small") baseRowWeight = 8;
+    else if (imgSize === "large") baseRowWeight = 18;
+    else if (imgSize === "original") baseRowWeight = 16;
     
     let densityFactor = 1.0;
-    if (density === "compact") densityFactor = 0.85;
-    else if (density === "thumbnail") densityFactor = 0.75;
+    if (density === "compact") densityFactor = 0.8;
+    else if (density === "thumbnail") densityFactor = 0.7;
     
     const imagesWeight = numRows * Math.ceil(baseRowWeight * densityFactor);
     
@@ -195,6 +196,7 @@ const paginateAllSubtasks = (
         imageSize: savedStyle.imageSize || "medium",
         startParagraphIndex: start,
         endParagraphIndex: end,
+        isContinuation: start > 0,
         hiddenImageIds: allImages
           .filter((img: any) => !shownImageIds.includes(img.id))
           .map((img: any) => img.id)
@@ -213,7 +215,7 @@ const paginateAllSubtasks = (
           lastPage.elements.forEach(el => {
             lastPageWeight += getElementWeight(el, el.imageDensity || "standard");
           });
-          if (lastPageWeight + 12 <= 100) {
+          if (lastPageWeight + 5 <= 100) { // Using optimized compact header weight of 5 instead of 12!
             lastPage.elements.push({
               id: `entry-${t.id}`,
               type: "blog-entry",
@@ -231,7 +233,8 @@ const paginateAllSubtasks = (
               imageSize: savedStyle.imageSize || "medium",
               startParagraphIndex: 0,
               endParagraphIndex: 0,
-              hiddenImageIds: []
+              hiddenImageIds: [],
+              isContinuation: false
             });
             added = true;
           }
@@ -256,7 +259,8 @@ const paginateAllSubtasks = (
             imageSize: savedStyle.imageSize || "medium",
             startParagraphIndex: 0,
             endParagraphIndex: 0,
-            hiddenImageIds: []
+            hiddenImageIds: [],
+            isContinuation: false
           }]
         });
       }
@@ -315,7 +319,8 @@ const paginateAllSubtasks = (
                   imageSize: savedStyle.imageSize || "medium",
                   startParagraphIndex: 0,
                   endParagraphIndex: 0,
-                  hiddenImageIds: hiddenImageIds
+                  hiddenImageIds: hiddenImageIds,
+                  isContinuation: imgIdx > 0
                 });
                 added = true;
               }
@@ -340,7 +345,8 @@ const paginateAllSubtasks = (
                 imageSize: savedStyle.imageSize || "medium",
                 startParagraphIndex: 0,
                 endParagraphIndex: 0,
-                hiddenImageIds: hiddenImageIds
+                hiddenImageIds: hiddenImageIds,
+                isContinuation: imgIdx > 0
               }]
             });
           }
@@ -432,7 +438,8 @@ const paginateAllSubtasks = (
         imageSize: savedStyle.imageSize || "medium",
         startParagraphIndex: currentStart,
         endParagraphIndex: bestEnd,
-        hiddenImageIds: hiddenImageIds
+        hiddenImageIds: hiddenImageIds,
+        isContinuation: !isFirstPageOfEntry
       };
       
       if (useNewPage || paginated.length === 0) {
@@ -737,6 +744,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
       startParagraphIndex: startPara2,
       endParagraphIndex: endPara2,
       hiddenImageIds: hiddenImages2,
+      isContinuation: true
     };
 
     // 3. Create a new page right after the current page and place the new element there
@@ -1006,9 +1014,9 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
 
     // Boosted font size specifically for text cards inside photo grids to fill blank space elegantly
     const cardFontSizeClass = 
-      el.fontSize === "sm" ? "text-base leading-relaxed font-semibold" :
-      el.fontSize === "lg" ? "text-xl leading-relaxed font-semibold" :
-      el.fontSize === "xl" ? "text-2xl leading-relaxed font-semibold" : "text-lg leading-relaxed font-semibold";
+      el.fontSize === "sm" ? "text-lg leading-relaxed font-semibold" :
+      el.fontSize === "lg" ? "text-2xl leading-relaxed font-semibold" :
+      el.fontSize === "xl" ? "text-3xl leading-relaxed font-semibold" : "text-xl leading-relaxed font-semibold";
       
     const paddingClass =
       el.paddingY === "none" ? "px-1 py-0.5" :
@@ -1092,22 +1100,22 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
     let styleObj: React.CSSProperties = {};
 
     if (border === "dashed-warm") {
-      articleClass += "bg-[#FAF7F0] border-2 border-dashed border-[#E4DEC6] rounded-[24px] shadow-[0_8px_20px_rgba(180,170,140,0.15)] mx-2 my-3 relative overflow-hidden";
+      articleClass += "bg-[#FAF7F0] border-2 border-dashed border-[#E4DEC6] rounded-[24px] shadow-[0_8px_20px_rgba(180,170,140,0.15)] mx-0.5 my-1 relative overflow-hidden";
     } else if (border === "solid-accent") {
-      articleClass += "bg-white border-[4px] rounded-none shadow-lg mx-2 my-3";
+      articleClass += "bg-white border-[4px] rounded-none shadow-lg mx-0.5 my-1";
       styleObj = { borderColor: accentColorTheme };
     } else if (border === "double-vintage") {
-      articleClass += "bg-[#FCFAF2] border-[5px] border-double border-[#5C4D3C] rounded-[4px] shadow-[0_6px_22px_rgba(90,80,60,0.12)] mx-2 my-3";
+      articleClass += "bg-[#FCFAF2] border-[5px] border-double border-[#5C4D3C] rounded-[4px] shadow-[0_6px_22px_rgba(90,80,60,0.12)] mx-0.5 my-1";
     } else if (border === "solid-block") {
-      articleClass += "text-stone-50 rounded-[16px] shadow-[0_10px_25px_rgba(0,0,0,0.08)] mx-2 my-3 border border-transparent";
+      articleClass += "text-stone-50 rounded-[16px] shadow-[0_10px_25px_rgba(0,0,0,0.08)] mx-0.5 my-1 border border-transparent";
       styleObj = { backgroundColor: blockBg };
     } else {
       // none or default
       if (themeStyle === "magazine") {
-        articleClass += "bg-gradient-to-br from-white to-stone-50/70 border border-stone-200/80 border-l-[6px] shadow-[0_10px_25px_rgba(0,0,0,0.03)] rounded-r-3xl rounded-l-md mx-2 my-3";
+        articleClass += "bg-gradient-to-br from-white to-stone-50/70 border border-stone-200/80 border-l-[6px] shadow-[0_10px_25px_rgba(0,0,0,0.03)] rounded-r-3xl rounded-l-md mx-0.5 my-1";
         styleObj = { borderLeftColor: accentColorTheme };
       } else if (themeStyle === "travelbook") {
-        articleClass += "bg-[#FCFAF2] border border-[#5C4D3C]/30 rounded-lg shadow-md mx-2 my-3";
+        articleClass += "bg-[#FCFAF2] border border-[#5C4D3C]/30 rounded-lg shadow-md mx-0.5 my-1";
       } else {
         articleClass += "bg-transparent border-none";
       }
@@ -1148,9 +1156,9 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
     return (
       <article className={articleClass} style={styleObj}>
         <div className="w-full">
-          {/* Compact single-row header (only rendered on the first page block) */}
-          {startPara === 0 && (
-            <header className={`flex flex-row justify-between items-baseline mb-4 pb-2 border-b gap-4 flex-wrap ${
+          {/* Compact single-row header (only rendered on the first page block and not on continuation pages) */}
+          {startPara === 0 && !el.isContinuation && (
+            <header className={`flex flex-row items-center justify-between mb-3 pb-1 border-b gap-4 w-full flex-nowrap ${
               isSolidBlock
                 ? "border-white/20"
                 : themeStyle === "journal" 
@@ -1164,21 +1172,21 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                   const newTitle = e.currentTarget.innerText;
                   handleUpdateElement(el.id, { content: { ...post, title: newTitle } });
                 }}
-                className={`text-2xl font-black leading-tight outline-none ${titleFontClass} ${headerColorClass}`}
+                className={`text-xl font-bold leading-tight outline-none truncate shrink ${titleFontClass} ${headerColorClass}`}
                 style={(!isSolidBlock && themeStyle === "magazine") ? { color: accentColorTheme } : {}}
               >
                 {post.title}
               </h2>
               
-              <div className={`flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-black uppercase tracking-[0.1em] shrink-0 ${metaColorClass}`}>
+              <div className={`flex items-center gap-x-2 gap-y-1 text-[10px] uppercase tracking-wider shrink-0 font-bold ${metaColorClass}`}>
                 <span style={isSolidBlock ? {} : { color: accentColorTheme }}>
                   {date.toLocaleDateString("cs-CZ")} {date.toLocaleTimeString("cs-CZ", { hour: '2-digit', minute: '2-digit' })}
                 </span>
                 {post.locations?.[0] && (
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1">
                     <span className="opacity-40">•</span>
-                    <MapPin size={11} style={isSolidBlock ? {} : { color: accentColorTheme }} />
-                    <span>{post.locations[0].placeName || post.locations[0].address}</span>
+                    <MapPin size={10} style={isSolidBlock ? {} : { color: accentColorTheme }} />
+                    <span className="truncate max-w-[120px] sm:max-w-[180px]">{post.locations[0].placeName || post.locations[0].address}</span>
                   </div>
                 )}
               </div>
@@ -1190,11 +1198,11 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
               const imagesPerPara = Math.ceil(images.length / (paragraphs.length || 1));
               const paraImages = images.slice(pIdx * imagesPerPara, (pIdx + 1) * imagesPerPara);
               
-              let columnClass = "columns-2 gap-1.5 my-1.5";
-              let mbClass = "mb-1.5";
+              let columnClass = "columns-2 gap-1 my-1";
+              let mbClass = "mb-1";
               if (density === "compact") {
-                columnClass = "columns-3 gap-1 my-1";
-                mbClass = "mb-1";
+                columnClass = "columns-3 gap-0.5 my-0.5";
+                mbClass = "mb-0.5";
               } else if (density === "thumbnail") {
                 columnClass = "columns-4 gap-0.5 my-0.5";
                 mbClass = "mb-0.5";
@@ -1502,7 +1510,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
             
             {/* Fallback for only images */}
             {paragraphs.length === 0 && density !== "hidden" && images.length > 0 && (
-              <div className={density === "compact" ? "columns-3 gap-1 my-1 w-full" : density === "thumbnail" ? "columns-4 gap-0.5 my-0.5 w-full" : "columns-2 gap-1.5 my-1.5 w-full"}>
+              <div className={density === "compact" ? "columns-3 gap-0.5 my-0.5 w-full" : density === "thumbnail" ? "columns-4 gap-0.5 my-0.5 w-full" : "columns-2 gap-1 my-1 w-full"}>
                 {images.map((att: any, attIdx: number) => {
                   const isLarge = largeImageIds.includes(att.id);
                   const mbClass = density === "compact" ? "mb-1" : density === "thumbnail" ? "mb-0.5" : "mb-1.5";
@@ -2255,7 +2263,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
            {/* The Interactive Page Canvas */}
            <div 
              ref={pageRef}
-             className={`print-page relative paper-bg shadow-2xl flex-shrink-0 transition-all duration-500 overflow-y-auto overflow-x-hidden text-stone-950 p-6 ${format === 'A4' ? 'w-[794px] h-[1123px]' : 'w-[559px] h-[794px]'}`}
+             className={`print-page relative paper-bg shadow-2xl flex-shrink-0 transition-all duration-500 overflow-y-auto overflow-x-hidden text-stone-950 p-4 ${format === 'A4' ? 'w-[794px] h-[1123px]' : 'w-[559px] h-[794px]'}`}
              onClick={() => setSelectedElementId(null)}
            >
               {pages[currentPageIndex]?.elements.map((el, elIdx) => (
@@ -2367,7 +2375,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
          {pages.map((page, pageIdx) => (
            <div 
              key={pageIdx} 
-             className={`print-page relative paper-bg overflow-hidden text-stone-950 p-6 ${format === 'A4' ? 'w-[794px] h-[1123px]' : 'w-[559px] h-[794px]'}`}
+             className={`print-page relative paper-bg overflow-hidden text-stone-950 p-4 ${format === 'A4' ? 'w-[794px] h-[1123px]' : 'w-[559px] h-[794px]'}`}
            >
               {page.elements.map((el, elIdx) => (
                 <React.Fragment key={el.id}>

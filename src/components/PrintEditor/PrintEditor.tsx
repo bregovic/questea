@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { X, ChevronLeft, ChevronRight, Plus, Trash2, Maximize, Type, Image as ImageIcon, Printer, MapPin } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Plus, Trash2, Maximize, Type, Image as ImageIcon, Printer, MapPin, Crop, ChevronUp, ChevronDown } from "lucide-react";
 import { JourneyMap } from "../Blog/BlogClient";
 
 interface PrintElement {
@@ -27,6 +27,8 @@ interface PrintElement {
   startParagraphIndex?: number;
   endParagraphIndex?: number;
   isContinuation?: boolean;
+  customImageHeights?: Record<string, number>;
+  customImageFits?: Record<string, "cover" | "contain">;
 }
 
 interface PrintPage {
@@ -1006,6 +1008,29 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
   const BlogEntryRenderer = ({ post, el, isInteractive = true }: { post: any; el: PrintElement; isInteractive?: boolean }) => {
     const date = new Date(post.recordedAt || post.createdAt);
     
+    const handleMouseDown = (e: React.MouseEvent, attId: string, currentH: number) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const startY = e.clientY;
+      const startHeight = currentH;
+      
+      const handleMouseMove = (moveEvent: MouseEvent) => {
+        const deltaY = moveEvent.clientY - startY;
+        const newHeight = Math.max(80, Math.min(800, startHeight + deltaY));
+        const currentHeights = { ...(el.customImageHeights || {}) };
+        currentHeights[attId] = newHeight;
+        handleUpdateElement(el.id, { customImageHeights: currentHeights });
+      };
+      
+      const handleMouseUp = () => {
+        window.removeEventListener("mousemove", handleMouseMove);
+        window.removeEventListener("mouseup", handleMouseUp);
+      };
+      
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
+    };
+    
     // Select sizes based on element configuration
     const fontSizeClass = 
       el.fontSize === "sm" ? "text-sm leading-relaxed" :
@@ -1265,13 +1290,23 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                 );
               };
 
-              // Calculate dynamic card height to match neighbor photos
+              // Calculate dynamic card height to match neighbor photos, but auto-flatten if the text is short
               const cardHash = (pIdx * 37) + 13;
               let baseHeight = 250;
               if (imgSize === "small") baseHeight = 160;
               else if (imgSize === "large") baseHeight = 360;
               const cardHeightOffset = (cardHash % 7) * 10 - 30; // -30 to +30px
-              const cardHeight = imgSize === "original" ? 250 : baseHeight + cardHeightOffset;
+              let cardHeight = imgSize === "original" ? 250 : baseHeight + cardHeightOffset;
+
+              // Auto-flatten if text content is short to prevent massive white blank space squares!
+              const textLength = para.length;
+              if (textLength < 60) {
+                cardHeight = Math.min(cardHeight, 110);
+              } else if (textLength < 120) {
+                cardHeight = Math.min(cardHeight, 145);
+              } else if (textLength < 200) {
+                cardHeight = Math.min(cardHeight, 185);
+              }
 
               let cardWrapperClass = "break-inside-avoid w-full flex flex-col justify-center p-6 rounded-2xl relative shadow-md mb-4 ";
               let cardStyle: React.CSSProperties = {
@@ -1406,7 +1441,10 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
 
                         // Dynamic height offset +/- 30px based on hash and local index
                         const heightOffset = ((hash + attIdx * 31) % 7) * 10 - 30; // -30, -20, -10, 0, 10, 20, 30px
-                        const dynamicHeight = imgSize === "original" ? undefined : baseHeight + heightOffset;
+                        const defaultHeight = imgSize === "original" ? undefined : baseHeight + heightOffset;
+                        const customHeight = (el.customImageHeights || {})[att.id];
+                        const dynamicHeight = customHeight !== undefined ? customHeight : defaultHeight;
+                        const customFit = (el.customImageFits || {})[att.id] || "cover";
 
                         if (pStyle === "polaroid") {
                           const angle = ((hash + attIdx * 17) % 11) - 5; // -5 to +5 degrees
@@ -1466,38 +1504,89 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
 
                             <img 
                               src={att.url} 
-                              className="w-full object-cover block mx-auto transition-all"
+                              className={`w-full block mx-auto transition-all ${
+                                customFit === "contain" 
+                                  ? "object-contain bg-stone-100/30 border border-stone-200/20" 
+                                  : "object-cover"
+                              }`}
                               style={{ height: dynamicHeight ? `${dynamicHeight}px` : undefined }} 
                             />
                             
                             {isInteractive && (
-                              <div className="no-print absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-black/75 backdrop-blur-sm p-1 rounded-lg z-[20]">
-                                <button 
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    const currentLarge = [...largeImageIds];
-                                    const idx = currentLarge.indexOf(att.id);
-                                    if (idx > -1) currentLarge.splice(idx, 1);
-                                    else currentLarge.push(att.id);
-                                    handleUpdateElement(el.id, { largeImageIds: currentLarge });
-                                  }}
-                                  title="Zvětšit / Zmenšit"
-                                  className="p-1 hover:text-orange-400 text-white transition-colors"
+                              <>
+                                <div className="no-print absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-black/75 backdrop-blur-sm p-1 rounded-lg z-[20]">
+                                  <button 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const currentFits = { ...(el.customImageFits || {}) };
+                                      currentFits[att.id] = currentFits[att.id] === "contain" ? "cover" : "contain";
+                                      handleUpdateElement(el.id, { customImageFits: currentFits });
+                                    }}
+                                    title={customFit === "contain" ? "Oříznout (vyplnit)" : "Celá fotka (bez ořezu)"}
+                                    className={`p-1 hover:text-orange-400 text-white transition-colors ${customFit === "contain" ? "text-orange-400" : ""}`}
+                                  >
+                                    <Crop size={12} />
+                                  </button>
+                                  <button 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const currentHeights = { ...(el.customImageHeights || {}) };
+                                      const currentH = currentHeights[att.id] !== undefined ? currentHeights[att.id] : (defaultHeight || baseHeight);
+                                      currentHeights[att.id] = Math.min(600, currentH + 30);
+                                      handleUpdateElement(el.id, { customImageHeights: currentHeights });
+                                    }}
+                                    title="Zvětšit výšku"
+                                    className="p-1 hover:text-orange-400 text-white transition-colors"
+                                  >
+                                    <ChevronUp size={12} />
+                                  </button>
+                                  <button 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const currentHeights = { ...(el.customImageHeights || {}) };
+                                      const currentH = currentHeights[att.id] !== undefined ? currentHeights[att.id] : (defaultHeight || baseHeight);
+                                      currentHeights[att.id] = Math.max(80, currentH - 30);
+                                      handleUpdateElement(el.id, { customImageHeights: currentHeights });
+                                    }}
+                                    title="Zmenšit výšku"
+                                    className="p-1 hover:text-orange-400 text-white transition-colors"
+                                  >
+                                    <ChevronDown size={12} />
+                                  </button>
+                                  <button 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const currentLarge = [...largeImageIds];
+                                      const idx = currentLarge.indexOf(att.id);
+                                      if (idx > -1) currentLarge.splice(idx, 1);
+                                      else currentLarge.push(att.id);
+                                      handleUpdateElement(el.id, { largeImageIds: currentLarge });
+                                    }}
+                                    title="Zvětšit / Zmenšit šířku"
+                                    className="p-1 hover:text-orange-400 text-white transition-colors"
+                                  >
+                                    <Maximize size={12} />
+                                  </button>
+                                  <button 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const currentHidden = [...hiddenImageIds, att.id];
+                                      handleUpdateElement(el.id, { hiddenImageIds: currentHidden });
+                                    }}
+                                    title="Skrýt z knihy"
+                                    className="p-1 hover:text-red-400 text-white transition-colors"
+                                  >
+                                    <Trash2 size={12} />
+                                  </button>
+                                </div>
+                                <div 
+                                  onMouseDown={(e) => handleMouseDown(e, att.id, dynamicHeight || baseHeight)}
+                                  className="no-print absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-black/40 to-transparent cursor-ns-resize flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-[30]"
+                                  title="Tažením upravíte výšku obrázku"
                                 >
-                                  <Maximize size={12} />
-                                </button>
-                                <button 
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    const currentHidden = [...hiddenImageIds, att.id];
-                                    handleUpdateElement(el.id, { hiddenImageIds: currentHidden });
-                                  }}
-                                  title="Skrýt z knihy"
-                                  className="p-1 hover:text-red-400 text-white transition-colors"
-                                >
-                                  <Trash2 size={12} />
-                                </button>
-                              </div>
+                                  <div className="w-10 h-1 bg-white/80 rounded-full shadow-sm" />
+                                </div>
+                              </>
                             )}
                           </div>
                         );
@@ -1528,7 +1617,10 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
 
                   // Dynamic height offset +/- 30px based on hash and local index
                   const heightOffset = ((hash + attIdx * 31) % 7) * 10 - 30; // -30, -20, -10, 0, 10, 20, 30px
-                  const dynamicHeight = imgSize === "original" ? undefined : baseHeight + heightOffset;
+                  const defaultHeight = imgSize === "original" ? undefined : baseHeight + heightOffset;
+                  const customHeight = (el.customImageHeights || {})[att.id];
+                  const dynamicHeight = customHeight !== undefined ? customHeight : defaultHeight;
+                  const customFit = (el.customImageFits || {})[att.id] || "cover";
 
                   if (pStyle === "polaroid") {
                     const angle = ((hash + attIdx * 17) % 11) - 5; // -5 to +5 degrees
@@ -1585,38 +1677,89 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
 
                       <img 
                         src={att.url} 
-                        className="w-full object-cover block mx-auto transition-all"
+                        className={`w-full block mx-auto transition-all ${
+                          customFit === "contain" 
+                            ? "object-contain bg-stone-100/30 border border-stone-200/20" 
+                            : "object-cover"
+                        }`}
                         style={{ height: dynamicHeight ? `${dynamicHeight}px` : undefined }} 
                       />
                       
                       {isInteractive && (
-                        <div className="no-print absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-black/75 backdrop-blur-sm p-1 rounded-lg z-[20]">
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const currentLarge = [...largeImageIds];
-                              const idx = currentLarge.indexOf(att.id);
-                              if (idx > -1) currentLarge.splice(idx, 1);
-                              else currentLarge.push(att.id);
-                              handleUpdateElement(el.id, { largeImageIds: currentLarge });
-                            }}
-                            title="Zvětšit / Zmenšit"
-                            className="p-1 hover:text-orange-400 text-white transition-colors"
+                        <>
+                          <div className="no-print absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-black/75 backdrop-blur-sm p-1 rounded-lg z-[20]">
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const currentFits = { ...(el.customImageFits || {}) };
+                                currentFits[att.id] = currentFits[att.id] === "contain" ? "cover" : "contain";
+                                handleUpdateElement(el.id, { customImageFits: currentFits });
+                              }}
+                              title={customFit === "contain" ? "Oříznout (vyplnit)" : "Celá fotka (bez ořezu)"}
+                              className={`p-1 hover:text-orange-400 text-white transition-colors ${customFit === "contain" ? "text-orange-400" : ""}`}
+                            >
+                              <Crop size={12} />
+                            </button>
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const currentHeights = { ...(el.customImageHeights || {}) };
+                                const currentH = currentHeights[att.id] !== undefined ? currentHeights[att.id] : (defaultHeight || baseHeight);
+                                currentHeights[att.id] = Math.min(600, currentH + 30);
+                                handleUpdateElement(el.id, { customImageHeights: currentHeights });
+                              }}
+                              title="Zvětšit výšku"
+                              className="p-1 hover:text-orange-400 text-white transition-colors"
+                            >
+                              <ChevronUp size={12} />
+                            </button>
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const currentHeights = { ...(el.customImageHeights || {}) };
+                                const currentH = currentHeights[att.id] !== undefined ? currentHeights[att.id] : (defaultHeight || baseHeight);
+                                currentHeights[att.id] = Math.max(80, currentH - 30);
+                                handleUpdateElement(el.id, { customImageHeights: currentHeights });
+                              }}
+                              title="Zmenšit výšku"
+                              className="p-1 hover:text-orange-400 text-white transition-colors"
+                            >
+                              <ChevronDown size={12} />
+                            </button>
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const currentLarge = [...largeImageIds];
+                                const idx = currentLarge.indexOf(att.id);
+                                if (idx > -1) currentLarge.splice(idx, 1);
+                                else currentLarge.push(att.id);
+                                handleUpdateElement(el.id, { largeImageIds: currentLarge });
+                              }}
+                              title="Zvětšit / Zmenšit šířku"
+                              className="p-1 hover:text-orange-400 text-white transition-colors"
+                            >
+                              <Maximize size={12} />
+                            </button>
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const currentHidden = [...hiddenImageIds, att.id];
+                                handleUpdateElement(el.id, { hiddenImageIds: currentHidden });
+                              }}
+                              title="Skrýt z knihy"
+                              className="p-1 hover:text-red-400 text-white transition-colors"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                          <div 
+                            onMouseDown={(e) => handleMouseDown(e, att.id, dynamicHeight || baseHeight)}
+                            className="no-print absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-black/40 to-transparent cursor-ns-resize flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-[30]"
+                            title="Tažením upravíte výšku obrázku"
                           >
-                            <Maximize size={12} />
-                          </button>
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const currentHidden = [...hiddenImageIds, att.id];
-                              handleUpdateElement(el.id, { hiddenImageIds: currentHidden });
-                            }}
-                            title="Skrýt z knihy"
-                            className="p-1 hover:text-red-400 text-white transition-colors"
-                          >
-                            <Trash2 size={12} />
-                          </button>
-                        </div>
+                            <div className="w-10 h-1 bg-white/80 rounded-full shadow-sm" />
+                          </div>
+                        </>
                       )}
                     </div>
                   );

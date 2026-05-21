@@ -19,6 +19,7 @@ interface PrintElement {
   paddingY?: "none" | "small" | "medium" | "large";
   hiddenImageIds?: string[];
   largeImageIds?: string[];
+  imageSize?: "small" | "medium" | "large" | "original";
 }
 
 interface PrintPage {
@@ -41,6 +42,45 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
   const [isLoaded, setIsLoaded] = useState(false);
   const [isImagePickerOpen, setIsImagePickerOpen] = useState(false);
   const [customImageUrl, setCustomImageUrl] = useState("");
+
+  const pageRef = useRef<HTMLDivElement>(null);
+  const [pageOverflows, setPageOverflows] = useState<Record<number, boolean>>({});
+
+  useEffect(() => {
+    if (!pageRef.current) return;
+    
+    const checkOverflow = () => {
+      const pageEl = pageRef.current;
+      if (!pageEl) return;
+      
+      const elements = pageEl.querySelectorAll(".absolute-element-container");
+      let overflows = false;
+      
+      elements.forEach((el: any) => {
+        const rect = el.getBoundingClientRect();
+        const pageRect = pageEl.getBoundingClientRect();
+        const elementBottom = rect.bottom - pageRect.top;
+        
+        if (elementBottom > pageEl.clientHeight - 40) {
+          overflows = true;
+        }
+      });
+      
+      setPageOverflows(prev => {
+        if (prev[currentPageIndex] === overflows) return prev;
+        return { ...prev, [currentPageIndex]: overflows };
+      });
+    };
+
+    const timer = setTimeout(checkOverflow, 400);
+    const observer = new ResizeObserver(checkOverflow);
+    observer.observe(pageRef.current);
+
+    return () => {
+      clearTimeout(timer);
+      observer.disconnect();
+    };
+  }, [currentPageIndex, pages, format]);
 
   const template = folder.blogTemplate || "ADVENTURE";
   const isAdventure = template === "ADVENTURE";
@@ -342,6 +382,12 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
     const density = el.imageDensity || "standard";
     const hiddenImageIds = el.hiddenImageIds || [];
     const largeImageIds = el.largeImageIds || [];
+    const imgSize = el.imageSize || "medium";
+
+    let imgHeightClass = "h-[250px] w-auto max-w-full object-contain";
+    if (imgSize === "small") imgHeightClass = "h-[160px] w-auto max-w-full object-contain";
+    else if (imgSize === "large") imgHeightClass = "h-[360px] w-auto max-w-full object-contain";
+    else if (imgSize === "original") imgHeightClass = "w-full h-auto object-contain";
 
     const images = post.attachments?.filter((a: any) => a.type === "image" && !hiddenImageIds.includes(a.id)) || [];
     
@@ -396,10 +442,15 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
               const imagesPerPara = Math.ceil(images.length / (paragraphs.length || 1));
               const paraImages = images.slice(pIdx * imagesPerPara, (pIdx + 1) * imagesPerPara);
               
-              // CSS grid based on density configuration
-              let gridClass = "grid grid-cols-2 gap-4 my-4";
-              if (density === "compact") gridClass = "grid grid-cols-3 gap-3 my-3";
-              else if (density === "thumbnail") gridClass = "grid grid-cols-4 gap-2 my-2";
+              let columnClass = "columns-2 gap-4 my-4";
+              let mbClass = "mb-4";
+              if (density === "compact") {
+                columnClass = "columns-3 gap-3 my-3";
+                mbClass = "mb-3";
+              } else if (density === "thumbnail") {
+                columnClass = "columns-4 gap-2 my-2";
+                mbClass = "mb-2";
+              }
 
               return (
                 <div key={pIdx} className="space-y-4">
@@ -426,16 +477,20 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                   </div>
 
                   {density !== "hidden" && paraImages.length > 0 && (
-                    <div className={gridClass}>
+                    <div className={`${columnClass} w-full`}>
                       {paraImages.map((att: any) => {
                         const isLarge = largeImageIds.includes(att.id);
-                        const spanClass = isLarge 
-                          ? (density === "compact" ? "col-span-3" : "col-span-2") 
-                          : "col-span-1";
+                        const wrapperClass = isAdventure
+                          ? `break-inside-avoid block w-fit max-w-full mx-auto border-[8px] border-white bg-white p-0.5 shadow-md shadow-stone-400/30 rounded-sm relative group overflow-hidden ${mbClass}`
+                          : `break-inside-avoid block w-fit max-w-full mx-auto rounded-2xl shadow-xl bg-transparent relative group overflow-hidden ${mbClass}`;
 
                         return (
-                          <div key={att.id} className={`${spanClass} break-inside-avoid relative group overflow-hidden shadow-md rounded-lg bg-stone-100 border border-stone-200/40 p-1`}>
-                            <img src={att.url} className="w-full h-auto max-h-[250px] object-contain mx-auto" />
+                          <div 
+                            key={att.id} 
+                            className={wrapperClass}
+                            style={isLarge ? { columnSpan: "all" } : undefined}
+                          >
+                            <img src={att.url} className={`${imgHeightClass} block mx-auto transition-all`} />
                             
                             {isInteractive && (
                               <div className="no-print absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-black/75 backdrop-blur-sm p-1 rounded-lg z-[20]">
@@ -477,16 +532,21 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
             
             {/* Fallback for only images */}
             {paragraphs.length === 0 && density !== "hidden" && images.length > 0 && (
-              <div className={density === "compact" ? "grid grid-cols-3 gap-3" : density === "thumbnail" ? "grid grid-cols-4 gap-2" : "grid grid-cols-2 gap-4"}>
+              <div className={density === "compact" ? "columns-3 gap-3 my-3 w-full" : density === "thumbnail" ? "columns-4 gap-2 my-2 w-full" : "columns-2 gap-4 my-4 w-full"}>
                 {images.map((att: any) => {
                   const isLarge = largeImageIds.includes(att.id);
-                  const spanClass = isLarge 
-                    ? (density === "compact" ? "col-span-3" : "col-span-2") 
-                    : "col-span-1";
+                  const mbClass = density === "compact" ? "mb-3" : density === "thumbnail" ? "mb-2" : "mb-4";
+                  const wrapperClass = isAdventure
+                    ? `break-inside-avoid block w-fit max-w-full mx-auto border-[8px] border-white bg-white p-0.5 shadow-md shadow-stone-400/30 rounded-sm relative group overflow-hidden ${mbClass}`
+                    : `break-inside-avoid block w-fit max-w-full mx-auto rounded-2xl shadow-xl bg-transparent relative group overflow-hidden ${mbClass}`;
 
                   return (
-                    <div key={att.id} className={`${spanClass} break-inside-avoid relative group overflow-hidden shadow-md rounded-lg bg-stone-100 border border-stone-200/40 p-1`}>
-                      <img src={att.url} className="w-full h-auto max-h-[250px] object-contain mx-auto" />
+                    <div 
+                      key={att.id} 
+                      className={wrapperClass}
+                      style={isLarge ? { columnSpan: "all" } : undefined}
+                    >
+                      <img src={att.url} className={`${imgHeightClass} block mx-auto transition-all`} />
                       
                       {isInteractive && (
                         <div className="no-print absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-black/75 backdrop-blur-sm p-1 rounded-lg z-[20]">
@@ -760,6 +820,24 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                  </div>
                )}
 
+                {/* Image Size - For blog-entry */}
+                {selectedElement.type === "blog-entry" && selectedElement.imageDensity !== "hidden" && (
+                  <div className="space-y-2 mb-4">
+                     <span className="text-[9px] font-black uppercase tracking-widest text-white/50 block">Velikost fotek</span>
+                     <div className="grid grid-cols-4 gap-1 text-[8px] font-black uppercase tracking-wider text-center bg-white/5 p-1 rounded-xl">
+                        {(["small", "medium", "large", "original"] as const).map(sz => (
+                           <button 
+                             key={sz} 
+                             onClick={() => handleUpdateElement(selectedElementId!, { imageSize: sz })}
+                             className={`py-1 rounded transition-all ${selectedElement.imageSize === sz || (!selectedElement.imageSize && sz === "medium") ? 'bg-white text-black font-black' : 'hover:bg-white/5 text-white/60'}`}
+                           >
+                              {sz === "small" ? "Malé" : sz === "medium" ? "Střed" : sz === "large" ? "Velké" : "Pův."}
+                           </button>
+                        ))}
+                     </div>
+                  </div>
+                )}
+
                {/* Image Density - For blog-entry */}
                {selectedElement.type === "blog-entry" && (
                  <div className="space-y-2">
@@ -817,6 +895,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
 
            {/* The Interactive Page Canvas */}
            <div 
+             ref={pageRef}
              className={`print-page relative paper-bg shadow-2xl flex-shrink-0 transition-all duration-500 overflow-hidden text-stone-950 ${format === 'A4' ? 'w-[794px] h-[1123px]' : 'w-[559px] h-[794px]'}`}
              onClick={() => setSelectedElementId(null)}
            >
@@ -824,7 +903,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                 <div 
                   key={el.id}
                   onClick={(e) => { e.stopPropagation(); setSelectedElementId(el.id); }}
-                  className={`absolute group transition-all ${selectedElementId === el.id ? 'border border-orange-500 bg-orange-500/5 z-[100]' : 'border border-transparent hover:border-orange-500/10'}`}
+                  className={`absolute group transition-all absolute-element-container ${selectedElementId === el.id ? 'border border-orange-500 bg-orange-500/5 z-[100]' : 'border border-transparent hover:border-orange-500/10'}`}
                   style={{ left: `${el.x}%`, top: `${el.y}%`, width: `${el.width}%`, transform: el.rotation ? `rotate(${el.rotation}deg)` : 'none' }}
                 >
                   {el.type === 'blog-entry' ? (
@@ -850,39 +929,20 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                       </button>
                     </div>
                   ) : el.type === 'journey-map' ? (
-                    <div className="px-12 py-12 flex flex-col justify-between items-center text-stone-900 w-full h-[1000px]">
-                      <div className="w-full text-center space-y-3 mt-4">
+                    <div className={`px-12 py-12 flex flex-col justify-start items-center text-stone-900 w-full ${format === "A4" ? "h-[1000px]" : "h-[680px]"}`}>
+                      <div className="w-full text-center space-y-2 mt-4 mb-2">
                          <span className="text-[11px] font-black uppercase tracking-[0.4em] text-orange-600 block">Expedice</span>
                          <h1 className="text-5xl font-black tracking-tight leading-none text-stone-950 serif-font italic">
                             {el.content.title}
                          </h1>
+                         <div className="text-[10px] font-black uppercase tracking-widest text-stone-400 mt-2">
+                            {el.content.totalDistance} km • {el.content.points.length} zastávek
+                         </div>
                          <div className="h-0.5 w-16 bg-orange-600/30 mx-auto mt-2" />
                       </div>
                       
-                      <div className="w-full my-6 flex-1 min-h-[380px] relative rounded-3xl overflow-hidden border border-stone-200 shadow-xl bg-white p-2">
+                      <div className={`w-full mt-4 flex-1 ${format === "A4" ? "h-[740px] min-h-[660px]" : "h-[460px] min-h-[400px]"} relative rounded-3xl overflow-hidden border border-stone-200 shadow-xl bg-white p-2`}>
                          <JourneyMap points={el.content.points} id={`editor-print-map-${el.id}`} className="w-full h-full rounded-2xl" />
-                      </div>
-
-                      <div className="w-full bg-stone-100 rounded-3xl p-6 border border-stone-200/50 flex flex-col gap-4 mb-4">
-                         <div className="flex justify-between items-center border-b border-stone-200/60 pb-3">
-                            <span className="text-[10px] font-black uppercase tracking-wider text-stone-500">Celková vzdálenost</span>
-                            <span className="text-lg font-black text-stone-900">{el.content.totalDistance} km</span>
-                         </div>
-                         <div className="flex justify-between items-center border-b border-stone-200/60 pb-3">
-                            <span className="text-[10px] font-black uppercase tracking-wider text-stone-500">Navštívená místa</span>
-                            <span className="text-lg font-black text-stone-900">{el.content.points.length} zastávek</span>
-                         </div>
-                         <div className="space-y-1">
-                            <span className="text-[10px] font-black uppercase tracking-widest text-stone-500 block mb-2">Trasa expedice:</span>
-                            <div className="flex flex-wrap gap-x-3 gap-y-1 text-stone-600 text-xs font-semibold max-h-[100px] overflow-y-auto scrollbar-hide">
-                               {el.content.points.map((p: any, i: number) => (
-                                 <span key={i} className="flex items-center gap-1 shrink-0">
-                                    {p.title}
-                                    {i < el.content.points.length - 1 && <span className="opacity-40">•</span>}
-                                 </span>
-                               ))}
-                            </div>
-                         </div>
                       </div>
                     </div>
                   ) : null}
@@ -893,26 +953,35 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
            </div>
 
            {/* Page Navigation Controls */}
-           <div className="no-print flex items-center gap-6 mt-2">
-              <button 
-                onClick={() => setCurrentPageIndex(p => Math.max(0, p-1))}
-                disabled={currentPageIndex === 0}
-                className="p-3 bg-stone-850 text-white rounded-2xl hover:bg-stone-800 disabled:opacity-20 disabled:hover:bg-stone-850 transition-all border border-white/5 shadow-xl"
-              >
-                 <ChevronLeft size={20} />
-              </button>
-              
-              <div className="text-white/80 text-xs font-black uppercase tracking-widest bg-stone-850 px-6 py-3 rounded-2xl border border-white/10 shadow-xl">
-                 Strana {currentPageIndex + 1} z {pages.length}
-              </div>
+           <div className="no-print flex flex-col items-center gap-4 mt-2">
+              {pageOverflows[currentPageIndex] && (
+                <div className="bg-red-950/60 border border-red-500/30 text-red-200 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-3 max-w-lg shadow-xl animate-pulse no-print select-none">
+                  <span className="text-sm">⚠️</span>
+                  <span>Obsah této strany přesahuje tiskovou plochu. Zkuste snížit hustotu fotek, jejich velikost nebo zmenšit písmo.</span>
+                </div>
+              )}
 
-              <button 
-                onClick={() => setCurrentPageIndex(p => Math.min(pages.length-1, p+1))}
-                disabled={currentPageIndex === pages.length - 1}
-                className="p-3 bg-stone-850 text-white rounded-2xl hover:bg-stone-800 disabled:opacity-20 disabled:hover:bg-stone-850 transition-all border border-white/5 shadow-xl"
-              >
-                 <ChevronRight size={20} />
-              </button>
+              <div className="flex items-center gap-6">
+                <button 
+                  onClick={() => setCurrentPageIndex(p => Math.max(0, p-1))}
+                  disabled={currentPageIndex === 0}
+                  className="p-3 bg-stone-850 text-white rounded-2xl hover:bg-stone-800 disabled:opacity-20 disabled:hover:bg-stone-850 transition-all border border-white/5 shadow-xl"
+                >
+                   <ChevronLeft size={20} />
+                </button>
+                
+                <div className="text-white/80 text-xs font-black uppercase tracking-widest bg-stone-850 px-6 py-3 rounded-2xl border border-white/10 shadow-xl">
+                   Strana {currentPageIndex + 1} z {pages.length}
+                </div>
+
+                <button 
+                  onClick={() => setCurrentPageIndex(p => Math.min(pages.length-1, p+1))}
+                  disabled={currentPageIndex === pages.length - 1}
+                  className="p-3 bg-stone-850 text-white rounded-2xl hover:bg-stone-800 disabled:opacity-20 disabled:hover:bg-stone-850 transition-all border border-white/5 shadow-xl"
+                >
+                   <ChevronRight size={20} />
+                </button>
+              </div>
            </div>
         </div>
       </div>
@@ -947,39 +1016,20 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                       <img src={el.content} className="max-w-full max-h-[600px] object-contain rounded-lg shadow-md" />
                     </div>
                   ) : el.type === 'journey-map' ? (
-                    <div className="px-12 py-12 flex flex-col justify-between items-center text-stone-900 w-full h-[1000px]">
-                      <div className="w-full text-center space-y-3 mt-4">
+                    <div className={`px-12 py-12 flex flex-col justify-start items-center text-stone-900 w-full ${format === "A4" ? "h-[1000px]" : "h-[680px]"}`}>
+                      <div className="w-full text-center space-y-2 mt-4 mb-2">
                          <span className="text-[11px] font-black uppercase tracking-[0.4em] text-orange-600 block">Expedice</span>
                          <h1 className="text-5xl font-black tracking-tight leading-none text-stone-950 serif-font italic">
                             {el.content.title}
                          </h1>
+                         <div className="text-[10px] font-black uppercase tracking-widest text-stone-400 mt-2">
+                            {el.content.totalDistance} km • {el.content.points.length} zastávek
+                         </div>
                          <div className="h-0.5 w-16 bg-orange-600/30 mx-auto mt-2" />
                       </div>
                       
-                      <div className="w-full my-6 flex-1 min-h-[380px] relative rounded-3xl overflow-hidden border border-stone-200 shadow-xl bg-white p-2">
+                      <div className={`w-full mt-4 flex-1 ${format === "A4" ? "h-[740px] min-h-[660px]" : "h-[460px] min-h-[400px]"} relative rounded-3xl overflow-hidden border border-stone-200 shadow-xl bg-white p-2`}>
                          <JourneyMap points={el.content.points} id={`print-map-${el.id}`} className="w-full h-full rounded-2xl" />
-                      </div>
-
-                      <div className="w-full bg-stone-100 rounded-3xl p-6 border border-stone-200/50 flex flex-col gap-4 mb-4">
-                         <div className="flex justify-between items-center border-b border-stone-200/60 pb-3">
-                            <span className="text-[10px] font-black uppercase tracking-wider text-stone-500">Celková vzdálenost</span>
-                            <span className="text-lg font-black text-stone-900">{el.content.totalDistance} km</span>
-                         </div>
-                         <div className="flex justify-between items-center border-b border-stone-200/60 pb-3">
-                            <span className="text-[10px] font-black uppercase tracking-wider text-stone-500">Navštívená místa</span>
-                            <span className="text-lg font-black text-stone-900">{el.content.points.length} zastávek</span>
-                         </div>
-                         <div className="space-y-1">
-                            <span className="text-[10px] font-black uppercase tracking-widest text-stone-500 block mb-2">Trasa expedice:</span>
-                            <div className="flex flex-wrap gap-x-3 gap-y-1 text-stone-600 text-xs font-semibold">
-                               {el.content.points.map((p: any, i: number) => (
-                                 <span key={i} className="flex items-center gap-1 shrink-0">
-                                    {p.title}
-                                    {i < el.content.points.length - 1 && <span className="opacity-40">•</span>}
-                                 </span>
-                               ))}
-                            </div>
-                         </div>
                       </div>
                     </div>
                   ) : null}

@@ -192,7 +192,7 @@ const JourneyMapFullscreen = ({ points, id }: { points: { lat: number, lng: numb
       });
       mapRef.current = map;
 
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
         maxZoom: 19
       }).addTo(map);
 
@@ -200,10 +200,14 @@ const JourneyMapFullscreen = ({ points, id }: { points: { lat: number, lng: numb
       
       if (latlngs.length > 1) {
         L.polyline(latlngs, {
-          color: '#ea580c',
-          weight: 4,
-          opacity: 0.6,
-          dashArray: '10, 10'
+          color: '#431407',
+          weight: 10,
+          opacity: 0.5
+        }).addTo(map);
+        L.polyline(latlngs, {
+          color: '#f97316',
+          weight: 6,
+          opacity: 1.0
         }).addTo(map);
       }
 
@@ -228,6 +232,12 @@ const JourneyMapFullscreen = ({ points, id }: { points: { lat: number, lng: numb
 
       const bounds = L.latLngBounds(latlngs);
       map.fitBounds(bounds, { padding: [50, 50] });
+
+      // Invalidate size and refit bounds after rendering to resolve hidden tab container tile issues
+      setTimeout(() => {
+        map.invalidateSize();
+        map.fitBounds(bounds, { padding: [50, 50] });
+      }, 300);
     }
 
     return () => {
@@ -279,19 +289,31 @@ export const JourneyMap = ({ points, isMini = false, id = "journey-map", classNa
       });
       mapRef.current = map;
 
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
         maxZoom: 19
       }).addTo(map);
 
       const latlngs = points.map(p => [p.lat, p.lng]);
       
       if (latlngs.length > 1) {
-        L.polyline(latlngs, {
-          color: '#ea580c',
-          weight: isMini ? 2 : 3,
-          opacity: 0.5,
-          dashArray: '10, 10'
-        }).addTo(map);
+        if (isMini) {
+          L.polyline(latlngs, {
+            color: '#ea580c',
+            weight: 2,
+            opacity: 0.8
+          }).addTo(map);
+        } else {
+          L.polyline(latlngs, {
+            color: '#431407',
+            weight: 12,
+            opacity: 0.6
+          }).addTo(map);
+          L.polyline(latlngs, {
+            color: '#ea580c',
+            weight: 8,
+            opacity: 1.0
+          }).addTo(map);
+        }
       }
 
       points.forEach((p, i) => {
@@ -316,10 +338,21 @@ export const JourneyMap = ({ points, isMini = false, id = "journey-map", classNa
       });
 
       const bounds = L.latLngBounds(latlngs);
-      map.fitBounds(bounds, { padding: isMini ? [5, 5] : [50, 50] });
+      map.fitBounds(bounds, { padding: isMini ? [5, 5] : [30, 30] });
       if (isMini && points.length === 1) {
         map.setZoom(6);
       }
+
+      // Invalidate size and refit bounds after rendering to resolve hidden tab container tile issues
+      setTimeout(() => {
+        map.invalidateSize();
+        if (latlngs.length > 0) {
+          map.fitBounds(bounds, { padding: isMini ? [5, 5] : [30, 30] });
+          if (isMini && points.length === 1) {
+            map.setZoom(6);
+          }
+        }
+      }, 300);
     }
 
     return () => {

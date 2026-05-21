@@ -43,6 +43,81 @@ interface PageConfig {
   shownImageIds: string[];
 }
 
+const splitCzechSentences = (text: string): string[] => {
+  if (!text) return [];
+  
+  // List of common Czech abbreviations (case-insensitive checking)
+  const abbrevs = new Set([
+    "st", "sv", "např", "tzv", "tj", "t.j", "zn", "ul", "č", "str", "r", 
+    "popř", "cca", "atd", "apod", "bc", "mgr", "ing", "mudr", "phdr", "doc", "prof",
+    "vol", "tel", "př", "čl", "tzn", "odd", "odst", "napřiklad", "nást", "nám", "ks"
+  ]);
+
+  const sentences: string[] = [];
+  const boundaryRegex = /([.!?])(\s+)/g;
+  let match;
+  let lastIndex = 0;
+  
+  while ((match = boundaryRegex.exec(text)) !== null) {
+    const punctuation = match[1];
+    const whitespace = match[2];
+    const matchIndex = match.index; // index of the punctuation mark
+    
+    // Check what is before the punctuation mark
+    const textBefore = text.slice(0, matchIndex).trim();
+    const parts = textBefore.split(/\s+/);
+    const lastWord = parts[parts.length - 1] || "";
+    // Clean up word by stripping leading/trailing non-alphanumeric chars, keeping inner letters/numbers/dots/hyphens
+    const word = lastWord.replace(/^[^a-zA-Z0-9\u00C0-\u017F]+|[^a-zA-Z0-9\u00C0-\u017F.-]+$/g, "");
+    
+    let shouldSplit = true;
+    
+    if (punctuation === ".") {
+      const lowerWord = word.toLowerCase().replace(/\.$/, ""); // remove trailing dot if any
+      
+      // 1. Is it a known abbreviation?
+      if (abbrevs.has(lowerWord)) {
+        shouldSplit = false;
+      }
+      // 2. Is it a single uppercase letter? (middle initials, e.g. J.)
+      else if (/^[A-Z\u00C0-\u017F]$/.test(word)) {
+        shouldSplit = false;
+      }
+      // 3. Is it a digit/number?
+      else if (/^\d+$/.test(word)) {
+        const nextIndex = matchIndex + punctuation.length + whitespace.length;
+        const nextChar = text.charAt(nextIndex);
+        // If the next character is lowercase, it is definitely not a new sentence. E.g. "1. ledna"
+        if (nextChar && nextChar === nextChar.toLowerCase() && nextChar !== nextChar.toUpperCase()) {
+          shouldSplit = false;
+        } else {
+          // If the number is small (<= 120, typical ordinal number), avoid splitting
+          if (parseInt(word, 10) <= 120) {
+            shouldSplit = false;
+          }
+        }
+      }
+    }
+    
+    if (shouldSplit) {
+      const sentence = text.slice(lastIndex, matchIndex + punctuation.length).trim();
+      if (sentence) {
+        sentences.push(sentence);
+      }
+      lastIndex = matchIndex + punctuation.length + whitespace.length;
+    }
+  }
+  
+  if (lastIndex < text.length) {
+    const remaining = text.slice(lastIndex).trim();
+    if (remaining) {
+      sentences.push(remaining);
+    }
+  }
+  
+  return sentences;
+};
+
 const paginateAllSubtasks = (
   subTasks: any[],
   subtaskStyles: Record<string, any>,
@@ -52,7 +127,7 @@ const paginateAllSubtasks = (
 ): PrintPage[] => {
   const getSentenceChunks = (text: string) => {
     if (!text) return [];
-    const sentences = text.split(/(?<=[.!?])\s+(?=[A-Z\u00C0-\u017F0-9])/).filter((s: string) => s.trim().length > 0);
+    const sentences = splitCzechSentences(text);
     if (sentences.length < 2) return text ? [text] : []; 
     const chunks = [];
     for (let i = 0; i < sentences.length; i += 2) {
@@ -608,7 +683,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
     const post = el.content;
     const getSentenceChunks = (text: string) => {
       if (!text) return [];
-      const sentences = text.split(/(?<=[.!?])\s+(?=[A-Z\u00C0-\u017F0-9])/).filter((s: string) => s.trim().length > 0);
+      const sentences = splitCzechSentences(text);
       if (sentences.length < 2) return [text]; 
       const chunks = [];
       for (let i = 0; i < sentences.length; i += 2) {
@@ -910,7 +985,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
   const totalParas = useMemo(() => {
     if (!selectedElement || selectedElement.type !== "blog-entry") return 0;
     const text = selectedElement.content.description || "";
-    const sentences = text.split(/(?<=[.!?])\s+(?=[A-Z\u00C0-\u017F0-9])/).filter((s: string) => s.trim().length > 0);
+    const sentences = splitCzechSentences(text);
     if (sentences.length < 2) return text ? 1 : 0; 
     const chunks = [];
     for (let i = 0; i < sentences.length; i += 2) {
@@ -949,7 +1024,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
     // Blog logic for paragraphs
     const getSentenceChunks = (text: string) => {
       if (!text) return [];
-      const sentences = text.split(/(?<=[.!?])\s+(?=[A-Z\u00C0-\u017F0-9])/).filter((s: string) => s.trim().length > 0);
+      const sentences = splitCzechSentences(text);
       if (sentences.length < 2) return [text]; 
       const chunks = [];
       for (let i = 0; i < sentences.length; i += 2) {
@@ -1107,11 +1182,11 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
               const imagesPerPara = Math.ceil(images.length / (paragraphs.length || 1));
               const paraImages = images.slice(pIdx * imagesPerPara, (pIdx + 1) * imagesPerPara);
               
-              let columnClass = "columns-2 gap-4 my-4";
-              let mbClass = "mb-4";
+              let columnClass = "columns-2 gap-3 my-3";
+              let mbClass = "mb-3";
               if (density === "compact") {
-                columnClass = "columns-3 gap-3 my-3";
-                mbClass = "mb-3";
+                columnClass = "columns-3 gap-2.5 my-2.5";
+                mbClass = "mb-2.5";
               } else if (density === "thumbnail") {
                 columnClass = "columns-4 gap-2 my-2";
                 mbClass = "mb-2";
@@ -1174,32 +1249,90 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                 );
               };
 
-              let cardWrapperClass = "break-inside-avoid w-full min-h-[220px] flex flex-col justify-center p-6 rounded-2xl relative shadow-md mb-4 ";
-              let cardStyle: React.CSSProperties = {};
-              
-              if (isSolidBlock) {
-                cardWrapperClass += "bg-white/10 backdrop-blur-sm border border-white/20 shadow-inner";
+              // Calculate dynamic card height to match neighbor photos
+              const cardHash = (pIdx * 37) + 13;
+              let baseHeight = 250;
+              if (imgSize === "small") baseHeight = 160;
+              else if (imgSize === "large") baseHeight = 360;
+              const cardHeightOffset = (cardHash % 7) * 10 - 30; // -30 to +30px
+              const cardHeight = imgSize === "original" ? 250 : baseHeight + cardHeightOffset;
+
+              let cardWrapperClass = "break-inside-avoid w-full flex flex-col justify-center p-6 rounded-2xl relative shadow-md mb-4 ";
+              let cardStyle: React.CSSProperties = {
+                minHeight: `${cardHeight}px`
+              };
+              let showCardWashiTape = false;
+              let showCardPhotoCorners = false;
+              let showCardPushpin = false;
+              let showCardInnerOvalFrame = false;
+
+              if (pStyle === "polaroid") {
+                const angle = (cardHash % 9) - 4; // -4 to +4 degrees
+                cardStyle = {
+                  ...cardStyle,
+                  transform: `rotate(${angle}deg)`,
+                  backgroundSize: "12px 12px",
+                  backgroundImage: "radial-gradient(#e4dec6 1px, transparent 1px)",
+                  backgroundColor: "#FCFAF6",
+                };
+                cardWrapperClass = `break-inside-avoid w-full flex flex-col justify-between p-6 pb-12 border-[10px] border-white bg-[#FCFAF6] shadow-[6px_10px_24px_rgba(50,40,30,0.16)] rounded-sm relative mb-4`;
+                showCardWashiTape = true;
+              } else if (pStyle === "scrapbook") {
+                const angle = (cardHash % 11) - 5; // -5 to +5 degrees
+                cardStyle = {
+                  ...cardStyle,
+                  transform: `rotate(${angle}deg)`,
+                  backgroundImage: "linear-gradient(#e8dfd0 1px, transparent 1px)",
+                  backgroundSize: "100% 20px",
+                  lineHeight: "20px",
+                  backgroundColor: "#FAF5EB",
+                };
+                cardWrapperClass = `break-inside-avoid w-full flex flex-col justify-center p-6 border-[8px] border-white bg-[#FAF6EE] shadow-[4px_8px_20px_rgba(70,60,50,0.15)] rounded-sm relative mb-4`;
+                showCardPhotoCorners = true;
+                showCardPushpin = true;
+              } else if (pStyle === "tilted") {
+                const baseAngle = pIdx % 2 === 0 ? -4 : 4;
+                const offset = (cardHash % 5) - 2;
+                const angle = baseAngle + offset;
+                cardStyle = {
+                  ...cardStyle,
+                  transform: `rotate(${angle}deg)`,
+                };
+                cardWrapperClass = `break-inside-avoid w-full flex flex-col justify-center p-6 border-[8px] border-white bg-white shadow-[8px_16px_35px_rgba(0,0,0,0.14)] relative mb-4`;
+              } else if (pStyle === "circle-oval") {
+                cardWrapperClass = `break-inside-avoid w-full flex flex-col justify-center p-8 rounded-t-[140px] rounded-b-[30px] border border-stone-200/40 bg-white shadow-[0_20px_45px_rgba(0,0,0,0.08)] relative mb-4 overflow-hidden`;
+                showCardInnerOvalFrame = true;
               } else {
-                if (themeStyle === "journal") {
-                  cardWrapperClass += "bg-[#FAF7F0] border border-dashed border-[#E4DEC6] rounded-[16px] shadow-[0_4px_12px_rgba(180,170,140,0.1)]";
-                  cardStyle = {
-                    backgroundImage: "linear-gradient(#e4dec6 1px, transparent 1px)",
-                    backgroundSize: "100% 24px",
-                    lineHeight: "24px"
-                  };
-                  const cardHash = pIdx * 13;
-                  const angle = (cardHash % 3) - 1; // -1, 0, 1 degree
-                  cardStyle.transform = `rotate(${angle}deg)`;
-                } else if (themeStyle === "travelbook") {
-                  cardWrapperClass += "bg-[#FCFAF2] border-[4px] border-double border-[#5C4D3C] rounded-sm shadow-md";
-                  const cardHash = pIdx * 17;
-                  const angle = (cardHash % 5) - 2; // -2 to 2 degrees
-                  cardStyle.transform = `rotate(${angle}deg)`;
-                } else if (themeStyle === "magazine") {
-                  cardWrapperClass += "bg-gradient-to-br from-white to-stone-50 border border-stone-200 border-l-[6px] rounded-r-2xl rounded-l-sm shadow-sm";
-                  cardStyle.borderLeftColor = accentColorTheme;
+                if (isSolidBlock) {
+                  cardWrapperClass = "break-inside-avoid w-full flex flex-col justify-center p-6 bg-white/10 backdrop-blur-sm border border-white/20 shadow-inner rounded-2xl relative mb-4";
                 } else {
-                  cardWrapperClass += "bg-white/80 backdrop-blur-sm border border-stone-200 shadow-sm rounded-2xl";
+                  if (themeStyle === "journal") {
+                    const angle = (cardHash % 3) - 1; // -1, 0, 1 degree
+                    cardStyle = {
+                      ...cardStyle,
+                      backgroundImage: "linear-gradient(#e4dec6 1px, transparent 1px)",
+                      backgroundSize: "100% 24px",
+                      lineHeight: "24px",
+                      transform: `rotate(${angle}deg)`,
+                      backgroundColor: "#FAF7F0",
+                    };
+                    cardWrapperClass = "break-inside-avoid w-full flex flex-col justify-center p-6 bg-[#FAF7F0] border border-dashed border-[#E4DEC6] rounded-[16px] shadow-[0_4px_12px_rgba(180,170,140,0.1)] relative mb-4";
+                  } else if (themeStyle === "travelbook") {
+                    const angle = (cardHash % 5) - 2; // -2 to 2 degrees
+                    cardStyle = {
+                      ...cardStyle,
+                      transform: `rotate(${angle}deg)`
+                    };
+                    cardWrapperClass = "break-inside-avoid w-full flex flex-col justify-center p-6 bg-[#FCFAF2] border-[4px] border-double border-[#5C4D3C] rounded-sm shadow-md relative mb-4";
+                  } else if (themeStyle === "magazine") {
+                    cardStyle = {
+                      ...cardStyle,
+                      borderLeftColor: accentColorTheme
+                    };
+                    cardWrapperClass = "break-inside-avoid w-full flex flex-col justify-center p-6 bg-gradient-to-br from-white to-stone-50 border border-stone-200 border-l-[6px] rounded-r-2xl rounded-l-sm shadow-sm relative mb-4";
+                  } else {
+                    cardWrapperClass = "break-inside-avoid w-full flex flex-col justify-center p-6 bg-white/80 backdrop-blur-sm border border-stone-200 shadow-sm rounded-2xl relative mb-4";
+                  }
                 }
               }
 
@@ -1211,7 +1344,32 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                     <div className={`${columnClass} w-full`}>
                       {isOddImages && (
                         <div className={cardWrapperClass} style={cardStyle}>
+                          {showCardWashiTape && (
+                            <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-10 h-3.5 bg-amber-100/35 border-l border-r border-amber-200/20 shadow-[0_1px_2px_rgba(0,0,0,0.02)] rotate-[-3deg] backdrop-blur-[0.5px] pointer-events-none select-none z-[10]" />
+                          )}
+                          {showCardPushpin && (
+                            <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-red-600 rounded-full shadow-[0_2px_4px_rgba(0,0,0,0.3)] z-20 pointer-events-none">
+                              <div className="absolute top-0.5 left-0.5 w-1.5 h-1.5 bg-white/50 rounded-full" />
+                              <div className="absolute top-4 left-1/2 -translate-x-1/2 w-[2px] h-3.5 bg-stone-400/80 shadow-sm" />
+                            </div>
+                          )}
+                          {showCardPhotoCorners && (
+                            <>
+                              <div className="absolute top-0 left-0 w-4 h-4 bg-[#3E2723] z-10 pointer-events-none border-r border-b border-black/10 shadow-sm" style={{ clipPath: "polygon(0 0, 100% 0, 0 100%)" }} />
+                              <div className="absolute top-0 right-0 w-4 h-4 bg-[#3E2723] z-10 pointer-events-none border-l border-b border-black/10 shadow-sm" style={{ clipPath: "polygon(0 0, 100% 0, 100% 100%)" }} />
+                              <div className="absolute bottom-0 left-0 w-4 h-4 bg-[#3E2723] z-10 pointer-events-none border-r border-t border-black/10 shadow-sm" style={{ clipPath: "polygon(0 0, 0 100%, 100% 100%)" }} />
+                              <div className="absolute bottom-0 right-0 w-4 h-4 bg-[#3E2723] z-10 pointer-events-none border-l border-t border-black/10 shadow-sm" style={{ clipPath: "polygon(100% 0, 0 100%, 100% 100%)" }} />
+                            </>
+                          )}
+                          {showCardInnerOvalFrame && (
+                            <div className="absolute inset-2 border border-dashed border-[#C5B39A] rounded-t-[130px] rounded-b-[24px] pointer-events-none" />
+                          )}
                           {renderParagraphText(true)}
+                          {pStyle === "polaroid" && (
+                            <div className="absolute bottom-1 left-0 right-0 text-center cursive-font text-stone-600 font-bold text-lg leading-none z-10 pointer-events-none select-none">
+                              {post.createdAt || post.date ? new Date(post.createdAt || post.date).toLocaleDateString("cs-CZ") : "Krásné vzpomínky"}
+                            </div>
+                          )}
                         </div>
                       )}
                       
@@ -1240,15 +1398,16 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                             ...wrapperStyle,
                             transform: `rotate(${angle}deg)`,
                           };
-                          actualWrapperClass = `break-inside-avoid block w-fit max-w-full mx-auto border-[10px] border-b-[32px] border-white bg-[#FCFAF6] p-0.5 shadow-[6px_10px_24px_rgba(50,40,30,0.16)] rounded-sm relative group overflow-hidden ${mbClass}`;
+                          actualWrapperClass = `break-inside-avoid block w-full max-w-full mx-auto border-[10px] border-b-[32px] border-white bg-[#FCFAF6] p-0.5 shadow-[6px_10px_24px_rgba(50,40,30,0.16)] rounded-sm relative group overflow-hidden ${mbClass}`;
                           showWashiTape = true;
                         } else if (pStyle === "scrapbook") {
                           const angle = ((hash + attIdx * 23) % 13) - 6; // -6 to +6 degrees
                           wrapperStyle = {
                             ...wrapperStyle,
                             transform: `rotate(${angle}deg)`,
+                            pointerEvents: "auto"
                           };
-                          actualWrapperClass = `break-inside-avoid block w-fit max-w-full mx-auto border-[8px] border-white bg-[#FAF6EE] p-0.5 shadow-[4px_8px_20px_rgba(70,60,50,0.15)] rounded-sm relative group ${mbClass}`;
+                          actualWrapperClass = `break-inside-avoid block w-full max-w-full mx-auto border-[8px] border-white bg-[#FAF6EE] p-0.5 shadow-[4px_8px_20px_rgba(70,60,50,0.15)] rounded-sm relative group ${mbClass}`;
                           showPhotoCorners = true;
                         } else if (pStyle === "tilted") {
                           const baseAngle = attIdx % 2 === 0 ? -4 : 4;
@@ -1258,14 +1417,14 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                             ...wrapperStyle,
                             transform: `rotate(${angle}deg)`,
                           };
-                          actualWrapperClass = `break-inside-avoid block w-fit max-w-full mx-auto border-[8px] border-white bg-white p-0.5 shadow-[8px_16px_35px_rgba(0,0,0,0.14)] relative group ${mbClass}`;
+                          actualWrapperClass = `break-inside-avoid block w-full max-w-full mx-auto border-[8px] border-white bg-white p-0.5 shadow-[8px_16px_35px_rgba(0,0,0,0.14)] relative group ${mbClass}`;
                         } else if (pStyle === "circle-oval") {
-                          actualWrapperClass = `break-inside-avoid block w-fit max-w-full mx-auto rounded-t-[140px] rounded-b-[30px] border border-stone-200/40 bg-white p-1.5 shadow-[0_20px_45px_rgba(0,0,0,0.08)] relative group overflow-hidden ${mbClass}`;
+                          actualWrapperClass = `break-inside-avoid block w-full max-w-full mx-auto rounded-t-[140px] rounded-b-[30px] border border-stone-200/40 bg-white p-1.5 shadow-[0_20px_45px_rgba(0,0,0,0.08)] relative group overflow-hidden ${mbClass}`;
                         } else {
                           // standard
                           actualWrapperClass = isAdventure
-                            ? `break-inside-avoid block w-fit max-w-full mx-auto border-[10px] border-white bg-white p-0.5 shadow-[0_12px_24px_rgba(0,0,0,0.07)] rounded-sm relative group overflow-hidden ${mbClass}`
-                            : `break-inside-avoid block w-fit max-w-full mx-auto rounded-2xl shadow-[0_15px_35px_rgba(0,0,0,0.08)] bg-transparent border border-stone-100 relative group overflow-hidden ${mbClass}`;
+                            ? `break-inside-avoid block w-full max-w-full mx-auto border-[10px] border-white bg-white p-0.5 shadow-[0_12px_24px_rgba(0,0,0,0.07)] rounded-sm relative group overflow-hidden ${mbClass}`
+                            : `break-inside-avoid block w-full max-w-full mx-auto rounded-2xl shadow-[0_15px_35px_rgba(0,0,0,0.08)] bg-transparent border border-stone-100 relative group overflow-hidden ${mbClass}`;
                         }
 
                         return (
@@ -1291,7 +1450,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
 
                             <img 
                               src={att.url} 
-                              className="w-auto max-w-full object-contain block mx-auto transition-all"
+                              className="w-full object-cover block mx-auto transition-all"
                               style={{ height: dynamicHeight ? `${dynamicHeight}px` : undefined }} 
                             />
                             
@@ -1361,7 +1520,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                       ...wrapperStyle,
                       transform: `rotate(${angle}deg)`,
                     };
-                    actualWrapperClass = `break-inside-avoid block w-fit max-w-full mx-auto border-[10px] border-b-[32px] border-white bg-[#FCFAF6] p-0.5 shadow-[6px_10px_24px_rgba(50,40,30,0.16)] rounded-sm relative group overflow-hidden ${mbClass}`;
+                    actualWrapperClass = `break-inside-avoid block w-full max-w-full mx-auto border-[10px] border-b-[32px] border-white bg-[#FCFAF6] p-0.5 shadow-[6px_10px_24px_rgba(50,40,30,0.16)] rounded-sm relative group overflow-hidden ${mbClass}`;
                     showWashiTape = true;
                   } else if (pStyle === "scrapbook") {
                     const angle = ((hash + attIdx * 23) % 13) - 6; // -6 to +6 degrees
@@ -1369,7 +1528,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                       ...wrapperStyle,
                       transform: `rotate(${angle}deg)`,
                     };
-                    actualWrapperClass = `break-inside-avoid block w-fit max-w-full mx-auto border-[8px] border-white bg-[#FAF6EE] p-0.5 shadow-[4px_8px_20px_rgba(70,60,50,0.15)] rounded-sm relative group ${mbClass}`;
+                    actualWrapperClass = `break-inside-avoid block w-full max-w-full mx-auto border-[8px] border-white bg-[#FAF6EE] p-0.5 shadow-[4px_8px_20px_rgba(70,60,50,0.15)] rounded-sm relative group ${mbClass}`;
                     showPhotoCorners = true;
                   } else if (pStyle === "tilted") {
                     const baseAngle = attIdx % 2 === 0 ? -4 : 4;
@@ -1379,14 +1538,14 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                       ...wrapperStyle,
                       transform: `rotate(${angle}deg)`,
                     };
-                    actualWrapperClass = `break-inside-avoid block w-fit max-w-full mx-auto border-[8px] border-white bg-white p-0.5 shadow-[8px_16px_35px_rgba(0,0,0,0.14)] relative group ${mbClass}`;
+                    actualWrapperClass = `break-inside-avoid block w-full max-w-full mx-auto border-[8px] border-white bg-white p-0.5 shadow-[8px_16px_35px_rgba(0,0,0,0.14)] relative group ${mbClass}`;
                   } else if (pStyle === "circle-oval") {
-                    actualWrapperClass = `break-inside-avoid block w-fit max-w-full mx-auto rounded-t-[140px] rounded-b-[30px] border border-stone-200/40 bg-white p-1.5 shadow-[0_20px_45px_rgba(0,0,0,0.08)] relative group overflow-hidden ${mbClass}`;
+                    actualWrapperClass = `break-inside-avoid block w-full max-w-full mx-auto rounded-t-[140px] rounded-b-[30px] border border-stone-200/40 bg-white p-1.5 shadow-[0_20px_45px_rgba(0,0,0,0.08)] relative group overflow-hidden ${mbClass}`;
                   } else {
                     // standard
                     actualWrapperClass = isAdventure
-                      ? `break-inside-avoid block w-fit max-w-full mx-auto border-[10px] border-white bg-white p-0.5 shadow-[0_12px_24px_rgba(0,0,0,0.07)] rounded-sm relative group overflow-hidden ${mbClass}`
-                      : `break-inside-avoid block w-fit max-w-full mx-auto rounded-2xl shadow-[0_15px_35px_rgba(0,0,0,0.08)] bg-transparent border border-stone-100 relative group overflow-hidden ${mbClass}`;
+                      ? `break-inside-avoid block w-full max-w-full mx-auto border-[10px] border-white bg-white p-0.5 shadow-[0_12px_24px_rgba(0,0,0,0.07)] rounded-sm relative group overflow-hidden ${mbClass}`
+                      : `break-inside-avoid block w-full max-w-full mx-auto rounded-2xl shadow-[0_15px_35px_rgba(0,0,0,0.08)] bg-transparent border border-stone-100 relative group overflow-hidden ${mbClass}`;
                   }
 
                   return (
@@ -1410,7 +1569,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
 
                       <img 
                         src={att.url} 
-                        className="w-auto max-w-full object-contain block mx-auto transition-all"
+                        className="w-full object-cover block mx-auto transition-all"
                         style={{ height: dynamicHeight ? `${dynamicHeight}px` : undefined }} 
                       />
                       
@@ -1457,11 +1616,15 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
   return (
     <div className="fixed inset-0 z-[15000] bg-stone-900 flex flex-col font-sans select-none overflow-hidden text-white">
       <style jsx global>{`
-        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,900;1,900&family=Outfit:wght@300;400;700;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,900;1,900&family=Outfit:wght@300;400;700;900&family=Caveat:wght@400;700&display=swap');
         
         .paper-bg {
           background-color: #fcfaf7;
           background-image: url("https://www.transparenttextures.com/patterns/paper.png");
+        }
+        
+        .cursive-font {
+          font-family: 'Caveat', cursive;
         }
         
         .drop-cap-print {

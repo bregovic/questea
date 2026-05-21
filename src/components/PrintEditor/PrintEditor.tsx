@@ -23,6 +23,8 @@ interface PrintElement {
   themeStyle?: "clean" | "journal" | "magazine" | "travelbook";
   borderStyle?: "none" | "solid-accent" | "dashed-warm" | "double-vintage" | "solid-block";
   photoStyle?: "standard" | "polaroid" | "scrapbook" | "tilted" | "circle-oval";
+  startParagraphIndex?: number;
+  endParagraphIndex?: number;
 }
 
 interface PrintPage {
@@ -266,6 +268,87 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
     setSelectedElementId(null);
   };
 
+  const handleSplitBlogEntry = (el: PrintElement) => {
+    if (el.type !== "blog-entry") return;
+    
+    const post = el.content;
+    const getSentenceChunks = (text: string) => {
+      if (!text) return [];
+      const sentences = text.split(/(?<=[.!?])\s+(?=[A-Z\u00C0-\u017F0-9])/).filter((s: string) => s.trim().length > 0);
+      if (sentences.length < 2) return [text]; 
+      const chunks = [];
+      for (let i = 0; i < sentences.length; i += 2) {
+        chunks.push(sentences.slice(i, i + 2).join(" ").trim());
+      }
+      return chunks;
+    };
+    
+    const allParas = getSentenceChunks(post.description || "");
+    const totalParas = allParas.length;
+    
+    const allImages = post.attachments?.filter((a: any) => a.type === "image") || [];
+    const totalImages = allImages.length;
+    
+    // We will split the paragraphs in half (or near half)
+    const midPara = Math.max(1, Math.ceil(totalParas / 2));
+    
+    // Original element gets paragraphs 0 to midPara
+    const startPara1 = el.startParagraphIndex !== undefined ? el.startParagraphIndex : 0;
+    const endPara1 = midPara;
+    
+    // New element gets paragraphs midPara to totalParas
+    const startPara2 = midPara;
+    const endPara2 = el.endParagraphIndex !== undefined ? el.endParagraphIndex : totalParas;
+    
+    // We will also split the images in half
+    const midImage = Math.ceil(totalImages / 2);
+    
+    const hiddenImages1 = [
+      ...(el.hiddenImageIds || []),
+      ...allImages.slice(midImage).map((img: any) => img.id)
+    ];
+    
+    const hiddenImages2 = [
+      ...(el.hiddenImageIds || []),
+      ...allImages.slice(0, midImage).map((img: any) => img.id)
+    ];
+
+    // 1. Update the original element on the current page
+    const updatedOriginal: PrintElement = {
+      ...el,
+      endParagraphIndex: endPara1,
+      hiddenImageIds: hiddenImages1,
+    };
+
+    // 2. Create the second element for the next page
+    const newElId = "entry-" + post.id + "-split-" + Date.now();
+    const newElement: PrintElement = {
+      ...el,
+      id: newElId,
+      startParagraphIndex: startPara2,
+      endParagraphIndex: endPara2,
+      hiddenImageIds: hiddenImages2,
+    };
+
+    // 3. Create a new page right after the current page and place the new element there
+    const updatedPages = [...pages];
+    const newPage: PrintPage = {
+      elements: [newElement]
+    };
+    
+    // Insert new page
+    updatedPages.splice(currentPageIndex + 1, 0, newPage);
+    
+    // Replace original element in the current page
+    updatedPages[currentPageIndex] = {
+      elements: updatedPages[currentPageIndex].elements.map(item => item.id === el.id ? updatedOriginal : item)
+    };
+
+    setPages(updatedPages);
+    setCurrentPageIndex(currentPageIndex + 1);
+    setSelectedElementId(newElId);
+  };
+
   // Insert Elements
   const handleAddCustomText = () => {
     const newEl: PrintElement = {
@@ -367,6 +450,18 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
     return pages[currentPageIndex]?.elements.find(el => el.id === selectedElementId) || null;
   }, [selectedElementId, pages, currentPageIndex]);
 
+  const totalParas = useMemo(() => {
+    if (!selectedElement || selectedElement.type !== "blog-entry") return 0;
+    const text = selectedElement.content.description || "";
+    const sentences = text.split(/(?<=[.!?])\s+(?=[A-Z\u00C0-\u017F0-9])/).filter((s: string) => s.trim().length > 0);
+    if (sentences.length < 2) return text ? 1 : 0; 
+    const chunks = [];
+    for (let i = 0; i < sentences.length; i += 2) {
+      chunks.push(sentences.slice(i, i + 2).join(" ").trim());
+    }
+    return chunks.length;
+  }, [selectedElement]);
+
   // Helper component to render the entry EXACTLY like the blog
   const BlogEntryRenderer = ({ post, el, isInteractive = true }: { post: any; el: PrintElement; isInteractive?: boolean }) => {
     const date = new Date(post.recordedAt || post.createdAt);
@@ -397,7 +492,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
     // Blog logic for paragraphs
     const getSentenceChunks = (text: string) => {
       if (!text) return [];
-      const sentences = text.split(/(?<=[.!?])\s+(?=[A-Z\u00C0-\u017F0-9])/).filter(s => s.trim().length > 0);
+      const sentences = text.split(/(?<=[.!?])\s+(?=[A-Z\u00C0-\u017F0-9])/).filter((s: string) => s.trim().length > 0);
       if (sentences.length < 2) return [text]; 
       const chunks = [];
       for (let i = 0; i < sentences.length; i += 2) {
@@ -405,9 +500,15 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
       }
       return chunks;
     };
-    const paragraphs = getSentenceChunks(post.description || "");
+    const allParagraphs = getSentenceChunks(post.description || "");
+    const totalParasLocal = allParagraphs.length;
 
-    const showDropCap = el.fontSize !== "sm" && el.fontSize !== "base";
+    // Slice paragraphs based on element configuration
+    const startPara = el.startParagraphIndex !== undefined ? el.startParagraphIndex : 0;
+    const endPara = el.endParagraphIndex !== undefined ? el.endParagraphIndex : totalParasLocal;
+    const paragraphs = allParagraphs.slice(startPara, endPara);
+
+    const showDropCap = el.fontSize !== "sm" && el.fontSize !== "base" && startPara === 0;
 
     const themeStyle = el.themeStyle || "clean";
 
@@ -561,9 +662,14 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                       suppressContentEditableWarning
                       onBlur={(e) => {
                         const updatedText = e.currentTarget.innerText;
-                        const newParagraphs = [...paragraphs];
-                        newParagraphs[pIdx] = updatedText;
-                        const newDescription = newParagraphs.join("\n\n");
+                        const finalParaText = (pIdx === 0 && showDropCap) 
+                          ? para.charAt(0) + updatedText 
+                          : updatedText;
+                        
+                        const originalIdx = startPara + pIdx;
+                        const newAllParagraphs = [...allParagraphs];
+                        newAllParagraphs[originalIdx] = finalParaText;
+                        const newDescription = newAllParagraphs.join("\n\n");
                         handleUpdateElement(el.id, { content: { ...post, description: newDescription } });
                       }}
                       className="whitespace-pre-wrap outline-none focus:bg-orange-500/5 p-1 rounded transition-colors"
@@ -1100,6 +1206,92 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                              {ds === "standard" ? "Standard" : ds === "compact" ? "Kompakt" : ds === "thumbnail" ? "Collage" : "Skrýt"}
                           </button>
                        ))}
+                    </div>
+                 </div>
+               )}
+
+               {/* Split / Paragraph Pagination Controls - For blog-entry */}
+               {selectedElement.type === "blog-entry" && (
+                 <div className="space-y-3 bg-white/5 p-3 rounded-2xl border border-white/5">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-orange-500 block">Rozdělení a stránkování</span>
+                    
+                    <button
+                      onClick={() => handleSplitBlogEntry(selectedElement)}
+                      className="w-full bg-orange-600 hover:bg-orange-500 text-white font-black text-[9px] uppercase tracking-wider py-2 rounded-xl transition-all"
+                    >
+                      Rozdělit příspěvek na 2 strany
+                    </button>
+
+                    <div className="space-y-2 text-xs">
+                      <div className="flex justify-between items-center text-[10px] text-stone-300 font-bold">
+                        <span>Zobrazené odstavce:</span>
+                        <span className="text-orange-400">
+                          {(selectedElement.startParagraphIndex !== undefined ? selectedElement.startParagraphIndex : 0) + 1} 
+                          – 
+                          {selectedElement.endParagraphIndex !== undefined ? selectedElement.endParagraphIndex : totalParas}
+                          / {totalParas}
+                        </span>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-2 text-[9px] uppercase font-black tracking-wider text-center">
+                        <div className="space-y-1">
+                          <span className="text-[8px] text-white/40 block">Začátek</span>
+                          <div className="flex bg-white/5 rounded-lg p-0.5 justify-between items-center">
+                            <button 
+                              onClick={() => handleUpdateElement(selectedElementId!, { 
+                                startParagraphIndex: Math.max(0, (selectedElement.startParagraphIndex ?? 0) - 1) 
+                              })}
+                              className="px-1.5 py-0.5 hover:bg-white/10 rounded"
+                            >
+                              -
+                            </button>
+                            <span className="font-bold text-stone-200">{selectedElement.startParagraphIndex ?? 0}</span>
+                            <button 
+                              onClick={() => handleUpdateElement(selectedElementId!, { 
+                                startParagraphIndex: Math.min(totalParas - 1, (selectedElement.startParagraphIndex ?? 0) + 1) 
+                              })}
+                              className="px-1.5 py-0.5 hover:bg-white/10 rounded"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="space-y-1">
+                          <span className="text-[8px] text-white/40 block">Konec</span>
+                          <div className="flex bg-white/5 rounded-lg p-0.5 justify-between items-center">
+                            <button 
+                              onClick={() => handleUpdateElement(selectedElementId!, { 
+                                endParagraphIndex: Math.max(1, (selectedElement.endParagraphIndex ?? totalParas) - 1) 
+                              })}
+                              className="px-1.5 py-0.5 hover:bg-white/10 rounded"
+                            >
+                              -
+                            </button>
+                            <span className="font-bold text-stone-200">{selectedElement.endParagraphIndex ?? totalParas}</span>
+                            <button 
+                              onClick={() => handleUpdateElement(selectedElementId!, { 
+                                endParagraphIndex: Math.min(totalParas, (selectedElement.endParagraphIndex ?? totalParas) + 1) 
+                              })}
+                              className="px-1.5 py-0.5 hover:bg-white/10 rounded"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {(selectedElement.startParagraphIndex !== undefined || selectedElement.endParagraphIndex !== undefined) && (
+                        <button
+                          onClick={() => handleUpdateElement(selectedElementId!, { 
+                            startParagraphIndex: undefined,
+                            endParagraphIndex: undefined
+                          })}
+                          className="w-full bg-white/5 hover:bg-white/10 text-stone-300 py-1 rounded-lg text-[8px] font-black uppercase tracking-wider transition-all"
+                        >
+                          Zobrazit všechny odstavce
+                        </button>
+                      )}
                     </div>
                  </div>
                )}

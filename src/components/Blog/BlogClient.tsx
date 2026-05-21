@@ -2,7 +2,7 @@
 
 import { useState, useEffect, ReactNode, useRef } from "react";
 import { motion } from "framer-motion";
-import { X, ChevronLeft, ChevronRight, Navigation } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Navigation, Maximize2 } from "lucide-react";
 import { AnimatePresence } from "framer-motion";
 
 export const BlogStyles = () => {
@@ -156,12 +156,97 @@ export const Lightbox = ({ images, initialIndex, onClose }: { images: string[], 
     </motion.div>
   );
 };
-export const JourneyMap = ({ points, isMini = false, id = "journey-map", className = "" }: { points: { lat: number, lng: number, title: string }[], isMini?: boolean, id?: string, className?: string }) => {
-  const [isUnlocked, setIsUnlocked] = useState(false);
+const JourneyMapFullscreen = ({ points, id }: { points: { lat: number, lng: number, title: string }[], id: string }) => {
   const mapRef = useRef<any>(null);
 
   useEffect(() => {
-    // Load Leaflet from CDN
+    if (!(window as any).L) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      document.head.appendChild(link);
+
+      const script = document.createElement('script');
+      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      script.onload = () => initMap();
+      document.head.appendChild(script);
+    } else {
+      initMap();
+    }
+
+    function initMap() {
+      const L = (window as any).L;
+      if (!L || !points.length) return;
+
+      const container = document.getElementById(id);
+      if (!container || (container as any)._leaflet_id) return;
+
+      const map = L.map(id, {
+        zoomControl: true,
+        scrollWheelZoom: true,
+        attributionControl: false,
+        dragging: true,
+        touchZoom: true,
+        doubleClickZoom: true,
+        tap: true
+      });
+      mapRef.current = map;
+
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        maxZoom: 19
+      }).addTo(map);
+
+      const latlngs = points.map(p => [p.lat, p.lng]);
+      
+      if (latlngs.length > 1) {
+        L.polyline(latlngs, {
+          color: '#ea580c',
+          weight: 4,
+          opacity: 0.6,
+          dashArray: '10, 10'
+        }).addTo(map);
+      }
+
+      points.forEach((p, i) => {
+        const isLast = i === points.length - 1;
+        const color = isLast ? '#22c55e' : '#ea580c';
+        
+        const icon = L.divIcon({
+          className: 'custom-div-icon',
+          html: `
+            <div style="position: relative; background-color: ${color}; width: 14px; height: 14px; border: 2.5px solid white; border-radius: 50%; box-shadow: 0 0 12px rgba(0,0,0,0.4);">
+              ${isLast ? `<div style="position: absolute; inset: -8px; border-radius: 50%; background: ${color}; opacity: 0.3; animation: pulse 2s infinite;"></div>` : ''}
+            </div>
+          `,
+          iconSize: [14, 14],
+          iconAnchor: [7, 7]
+        });
+
+        const marker = L.marker([p.lat, p.lng], { icon }).addTo(map);
+        marker.bindPopup(`<b style="font-family: sans-serif; font-size: 14px; color: #1c1917;">${p.title}</b>`).openPopup();
+      });
+
+      const bounds = L.latLngBounds(latlngs);
+      map.fitBounds(bounds, { padding: [50, 50] });
+    }
+
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, [points, id]);
+
+  return <div id={id} className="w-full h-full" />;
+};
+
+export const JourneyMap = ({ points, isMini = false, id = "journey-map", className = "" }: { points: { lat: number, lng: number, title: string }[], isMini?: boolean, id?: string, className?: string }) => {
+  const [isUnlocked, setIsUnlocked] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const mapRef = useRef<any>(null);
+
+  useEffect(() => {
     if (!(window as any).L) {
       const link = document.createElement('link');
       link.rel = 'stylesheet';
@@ -200,7 +285,6 @@ export const JourneyMap = ({ points, isMini = false, id = "journey-map", classNa
 
       const latlngs = points.map(p => [p.lat, p.lng]);
       
-      // Draw path
       if (latlngs.length > 1) {
         L.polyline(latlngs, {
           color: '#ea580c',
@@ -210,7 +294,6 @@ export const JourneyMap = ({ points, isMini = false, id = "journey-map", classNa
         }).addTo(map);
       }
 
-      // Add markers
       points.forEach((p, i) => {
         const isLast = i === points.length - 1;
         const color = isLast ? '#22c55e' : '#ea580c';
@@ -228,7 +311,7 @@ export const JourneyMap = ({ points, isMini = false, id = "journey-map", classNa
 
         const marker = L.marker([p.lat, p.lng], { icon }).addTo(map);
         if (!isMini) {
-           marker.bindPopup(`<b style="font-family: sans-serif; font-size: 12px;">${p.title}</b>`);
+           marker.bindPopup(`<b style="font-family: sans-serif; font-size: 12px; color: #1c1917;">${p.title}</b>`);
         }
       });
 
@@ -247,33 +330,100 @@ export const JourneyMap = ({ points, isMini = false, id = "journey-map", classNa
     };
   }, [points, isMini, id, isUnlocked]);
 
-  return (
-    <div 
-      className={`relative w-full ${className || (isMini ? 'h-full' : 'h-[400px] md:h-[600px]')} rounded-3xl overflow-hidden border border-white/10 shadow-2xl bg-stone-100 group transition-all duration-500 ${isUnlocked ? 'ring-4 ring-orange-500/20' : ''}`}
-      onClick={() => !isMini && setIsUnlocked(true)}
-    >
-      <div id={id} className="w-full h-full z-10" />
-      
-      {!isMini && !isUnlocked && (
-        <div className="absolute inset-0 z-30 cursor-pointer group-hover:bg-black/5 transition-all" />
-      )}
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsFullscreen(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "";
+    };
+  }, [isFullscreen]);
 
-      {!isMini && (
-        <div className="absolute top-6 left-6 z-20 bg-white/80 backdrop-blur-md px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg flex items-center gap-2">
-          <Navigation size={14} className="text-orange-500" />
-          Mapa expedice {isUnlocked && <span className="text-orange-600 font-bold ml-1">• Aktivní</span>}
-        </div>
-      )}
-      
-      {isUnlocked && !isMini && (
-        <button 
-          onClick={(e) => { e.stopPropagation(); setIsUnlocked(false); }}
-          className="absolute bottom-6 right-6 z-40 bg-stone-900/80 backdrop-blur-md text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-xl border border-white/10"
-        >
-          Ukončit režim mapy
-        </button>
-      )}
-    </div>
+  return (
+    <>
+      <div 
+        className={`relative w-full ${className || (isMini ? 'h-full' : 'h-[400px] md:h-[600px]')} rounded-3xl overflow-hidden border border-white/10 shadow-2xl bg-stone-100 group transition-all duration-500 ${isUnlocked ? 'ring-4 ring-orange-500/20' : ''}`}
+        onClick={() => !isMini && setIsUnlocked(true)}
+      >
+        <div id={id} className="w-full h-full z-10" />
+        
+        {!isMini && !isUnlocked && (
+          <div className="absolute inset-0 z-30 cursor-pointer group-hover:bg-black/5 transition-all" />
+        )}
+
+        {!isMini && (
+          <div className="absolute top-6 left-6 z-20 bg-white/80 backdrop-blur-md px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg flex items-center gap-2 select-none">
+            <Navigation size={14} className="text-orange-500 animate-pulse" />
+            Mapa expedice {isUnlocked && <span className="text-orange-600 font-bold ml-1">• Aktivní</span>}
+          </div>
+        )}
+
+        {!isMini && (
+          <button
+            onClick={(e) => { e.stopPropagation(); setIsFullscreen(true); }}
+            className="absolute top-6 right-6 z-40 bg-white/80 hover:bg-white backdrop-blur-md text-stone-900 p-2.5 rounded-full shadow-lg border border-white/20 transition-all duration-300 hover:scale-110 active:scale-95 flex items-center justify-center group/btn cursor-pointer"
+            title="Maximalizovat mapu"
+          >
+            <Maximize2 size={15} className="text-stone-700 transition-transform group-hover/btn:scale-110" />
+          </button>
+        )}
+        
+        {isUnlocked && !isMini && (
+          <button 
+            onClick={(e) => { e.stopPropagation(); setIsUnlocked(false); }}
+            className="absolute bottom-6 right-6 z-40 bg-stone-900/80 backdrop-blur-md text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-xl border border-white/10 cursor-pointer hover:bg-stone-900 transition-colors"
+          >
+            Ukončit režim mapy
+          </button>
+        )}
+      </div>
+
+      <AnimatePresence>
+        {isFullscreen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[9999] bg-stone-950/96 backdrop-blur-xl flex flex-col p-4 md:p-8"
+            onClick={() => setIsFullscreen(false)}
+          >
+            <div 
+              className="relative w-full h-full flex flex-col bg-white rounded-3xl overflow-hidden border border-white/10 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Floating Header in Fullscreen */}
+              <div className="absolute top-6 left-6 z-50 bg-stone-900/90 backdrop-blur-md px-5 py-3 rounded-2xl text-white shadow-xl flex items-center gap-3 border border-white/10 pointer-events-none select-none">
+                <div className="bg-orange-500 p-1.5 rounded-lg flex items-center justify-center">
+                  <Navigation size={16} className="text-white" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-xs uppercase tracking-wider">Mapa expedice</h4>
+                  <p className="text-[10px] text-white/50">Celoobrazovkový interaktivní režim</p>
+                </div>
+              </div>
+
+              {/* Close Button in Fullscreen */}
+              <button 
+                className="absolute top-6 right-6 text-stone-600 hover:text-stone-900 hover:bg-stone-100 transition-all p-3.5 bg-white/90 rounded-2xl z-50 shadow-xl border border-stone-200 cursor-pointer hover:scale-105 active:scale-95 flex items-center justify-center"
+                onClick={() => setIsFullscreen(false)}
+                title="Zavřít mapu (Esc)"
+              >
+                <X size={20} />
+              </button>
+
+              {/* Actual interactive map */}
+              <div className="flex-1 w-full h-full bg-stone-100 relative">
+                <JourneyMapFullscreen points={points} id={`${id}-fullscreen`} />
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 };
 

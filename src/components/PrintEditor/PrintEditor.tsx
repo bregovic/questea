@@ -30,6 +30,7 @@ interface PrintElement {
   customImageHeights?: Record<string, number>;
   customImageFits?: Record<string, "cover" | "contain">;
   customImageZooms?: Record<string, number>;
+  customImageOffsets?: Record<string, { x: number; y: number }>;
 }
 
 interface PrintPage {
@@ -474,6 +475,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
 
   const pageRef = useRef<HTMLDivElement>(null);
   const [pageOverflows, setPageOverflows] = useState<Record<number, boolean>>({});
+  const [imageAspects, setImageAspects] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (!pageRef.current) return;
@@ -1031,6 +1033,50 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
       window.addEventListener("mousemove", handleMouseMove);
       window.addEventListener("mouseup", handleMouseUp);
     };
+
+    const handleImageDragStart = (e: React.MouseEvent, attId: string) => {
+      if (!isInteractive) return;
+      e.preventDefault();
+      e.stopPropagation();
+      
+      const startX = e.clientX;
+      const startY = e.clientY;
+      
+      const currentOffsets = el.customImageOffsets || {};
+      const initialOffset = currentOffsets[attId] || { x: 0, y: 0 };
+      
+      const handleMouseMove = (moveEvent: MouseEvent) => {
+        const deltaX = moveEvent.clientX - startX;
+        const deltaY = moveEvent.clientY - startY;
+        
+        const newOffsets = { ...currentOffsets };
+        newOffsets[attId] = {
+          x: initialOffset.x + deltaX,
+          y: initialOffset.y + deltaY
+        };
+        
+        handleUpdateElement(el.id, { customImageOffsets: newOffsets });
+      };
+      
+      const handleMouseUp = () => {
+        window.removeEventListener("mousemove", handleMouseMove);
+        window.removeEventListener("mouseup", handleMouseUp);
+      };
+      
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
+    };
+
+    const handleResetImage = (attId: string) => {
+      const currentOffsets = { ...(el.customImageOffsets || {}) };
+      currentOffsets[attId] = { x: 0, y: 0 };
+      const currentZooms = { ...(el.customImageZooms || {}) };
+      currentZooms[attId] = 1.0;
+      handleUpdateElement(el.id, { 
+        customImageOffsets: currentOffsets,
+        customImageZooms: currentZooms
+      });
+    };
     
     // Select sizes based on element configuration
     const fontSizeClass = 
@@ -1436,9 +1482,17 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                         // Deterministic stable angle rotation computation
                         const hash = att.id.split("").reduce((acc: number, c: string) => acc + c.charCodeAt(0), 0);
                         
+                        const isPortrait = imageAspects[att.id] ? imageAspects[att.id] < 0.95 : false;
+
                         let baseHeight = 250;
                         if (imgSize === "small") baseHeight = 160;
                         else if (imgSize === "large") baseHeight = 360;
+
+                        if (isPortrait) {
+                          if (imgSize === "small") baseHeight = 240;
+                          else if (imgSize === "large") baseHeight = 500;
+                          else baseHeight = 380;
+                        }
 
                         // Dynamic height offset +/- 30px based on hash and local index
                         const heightOffset = ((hash + attIdx * 31) % 7) * 10 - 30; // -30, -20, -10, 0, 10, 20, 30px
@@ -1447,6 +1501,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                         const dynamicHeight = customHeight !== undefined ? customHeight : defaultHeight;
                         const customFit = (el.customImageFits || {})[att.id] || "cover";
                         const customZoom = (el.customImageZooms || {})[att.id] || 1.0;
+                        const offset = (el.customImageOffsets || {})[att.id] || { x: 0, y: 0 };
 
                         if (pStyle === "polaroid") {
                           const angle = ((hash + attIdx * 17) % 11) - 5; // -5 to +5 degrees
@@ -1510,14 +1565,40 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                             >
                               <img 
                                 src={att.url} 
-                                className={`w-full block mx-auto transition-transform duration-200 ${
+                                onLoad={(e) => {
+                                  const img = e.currentTarget;
+                                  const aspect = img.naturalWidth / img.naturalHeight;
+                                  setImageAspects(prev => {
+                                    if (prev[att.id] === aspect) return prev;
+                                    return { ...prev, [att.id]: aspect };
+                                  });
+                                }}
+                                onMouseDown={(e) => handleImageDragStart(e, att.id)}
+                                onDoubleClick={(e) => { e.stopPropagation(); handleResetImage(att.id); }}
+                                onWheel={(e) => {
+                                  if (!isInteractive) return;
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  const currentZooms = { ...(el.customImageZooms || {}) };
+                                  const currentZ = currentZooms[att.id] !== undefined ? currentZooms[att.id] : 1.0;
+                                  let nextZ = currentZ;
+                                  if (e.deltaY < 0) {
+                                    nextZ = Number(Math.min(4.0, currentZ + 0.1).toFixed(2));
+                                  } else {
+                                    nextZ = Number(Math.max(1.0, currentZ - 0.1).toFixed(2));
+                                  }
+                                  currentZooms[att.id] = nextZ;
+                                  handleUpdateElement(el.id, { customImageZooms: currentZooms });
+                                }}
+                                title={isInteractive ? "Tažením posunete fotku, kolečkem myši změníte zoom, dvojklikem resetujete" : undefined}
+                                className={`w-full block mx-auto transition-transform ${isInteractive ? "cursor-grab active:cursor-grabbing" : ""} ${
                                   customFit === "contain" 
                                     ? "object-contain bg-stone-100/30 border border-stone-200/20" 
                                     : "object-cover"
                                 }`}
                                 style={{ 
                                   height: dynamicHeight ? "100%" : undefined,
-                                  transform: customZoom !== 1 ? `scale(${customZoom})` : undefined,
+                                  transform: `translate(${offset.x}px, ${offset.y}px) scale(${customZoom})`,
                                   transformOrigin: "center center"
                                 }} 
                               />
@@ -1653,9 +1734,17 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
 
                   const hash = att.id.split("").reduce((acc: number, c: string) => acc + c.charCodeAt(0), 0);
                   
+                  const isPortrait = imageAspects[att.id] ? imageAspects[att.id] < 0.95 : false;
+
                   let baseHeight = 250;
                   if (imgSize === "small") baseHeight = 160;
                   else if (imgSize === "large") baseHeight = 360;
+
+                  if (isPortrait) {
+                    if (imgSize === "small") baseHeight = 240;
+                    else if (imgSize === "large") baseHeight = 500;
+                    else baseHeight = 380;
+                  }
 
                   // Dynamic height offset +/- 30px based on hash and local index
                   const heightOffset = ((hash + attIdx * 31) % 7) * 10 - 30; // -30, -20, -10, 0, 10, 20, 30px
@@ -1664,6 +1753,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                   const dynamicHeight = customHeight !== undefined ? customHeight : defaultHeight;
                   const customFit = (el.customImageFits || {})[att.id] || "cover";
                   const customZoom = (el.customImageZooms || {})[att.id] || 1.0;
+                  const offset = (el.customImageOffsets || {})[att.id] || { x: 0, y: 0 };
 
                   if (pStyle === "polaroid") {
                     const angle = ((hash + attIdx * 17) % 11) - 5; // -5 to +5 degrees
@@ -1724,14 +1814,40 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                       >
                         <img 
                           src={att.url} 
-                          className={`w-full block mx-auto transition-transform duration-200 ${
+                          onLoad={(e) => {
+                            const img = e.currentTarget;
+                            const aspect = img.naturalWidth / img.naturalHeight;
+                            setImageAspects(prev => {
+                              if (prev[att.id] === aspect) return prev;
+                              return { ...prev, [att.id]: aspect };
+                            });
+                          }}
+                          onMouseDown={(e) => handleImageDragStart(e, att.id)}
+                          onDoubleClick={(e) => { e.stopPropagation(); handleResetImage(att.id); }}
+                          onWheel={(e) => {
+                            if (!isInteractive) return;
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const currentZooms = { ...(el.customImageZooms || {}) };
+                            const currentZ = currentZooms[att.id] !== undefined ? currentZooms[att.id] : 1.0;
+                            let nextZ = currentZ;
+                            if (e.deltaY < 0) {
+                              nextZ = Number(Math.min(4.0, currentZ + 0.1).toFixed(2));
+                            } else {
+                              nextZ = Number(Math.max(1.0, currentZ - 0.1).toFixed(2));
+                            }
+                            currentZooms[att.id] = nextZ;
+                            handleUpdateElement(el.id, { customImageZooms: currentZooms });
+                          }}
+                          title={isInteractive ? "Tažením posunete fotku, kolečkem myši změníte zoom, dvojklikem resetujete" : undefined}
+                          className={`w-full block mx-auto transition-transform ${isInteractive ? "cursor-grab active:cursor-grabbing" : ""} ${
                             customFit === "contain" 
                               ? "object-contain bg-stone-100/30 border border-stone-200/20" 
                               : "object-cover"
                           }`}
                           style={{ 
                             height: dynamicHeight ? "100%" : undefined,
-                            transform: customZoom !== 1 ? `scale(${customZoom})` : undefined,
+                            transform: `translate(${offset.x}px, ${offset.y}px) scale(${customZoom})`,
                             transformOrigin: "center center"
                           }} 
                         />

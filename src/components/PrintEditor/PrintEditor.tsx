@@ -42,7 +42,7 @@ interface PageConfig {
   shownImageIds: string[];
 }
 
-const paginateSubtask = (t: any): PageConfig[] => {
+const paginateSubtask = (t: any, density: string = "standard"): PageConfig[] => {
   const getSentenceChunks = (text: string) => {
     if (!text) return [];
     const sentences = text.split(/(?<=[.!?])\s+(?=[A-Z\u00C0-\u017F0-9])/).filter((s: string) => s.trim().length > 0);
@@ -77,10 +77,11 @@ const paginateSubtask = (t: any): PageConfig[] => {
 
   const pages: PageConfig[] = [];
   let currentStart = 0;
+  const imagesPerRow = density === "compact" ? 3 : density === "thumbnail" ? 4 : density === "hidden" ? 9999 : 2;
   
   while (currentStart < N || (currentStart === 0 && N === 0 && M > 0)) {
     if (N === 0) {
-      const imagesPerPage = 3;
+      const imagesPerPage = imagesPerRow * 2;
       let imgIdx = 0;
       while (imgIdx < M) {
         const chunk = allImages.slice(imgIdx, imgIdx + imagesPerPage);
@@ -95,25 +96,29 @@ const paginateSubtask = (t: any): PageConfig[] => {
     }
 
     const isFirstPage = pages.length === 0;
-    let weight = isFirstPage ? 22 : 10;
     let currentEnd = currentStart;
     const shownImageIdsOnPage: string[] = [];
 
     while (currentEnd < N) {
-      const paraWeight = 12;
-      const paraImgs = imagesByParaIdx[currentEnd] || [];
-      const imgsWeight = paraImgs.length * 32;
-      const totalItemWeight = paraWeight + imgsWeight;
+      const nextParaImgs = imagesByParaIdx[currentEnd] || [];
+      const candidateParagraphsCount = (currentEnd - currentStart) + 1;
+      const candidateImagesCount = shownImageIdsOnPage.length + nextParaImgs.length;
+      
+      const numRows = density === "hidden" ? 0 : Math.ceil(candidateImagesCount / imagesPerRow);
+      const paraWeight = candidateParagraphsCount * 12;
+      const imgsWeight = numRows * 32;
+      
+      const baseWeight = isFirstPage ? 22 : 10;
+      const totalWeight = baseWeight + paraWeight + imgsWeight;
 
-      if (currentEnd > currentStart && weight + totalItemWeight > 100) {
+      if (currentEnd > currentStart && totalWeight > 100) {
         break;
       }
 
-      weight += totalItemWeight;
-      paraImgs.forEach((img: any) => shownImageIdsOnPage.push(img.id));
+      nextParaImgs.forEach((img: any) => shownImageIdsOnPage.push(img.id));
       currentEnd++;
 
-      if (weight >= 100) {
+      if (totalWeight >= 100) {
         break;
       }
     }
@@ -292,9 +297,17 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
       });
     }
     
+    const template = folder.blogTemplate || "ADVENTURE";
+    const isAdventure = template === "ADVENTURE";
+    const isElegant = template === "ELEGANT";
+    
+    const defaultThemeStyle = isAdventure ? "travelbook" : isElegant ? "magazine" : "journal";
+    const defaultBorderStyle = isAdventure ? "double-vintage" : isElegant ? "solid-accent" : "dashed-warm";
+    const defaultPhotoStyle = isAdventure ? "scrapbook" : isElegant ? "circle-oval" : "polaroid";
+
     // Flow each entry across pages based on capacity
     subTasks.forEach((t: any) => {
-      const pageConfigs = paginateSubtask(t);
+      const pageConfigs = paginateSubtask(t, "standard");
       const allImages = t.attachments?.filter((a: any) => a.type === "image") || [];
       
       pageConfigs.forEach((config, idx) => {
@@ -313,6 +326,9 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
             fontSize: "base",
             imageDensity: "standard",
             paddingY: "medium",
+            themeStyle: defaultThemeStyle,
+            borderStyle: defaultBorderStyle,
+            photoStyle: defaultPhotoStyle,
             startParagraphIndex: config.startPara,
             endParagraphIndex: config.endPara,
             hiddenImageIds: hiddenImageIds
@@ -547,6 +563,32 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
     }
   };
 
+  const handleApplyGlobalStyle = (styles: Partial<PrintElement>) => {
+    setPages(prev => prev.map(page => ({
+      elements: page.elements.map(el => 
+        (el.type === "blog-entry" || el.type === "custom-text") 
+          ? { ...el, ...styles } 
+          : el
+      )
+    })));
+  };
+
+  const handlePropagateSelectedStyle = () => {
+    if (!selectedElement) return;
+    if (!confirm("Opravdu chcete použít vzhled tohoto prvku (šablonu, okraje, rámečky a vzhled fotek) pro všechny stránky v knize?")) return;
+    
+    handleApplyGlobalStyle({
+      themeStyle: selectedElement.themeStyle,
+      borderStyle: selectedElement.borderStyle,
+      photoStyle: selectedElement.photoStyle,
+      fontSize: selectedElement.fontSize,
+      imageSize: selectedElement.imageSize,
+      imageDensity: selectedElement.imageDensity,
+      paddingY: selectedElement.paddingY
+    });
+    alert("Styl byl úspěšně aplikován na celou knihu!");
+  };
+
   const handleAutoPaginateBook = () => {
     if (!confirm("Opravdu chcete automaticky přeorganizovat celou knihu? Všechny stránky s příspěvky budou rozděleny podle prostoru. Vaše vlastní styly a barevné rámečky zůstanou zachovány.")) return;
 
@@ -626,9 +668,9 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
 
     // 4. Paginate all subtasks using the helper
     subTasks.forEach((t: any) => {
-      const pageConfigs = paginateSubtask(t);
-      const allImages = t.attachments?.filter((a: any) => a.type === "image") || [];
       const savedStyle = subtaskStyles[t.id] || {};
+      const pageConfigs = paginateSubtask(t, savedStyle.imageDensity || "standard");
+      const allImages = t.attachments?.filter((a: any) => a.type === "image") || [];
 
       pageConfigs.forEach((config, idx) => {
         const hiddenImageIds = allImages
@@ -696,9 +738,9 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
       el.fontSize === "xl" ? "text-xl leading-relaxed" : "text-base leading-relaxed";
       
     const paddingClass =
-      el.paddingY === "none" ? "px-6 py-2" :
-      el.paddingY === "small" ? "px-8 py-4" :
-      el.paddingY === "large" ? "px-16 py-12" : "px-12 py-8"; // medium / standard
+      el.paddingY === "none" ? "px-4 py-1" :
+      el.paddingY === "small" ? "px-6 py-2" :
+      el.paddingY === "large" ? "px-12 py-8" : "px-8 py-4"; // medium / standard
 
     const density = el.imageDensity || "standard";
     const hiddenImageIds = el.hiddenImageIds || [];
@@ -816,7 +858,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
       <article className={articleClass} style={styleObj}>
         <div className="w-full">
           {/* Metadata banner under Title to fully recover 100% horizontal space */}
-          <header className={`mb-6 pb-4 border-b ${
+          <header className={`mb-4 pb-3 border-b ${
             isSolidBlock
               ? "border-white/20"
               : themeStyle === "journal" 
@@ -849,7 +891,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
             </div>
           </header>
 
-          <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-4">
             {paragraphs.map((para: string, pIdx: number) => {
               const imagesPerPara = Math.ceil(images.length / (paragraphs.length || 1));
               const paraImages = images.slice(pIdx * imagesPerPara, (pIdx + 1) * imagesPerPara);
@@ -1541,6 +1583,14 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                   </div>
                </div>
 
+               {/* Propagate Style to All Pages */}
+               <button 
+                 onClick={handlePropagateSelectedStyle}
+                 className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white rounded-xl py-2.5 text-[10px] font-black uppercase tracking-wider transition-all mb-2"
+               >
+                 ✨ Použít tento vzhled pro celou knihu
+               </button>
+
                {/* Delete Element Button */}
                <button 
                  onClick={() => handleDeleteElement(selectedElementId!)}
@@ -1550,8 +1600,93 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                </button>
             </div>
           ) : (
-            <div className="p-6 text-center text-[10px] font-bold text-white/30 italic leading-relaxed">
-               Vyberte prvek kliknutím na stránce pro úpravu jeho pozice a vzhledu. Můžete upravovat texty přímo přepisováním.
+            <div className="p-5 space-y-5">
+               <div className="bg-gradient-to-r from-orange-600/10 to-amber-600/10 border border-orange-500/20 rounded-2xl p-4 space-y-2">
+                 <h3 className="text-xs font-black uppercase tracking-wider text-orange-500">Globální vzhled knihy</h3>
+                 <p className="text-[10px] text-stone-300 font-medium leading-relaxed">
+                   Zde můžete nastavit výchozí vzhled a rámečky pro všechny stránky v knize najednou. Kliknutím na libovolný prvek jej můžete upravit individuálně.
+                 </p>
+               </div>
+
+               {/* Global Theme Style */}
+               <div className="space-y-1">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-white/50 block">Globální šablona</span>
+                  <div className="grid grid-cols-2 gap-1 text-[8px] font-black uppercase tracking-wider text-center bg-white/5 p-1 rounded-xl">
+                     {(["clean", "journal", "magazine", "travelbook"] as const).map(style => (
+                        <button 
+                          key={style} 
+                          onClick={() => handleApplyGlobalStyle({ themeStyle: style })}
+                          className="py-1.5 rounded-lg transition-all hover:bg-white/5 text-white/60"
+                        >
+                           {style === "clean" ? "Modern" : style === "journal" ? "Deník" : style === "magazine" ? "Editorial" : "Cestokniha"}
+                        </button>
+                     ))}
+                  </div>
+               </div>
+
+               {/* Global Border Style */}
+               <div className="space-y-1">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-white/50 block">Globální ohraničení (Rámeček)</span>
+                  <div className="grid grid-cols-2 gap-1 text-[8px] font-black uppercase tracking-wider text-center bg-white/5 p-1 rounded-xl">
+                     {(["none", "solid-accent", "dashed-warm", "double-vintage", "solid-block"] as const).map(bStyle => (
+                        <button 
+                          key={bStyle} 
+                          onClick={() => handleApplyGlobalStyle({ borderStyle: bStyle })}
+                          className={`py-1.5 rounded-lg transition-all hover:bg-white/5 text-white/60 ${bStyle === "solid-block" ? "col-span-2" : ""}`}
+                        >
+                           {bStyle === "none" ? "Bez rámečku" : bStyle === "solid-accent" ? "Dolce Vita" : bStyle === "dashed-warm" ? "Deníkový" : bStyle === "double-vintage" ? "Retro dvojitý" : "Accent barevný blok"}
+                        </button>
+                     ))}
+                  </div>
+               </div>
+
+               {/* Global Photo Style */}
+               <div className="space-y-1">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-white/50 block">Globální styl a úhly fotek</span>
+                  <div className="grid grid-cols-2 gap-1 text-[8px] font-black uppercase tracking-wider text-center bg-white/5 p-1 rounded-xl">
+                     {(["standard", "polaroid", "scrapbook", "tilted", "circle-oval"] as const).map(pStyle => (
+                        <button 
+                          key={pStyle} 
+                          onClick={() => handleApplyGlobalStyle({ photoStyle: pStyle })}
+                          className={`py-1.5 rounded-lg transition-all hover:bg-white/5 text-white/60 ${pStyle === "circle-oval" ? "col-span-2" : ""}`}
+                        >
+                           {pStyle === "standard" ? "Standard" : pStyle === "polaroid" ? "Polaroid" : pStyle === "scrapbook" ? "Scrapbook" : pStyle === "tilted" ? "Koláž" : "Magazínový oblouk"}
+                        </button>
+                     ))}
+                  </div>
+               </div>
+
+               {/* Global Image Density */}
+               <div className="space-y-1">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-white/50 block">Globální hustota obrázků</span>
+                  <div className="grid grid-cols-2 gap-1 text-[8px] font-black uppercase tracking-wider text-center bg-white/5 p-1 rounded-xl">
+                     {(["standard", "compact", "thumbnail", "hidden"] as const).map(ds => (
+                        <button 
+                          key={ds} 
+                          onClick={() => handleApplyGlobalStyle({ imageDensity: ds })}
+                          className="py-1 rounded transition-all hover:bg-white/5 text-white/60"
+                        >
+                           {ds === "standard" ? "Standard" : ds === "compact" ? "Kompakt" : ds === "thumbnail" ? "Collage" : "Skrýt"}
+                        </button>
+                     ))}
+                  </div>
+               </div>
+
+               {/* Global Padding */}
+               <div className="space-y-1">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-white/50 block">Globální vnitřní okraje</span>
+                  <div className="grid grid-cols-4 gap-1 text-[8px] font-black uppercase tracking-wider text-center bg-white/5 p-1 rounded-xl">
+                     {(["none", "small", "medium", "large"] as const).map(pd => (
+                        <button 
+                          key={pd} 
+                          onClick={() => handleApplyGlobalStyle({ paddingY: pd })}
+                          className="py-1 rounded transition-all hover:bg-white/5 text-white/60"
+                        >
+                           {pd === "none" ? "Bez" : pd === "small" ? "Malé" : pd === "medium" ? "Střed" : "Velké"}
+                        </button>
+                     ))}
+                  </div>
+               </div>
             </div>
           )}
         </aside>

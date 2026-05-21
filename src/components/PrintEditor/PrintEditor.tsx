@@ -1003,11 +1003,17 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
       el.fontSize === "sm" ? "text-sm leading-relaxed" :
       el.fontSize === "lg" ? "text-lg leading-relaxed" :
       el.fontSize === "xl" ? "text-xl leading-relaxed" : "text-base leading-relaxed";
+
+    // Boosted font size specifically for text cards inside photo grids to fill blank space elegantly
+    const cardFontSizeClass = 
+      el.fontSize === "sm" ? "text-base leading-relaxed font-semibold" :
+      el.fontSize === "lg" ? "text-xl leading-relaxed font-semibold" :
+      el.fontSize === "xl" ? "text-2xl leading-relaxed font-semibold" : "text-lg leading-relaxed font-semibold";
       
     const paddingClass =
-      el.paddingY === "none" ? "px-4 py-1" :
-      el.paddingY === "small" ? "px-6 py-2" :
-      el.paddingY === "large" ? "px-12 py-8" : "px-8 py-4"; // medium / standard
+      el.paddingY === "none" ? "px-1 py-0.5" :
+      el.paddingY === "small" ? "px-2 py-1" :
+      el.paddingY === "large" ? "px-6 py-4" : "px-4 py-2"; // Tighter margins to utilize space better and bring photos closer to page borders!
 
     const density = el.imageDensity || "standard";
     const hiddenImageIds = el.hiddenImageIds || [];
@@ -1142,54 +1148,56 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
     return (
       <article className={articleClass} style={styleObj}>
         <div className="w-full">
-          {/* Metadata banner under Title to fully recover 100% horizontal space */}
-          <header className={`mb-4 pb-3 border-b ${
-            isSolidBlock
-              ? "border-white/20"
-              : themeStyle === "journal" 
-              ? "border-[#E4DEC6]/60" 
-              : "border-stone-200"
-          }`}>
-            <h2 
-              contentEditable={isInteractive}
-              suppressContentEditableWarning
-              onBlur={(e) => {
-                const newTitle = e.currentTarget.innerText;
-                handleUpdateElement(el.id, { content: { ...post, title: newTitle } });
-              }}
-              className={`text-4xl font-black leading-tight mb-3 outline-none ${titleFontClass} ${headerColorClass}`}
-              style={(!isSolidBlock && themeStyle === "magazine") ? { color: accentColorTheme } : {}}
-            >
-              {post.title}
-            </h2>
-            
-            <div className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[10px] font-black uppercase tracking-[0.2em] ${metaColorClass}`}>
-              <span style={isSolidBlock ? {} : { color: accentColorTheme }}>
-                {date.toLocaleDateString("cs-CZ")} o {date.toLocaleTimeString("cs-CZ", { hour: '2-digit', minute: '2-digit' })}
-              </span>
-              {post.locations?.[0] && (
-                <div className="flex items-center gap-1.5">
-                  <span className="opacity-40">•</span>
-                  <MapPin size={12} style={isSolidBlock ? {} : { color: accentColorTheme }} />
-                  <span>{post.locations[0].placeName || post.locations[0].address}</span>
-                </div>
-              )}
-            </div>
-          </header>
+          {/* Compact single-row header (only rendered on the first page block) */}
+          {startPara === 0 && (
+            <header className={`flex flex-row justify-between items-baseline mb-4 pb-2 border-b gap-4 flex-wrap ${
+              isSolidBlock
+                ? "border-white/20"
+                : themeStyle === "journal" 
+                ? "border-[#E4DEC6]/60" 
+                : "border-stone-200"
+            }`}>
+              <h2 
+                contentEditable={isInteractive}
+                suppressContentEditableWarning
+                onBlur={(e) => {
+                  const newTitle = e.currentTarget.innerText;
+                  handleUpdateElement(el.id, { content: { ...post, title: newTitle } });
+                }}
+                className={`text-2xl font-black leading-tight outline-none ${titleFontClass} ${headerColorClass}`}
+                style={(!isSolidBlock && themeStyle === "magazine") ? { color: accentColorTheme } : {}}
+              >
+                {post.title}
+              </h2>
+              
+              <div className={`flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-black uppercase tracking-[0.1em] shrink-0 ${metaColorClass}`}>
+                <span style={isSolidBlock ? {} : { color: accentColorTheme }}>
+                  {date.toLocaleDateString("cs-CZ")} {date.toLocaleTimeString("cs-CZ", { hour: '2-digit', minute: '2-digit' })}
+                </span>
+                {post.locations?.[0] && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="opacity-40">•</span>
+                    <MapPin size={11} style={isSolidBlock ? {} : { color: accentColorTheme }} />
+                    <span>{post.locations[0].placeName || post.locations[0].address}</span>
+                  </div>
+                )}
+              </div>
+            </header>
+          )}
 
           <div className="flex flex-col gap-4">
             {paragraphs.map((para: string, pIdx: number) => {
               const imagesPerPara = Math.ceil(images.length / (paragraphs.length || 1));
               const paraImages = images.slice(pIdx * imagesPerPara, (pIdx + 1) * imagesPerPara);
               
-              let columnClass = "columns-2 gap-3 my-3";
-              let mbClass = "mb-3";
+              let columnClass = "columns-2 gap-1.5 my-1.5";
+              let mbClass = "mb-1.5";
               if (density === "compact") {
-                columnClass = "columns-3 gap-2.5 my-2.5";
-                mbClass = "mb-2.5";
+                columnClass = "columns-3 gap-1 my-1";
+                mbClass = "mb-1";
               } else if (density === "thumbnail") {
-                columnClass = "columns-4 gap-2 my-2";
-                mbClass = "mb-2";
+                columnClass = "columns-4 gap-0.5 my-0.5";
+                mbClass = "mb-0.5";
               }
 
               const isOddImages = density !== "hidden" && paraImages.length > 0 && (paraImages.length % 2 !== 0);
@@ -1229,7 +1237,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                         const newDescription = newAllParagraphs.join("\n\n");
                         handleUpdateElement(el.id, { content: { ...post, description: newDescription } });
                       }}
-                      className={`whitespace-pre-wrap outline-none focus:bg-orange-500/5 p-1 rounded transition-colors ${fontSizeClass} ${
+                      className={`whitespace-pre-wrap outline-none focus:bg-orange-500/5 p-1 rounded transition-colors ${isInCard ? cardFontSizeClass : fontSizeClass} ${
                         isInCard 
                           ? isSolidBlock 
                             ? "text-stone-100" 
@@ -1494,10 +1502,10 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
             
             {/* Fallback for only images */}
             {paragraphs.length === 0 && density !== "hidden" && images.length > 0 && (
-              <div className={density === "compact" ? "columns-3 gap-3 my-3 w-full" : density === "thumbnail" ? "columns-4 gap-2 my-2 w-full" : "columns-2 gap-4 my-4 w-full"}>
+              <div className={density === "compact" ? "columns-3 gap-1 my-1 w-full" : density === "thumbnail" ? "columns-4 gap-0.5 my-0.5 w-full" : "columns-2 gap-1.5 my-1.5 w-full"}>
                 {images.map((att: any, attIdx: number) => {
                   const isLarge = largeImageIds.includes(att.id);
-                  const mbClass = density === "compact" ? "mb-3" : density === "thumbnail" ? "mb-2" : "mb-4";
+                  const mbClass = density === "compact" ? "mb-1" : density === "thumbnail" ? "mb-0.5" : "mb-1.5";
                   
                   let wrapperStyle: React.CSSProperties = isLarge ? { columnSpan: "all" } : {};
                   let actualWrapperClass = "";

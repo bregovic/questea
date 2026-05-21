@@ -1972,7 +1972,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
   };
 
   return (
-    <div className="fixed inset-0 z-[15000] bg-stone-900 flex flex-col font-sans select-none overflow-hidden text-white">
+    <div className="print-editor-wrapper fixed inset-0 z-[15000] bg-stone-900 flex flex-col font-sans select-none overflow-hidden text-white">
       <style jsx global>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,900;1,900&family=Outfit:wght@300;400;700;900&family=Caveat:wght@400;700&display=swap');
         
@@ -2007,27 +2007,67 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
         }
 
         @media print {
-          body, html { margin: 0; padding: 0; background: white !important; }
-          .no-print { display: none !important; }
+          @page {
+            margin: 0;
+            size: auto;
+          }
+          body, html { 
+            margin: 0 !important; 
+            padding: 0 !important; 
+            background: white !important; 
+            overflow: visible !important;
+            height: auto !important;
+            width: auto !important;
+          }
+          .no-print { 
+            display: none !important; 
+          }
+          .print-editor-wrapper {
+            position: static !important;
+            display: block !important;
+            background: white !important;
+            color: #1c1917 !important;
+            overflow: visible !important;
+            height: auto !important;
+            width: auto !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            z-index: auto !important;
+          }
           .print-only-container {
             position: static !important;
             left: auto !important;
             top: auto !important;
             display: block !important;
+            width: 100% !important;
+            height: auto !important;
+            margin: 0 !important;
+            padding: 0 !important;
           }
           .print-page { 
             display: block !important;
             position: relative !important;
-            width: 100% !important;
-            height: 100% !important;
-            overflow: hidden !important;
             page-break-after: always !important;
+            page-break-before: always !important;
             page-break-inside: avoid !important;
             box-shadow: none !important;
             border: none !important;
             margin: 0 !important;
             background: #fcfaf7 !important;
             color: #1c1917 !important;
+            overflow: hidden !important;
+          }
+          /* Force A4 physical page size when format is A4 */
+          .print-page.w-\[794px\] {
+            width: 210mm !important;
+            height: 297mm !important;
+            padding: 15mm !important;
+          }
+          /* Force A5 physical page size when format is A5 */
+          .print-page.w-\[559px\] {
+            width: 148mm !important;
+            height: 210mm !important;
+            padding: 10mm !important;
           }
         }
       `}</style>
@@ -2051,7 +2091,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
         </button>
       </header>
 
-      <div className="editor-container flex-1 flex overflow-hidden">
+      <div className="editor-container flex-1 flex overflow-hidden no-print">
         {/* Left Professional Sidebar Panel */}
         <aside className="no-print w-80 bg-stone-950 border-r border-white/10 flex flex-col shrink-0 text-white overflow-y-auto divide-y divide-white/5 scrollbar-hide">
           {/* Section 1: Versions */}

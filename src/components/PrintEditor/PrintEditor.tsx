@@ -36,6 +36,100 @@ interface PrintEditorProps {
   onClose: () => void;
 }
 
+interface PageConfig {
+  startPara: number;
+  endPara: number;
+  shownImageIds: string[];
+}
+
+const paginateSubtask = (t: any): PageConfig[] => {
+  const getSentenceChunks = (text: string) => {
+    if (!text) return [];
+    const sentences = text.split(/(?<=[.!?])\s+(?=[A-Z\u00C0-\u017F0-9])/).filter((s: string) => s.trim().length > 0);
+    if (sentences.length < 2) return text ? [text] : []; 
+    const chunks = [];
+    for (let i = 0; i < sentences.length; i += 2) {
+      chunks.push(sentences.slice(i, i + 2).join(" ").trim());
+    }
+    return chunks;
+  };
+
+  const allParas = getSentenceChunks(t.description || "");
+  const allImages = t.attachments?.filter((a: any) => a.type === "image") || [];
+  
+  const N = allParas.length;
+  const M = allImages.length;
+  
+  if (N === 0 && M === 0) {
+    return [{ startPara: 0, endPara: 0, shownImageIds: [] }];
+  }
+  
+  // Proportional distribution of images
+  const imagesByParaIdx: Record<number, any[]> = {};
+  for (let i = 0; i < N; i++) {
+    imagesByParaIdx[i] = [];
+  }
+  allImages.forEach((img: any, idx: number) => {
+    const paraIdx = N > 0 ? Math.min(N - 1, Math.floor((idx / M) * N)) : 0;
+    if (!imagesByParaIdx[paraIdx]) imagesByParaIdx[paraIdx] = [];
+    imagesByParaIdx[paraIdx].push(img);
+  });
+
+  const pages: PageConfig[] = [];
+  let currentStart = 0;
+  
+  while (currentStart < N || (currentStart === 0 && N === 0 && M > 0)) {
+    if (N === 0) {
+      const imagesPerPage = 3;
+      let imgIdx = 0;
+      while (imgIdx < M) {
+        const chunk = allImages.slice(imgIdx, imgIdx + imagesPerPage);
+        pages.push({
+          startPara: 0,
+          endPara: 0,
+          shownImageIds: chunk.map((img: any) => img.id)
+        });
+        imgIdx += imagesPerPage;
+      }
+      break;
+    }
+
+    const isFirstPage = pages.length === 0;
+    let weight = isFirstPage ? 22 : 10;
+    let currentEnd = currentStart;
+    const shownImageIdsOnPage: string[] = [];
+
+    while (currentEnd < N) {
+      const paraWeight = 12;
+      const paraImgs = imagesByParaIdx[currentEnd] || [];
+      const imgsWeight = paraImgs.length * 32;
+      const totalItemWeight = paraWeight + imgsWeight;
+
+      if (currentEnd > currentStart && weight + totalItemWeight > 100) {
+        break;
+      }
+
+      weight += totalItemWeight;
+      paraImgs.forEach((img: any) => shownImageIdsOnPage.push(img.id));
+      currentEnd++;
+
+      if (weight >= 100) {
+        break;
+      }
+    }
+
+    pages.push({
+      startPara: currentStart,
+      endPara: currentEnd,
+      shownImageIds: shownImageIdsOnPage
+    });
+
+    currentStart = currentEnd;
+  }
+
+  return pages;
+};
+
 export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => {
   const [format, setFormat] = useState<"A4" | "A5">("A4");
   const [pages, setPages] = useState<PrintPage[]>([]);
@@ -198,20 +292,32 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
       });
     }
     
-    // One entry per page
+    // Flow each entry across pages based on capacity
     subTasks.forEach((t: any) => {
-      paginated.push({
-        elements: [{
-          id: "entry-" + t.id,
-          type: "blog-entry",
-          content: { ...t },
-          x: 0, 
-          y: 0, 
-          width: 100,
-          fontSize: "base",
-          imageDensity: "standard",
-          paddingY: "medium"
-        }]
+      const pageConfigs = paginateSubtask(t);
+      const allImages = t.attachments?.filter((a: any) => a.type === "image") || [];
+      
+      pageConfigs.forEach((config, idx) => {
+        const hiddenImageIds = allImages
+          .filter((img: any) => !config.shownImageIds.includes(img.id))
+          .map((img: any) => img.id);
+
+        paginated.push({
+          elements: [{
+            id: idx === 0 ? `entry-${t.id}` : `entry-${t.id}-split-${idx}-${Date.now()}`,
+            type: "blog-entry",
+            content: { ...t },
+            x: 0,
+            y: 0,
+            width: 100,
+            fontSize: "base",
+            imageDensity: "standard",
+            paddingY: "medium",
+            startParagraphIndex: config.startPara,
+            endParagraphIndex: config.endPara,
+            hiddenImageIds: hiddenImageIds
+          }]
+        });
       });
     });
 
@@ -439,6 +545,123 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
     } catch (err) {
       console.error("Error deleting version:", err);
     }
+  };
+
+  const handleAutoPaginateBook = () => {
+    if (!confirm("Opravdu chcete automaticky přeorganizovat celou knihu? Všechny stránky s příspěvky budou rozděleny podle prostoru. Vaše vlastní styly a barevné rámečky zůstanou zachovány.")) return;
+
+    if (!folder.subTasks) return;
+    
+    // 1. Gather all existing subtask customization styles so we can preserve them!
+    const subtaskStyles: Record<string, Partial<PrintElement>> = {};
+    pages.forEach(page => {
+      page.elements.forEach(el => {
+        if (el.type === "blog-entry" && el.content?.id) {
+          subtaskStyles[el.content.id] = {
+            fontSize: el.fontSize,
+            imageDensity: el.imageDensity,
+            paddingY: el.paddingY,
+            themeStyle: el.themeStyle,
+            borderStyle: el.borderStyle,
+            photoStyle: el.photoStyle,
+            imageSize: el.imageSize
+          };
+        }
+      });
+    });
+
+    const subTasks = [...folder.subTasks]
+      .filter((t: any) => !t.isDeleted && t.taskType !== "GPS_LOG")
+      .sort((a: any, b: any) => new Date(a.recordedAt || a.createdAt).getTime() - new Date(b.recordedAt || b.createdAt).getTime());
+
+    // 2. Re-compute journey map points & distances
+    const mapPoints = subTasks
+      .map((p: any) => {
+        const loc = p.locations?.[0];
+        if (loc && loc.latitude && loc.longitude) {
+          return { 
+            lat: loc.latitude, 
+            lng: loc.longitude, 
+            title: p.title 
+          };
+        }
+        return null;
+      })
+      .filter(Boolean) as { lat: number, lng: number, title: string }[];
+
+    let totalDist = 0;
+    for (let i = 0; i < subTasks.length - 1; i++) {
+      const current = subTasks[i];
+      const next = subTasks[i+1];
+      if (next.calculatedDistance !== null && next.calculatedDistance !== undefined) {
+        totalDist += next.calculatedDistance;
+      } else {
+        const loc1 = current.locations?.[0];
+        const loc2 = next.locations?.[0];
+        if (loc1 && loc2 && loc1.latitude && loc1.longitude && loc2.latitude && loc2.longitude) {
+          totalDist += calculateDistance(loc1.latitude, loc1.longitude, loc2.latitude, loc2.longitude);
+        }
+      }
+    }
+
+    const paginated: PrintPage[] = [];
+
+    // 3. Keep journey map page at index 0
+    if (mapPoints.length > 0) {
+      paginated.push({
+        elements: [{
+          id: "journey-map-cover",
+          type: "journey-map",
+          content: {
+            title: folder.title,
+            points: mapPoints,
+            totalDistance: totalDist.toFixed(1)
+          },
+          x: 0,
+          y: 0,
+          width: 100
+        }]
+      });
+    }
+
+    // 4. Paginate all subtasks using the helper
+    subTasks.forEach((t: any) => {
+      const pageConfigs = paginateSubtask(t);
+      const allImages = t.attachments?.filter((a: any) => a.type === "image") || [];
+      const savedStyle = subtaskStyles[t.id] || {};
+
+      pageConfigs.forEach((config, idx) => {
+        const hiddenImageIds = allImages
+          .filter((img: any) => !config.shownImageIds.includes(img.id))
+          .map((img: any) => img.id);
+
+        paginated.push({
+          elements: [{
+            id: idx === 0 ? `entry-${t.id}` : `entry-${t.id}-split-${idx}-${Date.now()}`,
+            type: "blog-entry",
+            content: { ...t },
+            x: 0,
+            y: 0,
+            width: 100,
+            fontSize: savedStyle.fontSize || "base",
+            imageDensity: savedStyle.imageDensity || "standard",
+            paddingY: savedStyle.paddingY || "medium",
+            themeStyle: savedStyle.themeStyle,
+            borderStyle: savedStyle.borderStyle,
+            photoStyle: savedStyle.photoStyle,
+            imageSize: savedStyle.imageSize,
+            startParagraphIndex: config.startPara,
+            endParagraphIndex: config.endPara,
+            hiddenImageIds: hiddenImageIds
+          }]
+        });
+      });
+    });
+
+    setPages(paginated.length > 0 ? paginated : [{ elements: [] }]);
+    setCurrentPageIndex(0);
+    setSelectedElementId(null);
+    alert("Kniha byla úspěšně automaticky rozvržena!");
   };
 
   const handleExport = () => {
@@ -1046,6 +1269,12 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                   Dolů
                 </button>
              </div>
+             <button 
+               onClick={handleAutoPaginateBook}
+               className="w-full mt-1 flex items-center justify-center gap-2 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white rounded-xl p-2.5 text-[10px] font-black uppercase tracking-wider transition-all shadow-lg hover:shadow-orange-500/10"
+             >
+               ✨ Auto-rozvržení celé knihy
+             </button>
           </div>
 
           {/* Section 3: Insert Custom Elements */}

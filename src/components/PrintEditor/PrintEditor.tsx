@@ -989,8 +989,27 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
   };
 
   const handleExport = () => {
-    window.print();
+    // Inject dynamic @page size rule to match selected format
+    const pageSize = format === 'A5' ? '148mm 210mm' : '210mm 297mm';
+    const styleId = 'print-page-size-override';
+    let styleEl = document.getElementById(styleId) as HTMLStyleElement | null;
+    if (!styleEl) {
+      styleEl = document.createElement('style');
+      styleEl.id = styleId;
+      document.head.appendChild(styleEl);
+    }
+    styleEl.textContent = `@media print { @page { size: ${pageSize} !important; margin: 0 !important; } }`;
+    
+    // Small delay to ensure style injection is applied, then print
+    setTimeout(() => {
+      window.print();
+      // Clean up after print dialog closes
+      setTimeout(() => {
+        styleEl?.remove();
+      }, 2000);
+    }, 100);
   };
+
 
   const selectedElement = useMemo(() => {
     if (!selectedElementId) return null;
@@ -2238,9 +2257,14 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
         }
 
         @media print {
+          /* Default page = A4 */
           @page {
             margin: 0;
-            size: auto;
+            size: 210mm 297mm;
+          }
+          /* A5 override via class on body (set by JS before printing) */
+          @page :left, @page :right {
+            margin: 0;
           }
           body, html { 
             margin: 0 !important; 
@@ -2279,8 +2303,9 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
             display: block !important;
             position: relative !important;
             page-break-after: always !important;
-            page-break-before: always !important;
+            break-after: page !important;
             page-break-inside: avoid !important;
+            break-inside: avoid !important;
             box-shadow: none !important;
             border: none !important;
             margin: 0 !important;
@@ -2288,17 +2313,27 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
             color: #1c1917 !important;
             overflow: hidden !important;
           }
-          /* Force A4 physical page size when format is A4 */
+          /* Force A4 physical page size */
           .print-page.w-\[794px\] {
             width: 210mm !important;
             height: 297mm !important;
+            min-height: unset !important;
+            max-height: 297mm !important;
             padding: 15mm !important;
+            box-sizing: border-box !important;
           }
-          /* Force A5 physical page size when format is A5 */
+          /* Force A5 physical page size */
           .print-page.w-\[559px\] {
             width: 148mm !important;
             height: 210mm !important;
+            min-height: unset !important;
+            max-height: 210mm !important;
             padding: 10mm !important;
+            box-sizing: border-box !important;
+          }
+          /* For A5 format, override the @page size */
+          body.print-format-a5 {
+            --page-format: a5;
           }
         }
       `}</style>

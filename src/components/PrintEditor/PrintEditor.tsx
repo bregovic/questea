@@ -20,10 +20,11 @@ interface PrintElement {
   hiddenImageIds?: string[];
   largeImageIds?: string[];
   imageSize?: "small" | "medium" | "large" | "original";
-  themeStyle?: "clean" | "journal" | "magazine" | "travelbook";
-  borderStyle?: "none" | "solid-accent" | "dashed-warm" | "double-vintage" | "solid-block";
-  photoStyle?: "standard" | "polaroid" | "scrapbook" | "tilted" | "circle-oval";
-  blockColor?: "default" | "terracotta" | "navy" | "sage" | "charcoal" | "plum" | "sand" | "rose";
+  themeStyle?: "clean" | "journal" | "magazine" | "travelbook" | "modern" | "editorial";
+  borderStyle?: "none" | "solid-accent" | "dashed-warm" | "double-vintage" | "solid-block" | "glassmorphic" | "minimal-thin" | "shadow-floating" | "neo-brutalist";
+  photoStyle?: "standard" | "polaroid" | "scrapbook" | "tilted" | "circle-oval" | "modern-glow" | "art-gallery" | "rounded-soft" | "duotone-filter";
+  fontFamily?: "default" | "editorial-serif" | "clean-sans" | "avant-garde" | "handwritten";
+  blockColor?: "default" | "terracotta" | "navy" | "sage" | "charcoal" | "plum" | "sand" | "rose" | "emerald" | "violet" | "sunset" | "ocean";
   startParagraphIndex?: number;
   endParagraphIndex?: number;
   isContinuation?: boolean;
@@ -1008,6 +1009,15 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
     return chunks.length;
   }, [selectedElement]);
 
+  const hexToRgb = (hex: string): string => {
+    const shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
+    const fullHex = hex.replace(shorthandRegex, (_, r, g, b) => r + r + g + g + b + b);
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(fullHex);
+    return result
+      ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}`
+      : "128, 128, 128";
+  };
+
   // Helper component to render the entry EXACTLY like the blog
   const BlogEntryRenderer = ({ post, el, isInteractive = true }: { post: any; el: PrintElement; isInteractive?: boolean }) => {
     const date = new Date(post.recordedAt || post.createdAt);
@@ -1147,6 +1157,8 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
       if (themeStyle === "journal") pStyle = "polaroid";
       else if (themeStyle === "travelbook") pStyle = "scrapbook";
       else if (themeStyle === "magazine") pStyle = "circle-oval";
+      else if (themeStyle === "editorial") pStyle = "art-gallery";
+      else if (themeStyle === "modern") pStyle = "modern-glow";
       else pStyle = "standard";
     }
 
@@ -1163,6 +1175,10 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
     else if (bColor === "plum") accentColorTheme = "#5E3E52";
     else if (bColor === "sand") accentColorTheme = "#A89B85";
     else if (bColor === "rose") accentColorTheme = "#A87C7C";
+    else if (bColor === "emerald") accentColorTheme = "#059669";
+    else if (bColor === "violet") accentColorTheme = "#7C3AED";
+    else if (bColor === "sunset") accentColorTheme = "#F43F5E";
+    else if (bColor === "ocean") accentColorTheme = "#0284C7";
 
     // If it is solid block, determine background color
     let blockBg = accentColorTheme;
@@ -1170,6 +1186,8 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
       blockBg = isAdventure ? "#1E3E54" : "#853E2B"; // default navy/terracotta
       accentColorTheme = isAdventure ? "#1E3E54" : "#853E2B";
     }
+
+    const rgb = hexToRgb(accentColorTheme);
 
     let articleClass = `blog-article-print transition-all duration-300 ${paddingClass} `;
     let styleObj: React.CSSProperties = {};
@@ -1184,13 +1202,28 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
     } else if (border === "solid-block") {
       articleClass += "text-stone-50 rounded-[16px] shadow-[0_10px_25px_rgba(0,0,0,0.08)] mx-0.5 my-1 border border-transparent";
       styleObj = { backgroundColor: blockBg };
+    } else if (border === "glassmorphic") {
+      articleClass += "bg-white/70 backdrop-blur-md border border-white/40 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.06)] mx-0.5 my-1 relative overflow-hidden";
+    } else if (border === "minimal-thin") {
+      articleClass += "bg-white border border-stone-300 rounded-2xl mx-0.5 my-1";
+    } else if (border === "shadow-floating") {
+      articleClass += "bg-white rounded-3xl mx-0.5 my-1 border-0";
+      styleObj = { boxShadow: `0 20px 60px rgba(${rgb}, 0.18), 0 4px 20px rgba(${rgb}, 0.10)` };
+    } else if (border === "neo-brutalist") {
+      articleClass += "bg-white border-[3px] border-stone-900 rounded-none mx-0.5 my-1";
+      styleObj = { boxShadow: `5px 5px 0px ${accentColorTheme}` };
     } else {
       // none or default
       if (themeStyle === "magazine") {
         articleClass += "bg-gradient-to-br from-white to-stone-50/70 border border-stone-200/80 border-l-[6px] shadow-[0_10px_25px_rgba(0,0,0,0.03)] rounded-r-3xl rounded-l-md mx-0.5 my-1";
         styleObj = { borderLeftColor: accentColorTheme };
+      } else if (themeStyle === "editorial") {
+        articleClass += "bg-white border-l-[4px] border border-stone-100 rounded-r-2xl rounded-l-none mx-0.5 my-1 shadow-[0_2px_16px_rgba(0,0,0,0.04)]";
+        styleObj = { borderLeftColor: accentColorTheme };
       } else if (themeStyle === "travelbook") {
         articleClass += "bg-[#FCFAF2] border border-[#5C4D3C]/30 rounded-lg shadow-md mx-0.5 my-1";
+      } else if (themeStyle === "modern") {
+        articleClass += "bg-white/40 backdrop-blur-sm border border-stone-100/50 rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.02)] mx-0.5 my-1";
       } else {
         articleClass += "bg-transparent border-none";
       }
@@ -1205,24 +1238,46 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
       ? "text-[#4E3629]"
       : themeStyle === "magazine"
       ? "font-extrabold uppercase tracking-tight"
+      : themeStyle === "modern"
+      ? "text-stone-950 font-black"
       : "text-stone-950";
 
+    // Resolve font classes based on fontFamily override or themeStyle defaults
+    const ff = el.fontFamily || "default";
     const titleFontClass = 
+      ff === "editorial-serif" ? "editorial-serif-title" :
+      ff === "clean-sans" ? "clean-sans-title" :
+      ff === "avant-garde" ? "avant-garde-title" :
+      ff === "handwritten" ? "handwritten-title" :
+      // default: derive from themeStyle
       themeStyle === "journal" 
         ? "serif-font italic" 
         : themeStyle === "magazine" 
         ? "title-font font-black tracking-tight"
         : themeStyle === "travelbook"
         ? "serif-font font-black italic text-[#4E3629]"
+        : themeStyle === "editorial"
+        ? "editorial-serif-title"
+        : themeStyle === "modern"
+        ? "font-sans font-black tracking-tighter uppercase text-stone-900"
         : isAdventure || isElegant ? 'serif-font italic' : 'title-font';
 
     const textFontClass = 
+      ff === "editorial-serif" ? "editorial-serif-body text-stone-800" :
+      ff === "clean-sans" ? "clean-sans-body text-stone-700" :
+      ff === "avant-garde" ? "avant-garde-body text-stone-800" :
+      ff === "handwritten" ? "handwritten-body text-stone-800" :
+      // default: derive from themeStyle
       themeStyle === "journal" 
         ? "text-[#4A4335] font-serif tracking-wide" 
         : themeStyle === "travelbook"
         ? "text-[#3E342F] font-serif tracking-wide leading-relaxed"
         : themeStyle === "magazine" 
         ? "text-stone-900 leading-relaxed pl-4 border-l-2 border-stone-200" 
+        : themeStyle === "editorial"
+        ? "editorial-serif-body text-stone-800 pl-4"
+        : themeStyle === "modern"
+        ? "text-stone-700 font-sans tracking-normal leading-relaxed font-light"
         : "text-stone-800";
 
     const textColorClass = isSolidBlock ? "text-stone-100" : textFontClass;
@@ -1233,13 +1288,18 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
         <div className="w-full">
           {/* Compact single-row header (only rendered on the first page block and not on continuation pages) */}
           {startPara === 0 && !el.isContinuation && (
-            <header className={`flex flex-row items-center justify-between mb-3 pb-1 border-b gap-4 w-full flex-nowrap ${
-              isSolidBlock
-                ? "border-white/20"
-                : themeStyle === "journal" 
-                ? "border-[#E4DEC6]/60" 
-                : "border-stone-200"
-            }`}>
+            <header 
+              className={`flex flex-row items-center justify-between mb-3 pb-1 border-b gap-4 w-full flex-nowrap ${
+                isSolidBlock
+                  ? "border-white/20"
+                  : themeStyle === "journal" 
+                  ? "border-[#E4DEC6]/60" 
+                  : themeStyle === "modern"
+                  ? "border-transparent"
+                  : "border-stone-200"
+              }`}
+              style={themeStyle === "modern" ? { borderBottom: `2px solid ${accentColorTheme}` } : {}}
+            >
               <h2 
                 contentEditable={isInteractive}
                 suppressContentEditableWarning
@@ -1248,7 +1308,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                   handleUpdateElement(el.id, { content: { ...post, title: newTitle } });
                 }}
                 className={`text-xl font-bold leading-tight outline-none truncate shrink ${titleFontClass} ${headerColorClass}`}
-                style={(!isSolidBlock && themeStyle === "magazine") ? { color: accentColorTheme } : {}}
+                style={(!isSolidBlock && (themeStyle === "magazine" || themeStyle === "modern")) ? { color: accentColorTheme } : {}}
               >
                 {post.title}
               </h2>
@@ -1294,9 +1354,11 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                       ? "text-[#5C4D3C] opacity-50 font-serif"
                       : themeStyle === "magazine" 
                       ? "opacity-80" 
+                      : themeStyle === "modern"
+                      ? "font-sans font-black pr-1.5 border-r-4 mr-2"
                       : ""
                   }`}
-                  style={themeStyle === "magazine" ? { color: accentColorTheme } : {}}
+                  style={(themeStyle === "magazine" || themeStyle === "modern") ? { color: accentColorTheme, borderColor: accentColorTheme } : {}}
                   >
                     {para.charAt(0)}
                   </span>
@@ -1330,6 +1392,8 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                             ? "text-[#3E342F] font-serif" 
                             : themeStyle === "magazine" 
                             ? "text-stone-900" 
+                            : themeStyle === "modern"
+                            ? "text-stone-800 font-sans font-light"
                             : "text-stone-800"
                           : textColorClass
                       }`}
@@ -1403,9 +1467,18 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
               } else if (pStyle === "circle-oval") {
                 cardWrapperClass = `break-inside-avoid w-full flex flex-col justify-center p-8 rounded-t-[140px] rounded-b-[30px] border border-stone-200/40 bg-white shadow-[0_20px_45px_rgba(0,0,0,0.08)] relative mb-4 overflow-hidden`;
                 showCardInnerOvalFrame = true;
+              } else if (pStyle === "modern-glow") {
+                cardWrapperClass = `break-inside-avoid w-full flex flex-col justify-center p-6 rounded-3xl bg-white border border-stone-100 relative mb-4`;
+                cardStyle = {
+                  ...cardStyle,
+                  boxShadow: `0 15px 35px rgba(${rgb}, 0.22)`,
+                  border: `1px solid rgba(${rgb}, 0.15)`
+                };
               } else {
                 if (isSolidBlock) {
                   cardWrapperClass = "break-inside-avoid w-full flex flex-col justify-center p-6 bg-white/10 backdrop-blur-sm border border-white/20 shadow-inner rounded-2xl relative mb-4";
+                } else if (border === "glassmorphic") {
+                  cardWrapperClass = "break-inside-avoid w-full flex flex-col justify-center p-6 bg-white/70 backdrop-blur-md border border-white/40 shadow-[0_20px_50px_rgba(0,0,0,0.06)] rounded-3xl relative mb-4";
                 } else {
                   if (themeStyle === "journal") {
                     const angle = (cardHash % 3) - 1; // -1, 0, 1 degree
@@ -1431,6 +1504,12 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                       borderLeftColor: accentColorTheme
                     };
                     cardWrapperClass = "break-inside-avoid w-full flex flex-col justify-center p-6 bg-gradient-to-br from-white to-stone-50 border border-stone-200 border-l-[6px] rounded-r-2xl rounded-l-sm shadow-sm relative mb-4";
+                  } else if (themeStyle === "modern") {
+                    cardStyle = {
+                      ...cardStyle,
+                      borderBottomColor: accentColorTheme
+                    };
+                    cardWrapperClass = "break-inside-avoid w-full flex flex-col justify-center p-6 bg-white border border-stone-100 border-b-[4px] rounded-xl shadow-md relative mb-4";
                   } else {
                     cardWrapperClass = "break-inside-avoid w-full flex flex-col justify-center p-6 bg-white/80 backdrop-blur-sm border border-stone-200 shadow-sm rounded-2xl relative mb-4";
                   }
@@ -1534,6 +1613,35 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                           actualWrapperClass = `break-inside-avoid block w-full max-w-full mx-auto border-[8px] border-white bg-white p-0.5 shadow-[8px_16px_35px_rgba(0,0,0,0.14)] relative group ${mbClass}`;
                         } else if (pStyle === "circle-oval") {
                           actualWrapperClass = `break-inside-avoid block w-full max-w-full mx-auto rounded-t-[140px] rounded-b-[30px] border border-stone-200/40 bg-white p-1.5 shadow-[0_20px_45px_rgba(0,0,0,0.08)] relative group overflow-hidden ${mbClass}`;
+                        } else if (pStyle === "modern-glow") {
+                          actualWrapperClass = `break-inside-avoid block w-full max-w-full mx-auto rounded-3xl bg-white p-1 relative group overflow-hidden ${mbClass}`;
+                          wrapperStyle = {
+                            ...wrapperStyle,
+                            boxShadow: `0 15px 35px rgba(${rgb}, 0.22)`,
+                            border: `1px solid rgba(${rgb}, 0.15)`
+                          };
+                        } else if (pStyle === "art-gallery") {
+                          actualWrapperClass = `break-inside-avoid block w-full max-w-full mx-auto relative group overflow-hidden ${mbClass}`;
+                          wrapperStyle = {
+                            ...wrapperStyle,
+                            padding: '10px',
+                            paddingBottom: '20px',
+                            background: '#F5F2EE',
+                            border: '1px solid #E8E4DE',
+                            boxShadow: '0 4px 20px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.06)'
+                          };
+                        } else if (pStyle === "rounded-soft") {
+                          actualWrapperClass = `break-inside-avoid block w-full max-w-full mx-auto rounded-[20px] relative group overflow-hidden ${mbClass}`;
+                          wrapperStyle = {
+                            ...wrapperStyle,
+                            boxShadow: '0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)'
+                          };
+                        } else if (pStyle === "duotone-filter") {
+                          actualWrapperClass = `break-inside-avoid block w-full max-w-full mx-auto rounded-xl relative group overflow-hidden ${mbClass}`;
+                          wrapperStyle = {
+                            ...wrapperStyle,
+                            boxShadow: `0 8px 24px rgba(${rgb}, 0.20)`
+                          };
                         } else {
                           // standard
                           actualWrapperClass = isAdventure
@@ -1615,6 +1723,16 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                                   transformOrigin: "center center"
                                 }} 
                               />
+                              {pStyle === "duotone-filter" && (
+                                <div 
+                                  className="absolute inset-0 pointer-events-none z-[5]"
+                                  style={{ 
+                                    backgroundColor: accentColorTheme, 
+                                    opacity: 0.40,
+                                    mixBlendMode: "color"
+                                  }} 
+                                />
+                              )}
                             </div>
                             
                             {isInteractive && (
@@ -1795,6 +1913,35 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                     actualWrapperClass = `break-inside-avoid block w-full max-w-full mx-auto border-[8px] border-white bg-white p-0.5 shadow-[8px_16px_35px_rgba(0,0,0,0.14)] relative group ${mbClass}`;
                   } else if (pStyle === "circle-oval") {
                     actualWrapperClass = `break-inside-avoid block w-full max-w-full mx-auto rounded-t-[140px] rounded-b-[30px] border border-stone-200/40 bg-white p-1.5 shadow-[0_20px_45px_rgba(0,0,0,0.08)] relative group overflow-hidden ${mbClass}`;
+                  } else if (pStyle === "modern-glow") {
+                    actualWrapperClass = `break-inside-avoid block w-full max-w-full mx-auto rounded-3xl bg-white p-1 relative group overflow-hidden ${mbClass}`;
+                    wrapperStyle = {
+                      ...wrapperStyle,
+                      boxShadow: `0 15px 35px rgba(${rgb}, 0.22)`,
+                      border: `1px solid rgba(${rgb}, 0.15)`
+                    };
+                  } else if (pStyle === "art-gallery") {
+                    actualWrapperClass = `break-inside-avoid block w-full max-w-full mx-auto relative group overflow-hidden ${mbClass}`;
+                    wrapperStyle = {
+                      ...wrapperStyle,
+                      padding: '10px',
+                      paddingBottom: '20px',
+                      background: '#F5F2EE',
+                      border: '1px solid #E8E4DE',
+                      boxShadow: '0 4px 20px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.06)'
+                    };
+                  } else if (pStyle === "rounded-soft") {
+                    actualWrapperClass = `break-inside-avoid block w-full max-w-full mx-auto rounded-[20px] relative group overflow-hidden ${mbClass}`;
+                    wrapperStyle = {
+                      ...wrapperStyle,
+                      boxShadow: '0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)'
+                    };
+                  } else if (pStyle === "duotone-filter") {
+                    actualWrapperClass = `break-inside-avoid block w-full max-w-full mx-auto rounded-xl relative group overflow-hidden ${mbClass}`;
+                    wrapperStyle = {
+                      ...wrapperStyle,
+                      boxShadow: `0 8px 24px rgba(${rgb}, 0.20)`
+                    };
                   } else {
                     // standard
                     actualWrapperClass = isAdventure
@@ -1874,6 +2021,16 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                             transformOrigin: "center center"
                           }} 
                         />
+                        {pStyle === "duotone-filter" && (
+                          <div 
+                            className="absolute inset-0 pointer-events-none z-[5]"
+                            style={{ 
+                              backgroundColor: accentColorTheme, 
+                              opacity: 0.40,
+                              mixBlendMode: "color"
+                            }} 
+                          />
+                        )}
                       </div>
                       
                       {isInteractive && (
@@ -1997,7 +2154,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
   return (
     <div className="print-editor-wrapper fixed inset-0 z-[15000] bg-stone-900 flex flex-col font-sans select-none overflow-hidden text-white">
       <style jsx global>{`
-        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,900;1,900&family=Outfit:wght@300;400;700;900&family=Caveat:wght@400;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,900;1,900&family=Outfit:wght@300;400;700;900&family=Caveat:wght@400;700&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400;1,600&family=Inter:wght@300;400;600&family=Syne:wght@700;800&family=Montserrat:wght@800;900&display=swap');
         
         .paper-bg {
           background-color: #fcfaf7;
@@ -2022,6 +2179,57 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
 
         .title-font { font-family: 'Outfit', sans-serif; }
         .serif-font { font-family: 'Playfair Display', serif; }
+
+        /* Premium editorial serif (Cormorant Garamond) */
+        .editorial-serif-title {
+          font-family: 'Cormorant Garamond', 'Playfair Display', serif;
+          font-weight: 600;
+          letter-spacing: 0.01em;
+        }
+        .editorial-serif-body {
+          font-family: 'Cormorant Garamond', Georgia, serif;
+          font-weight: 400;
+          font-size: 1.05em;
+          line-height: 1.75;
+          letter-spacing: 0.02em;
+        }
+        /* Clean geometric sans-serif (Inter) */
+        .clean-sans-title {
+          font-family: 'Inter', 'Outfit', sans-serif;
+          font-weight: 600;
+          letter-spacing: -0.02em;
+        }
+        .clean-sans-body {
+          font-family: 'Inter', sans-serif;
+          font-weight: 300;
+          letter-spacing: 0;
+          line-height: 1.7;
+        }
+        /* Avant-garde display (Syne + Montserrat) */
+        .avant-garde-title {
+          font-family: 'Syne', 'Montserrat', sans-serif;
+          font-weight: 800;
+          letter-spacing: -0.03em;
+          text-transform: uppercase;
+        }
+        .avant-garde-body {
+          font-family: 'Montserrat', sans-serif;
+          font-weight: 400;
+          letter-spacing: -0.01em;
+          line-height: 1.65;
+        }
+        /* Handwritten (Caveat) */
+        .handwritten-title {
+          font-family: 'Caveat', cursive;
+          font-weight: 700;
+          letter-spacing: 0.01em;
+        }
+        .handwritten-body {
+          font-family: 'Caveat', cursive;
+          font-weight: 400;
+          font-size: 1.1em;
+          line-height: 1.6;
+        }
         
         .print-only-container {
           position: absolute;
@@ -2263,39 +2471,39 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                 {(selectedElement.type === "blog-entry" || selectedElement.type === "custom-text") && (
                   <div className="space-y-4">
                      <div className="space-y-1">
-                        <span className="text-[9px] font-black uppercase tracking-widest text-white/50 block">Styl rozvržení</span>
-                        <div className="grid grid-cols-2 gap-1 text-[8px] font-black uppercase tracking-wider text-center bg-white/5 p-1 rounded-xl">
-                           {(["clean", "journal", "magazine", "travelbook"] as const).map(style => (
-                              <button 
-                                key={style} 
-                                onClick={() => handleUpdateElement(selectedElementId!, { themeStyle: style })}
-                                className={`py-1.5 rounded-lg transition-all ${selectedElement.themeStyle === style || (!selectedElement.themeStyle && style === "clean") ? 'bg-white text-black font-black shadow-md' : 'hover:bg-white/5 text-white/60'}`}
-                              >
-                                 {style === "clean" ? "Modern" : style === "journal" ? "Deník" : style === "magazine" ? "Editorial" : "Cestokniha"}
-                              </button>
-                           ))}
-                        </div>
-                     </div>
+                         <span className="text-[9px] font-black uppercase tracking-widest text-white/50 block">Styl rozvržení</span>
+                         <div className="grid grid-cols-2 gap-1 text-[8px] font-black uppercase tracking-wider text-center bg-white/5 p-1 rounded-xl">
+                            {(["clean", "journal", "magazine", "travelbook", "modern", "editorial"] as const).map(style => (
+                               <button 
+                                 key={style} 
+                                 onClick={() => handleUpdateElement(selectedElementId!, { themeStyle: style })}
+                                 className={`py-1.5 rounded-lg transition-all ${selectedElement.themeStyle === style || (!selectedElement.themeStyle && style === "clean") ? 'bg-white text-black font-black shadow-md' : 'hover:bg-white/5 text-white/60'} ${style === "modern" || style === "editorial" ? "col-span-2 font-black" : ""} ${style === "editorial" ? "text-violet-400" : style === "modern" ? "text-orange-400" : ""}`}
+                               >
+                                  {style === "clean" ? "Modern" : style === "journal" ? "Deník" : style === "magazine" ? "Editorial" : style === "travelbook" ? "Cestokniha" : style === "modern" ? "Sleek Moderní ✨" : "Moderní Editorial 📑"}
+                               </button>
+                            ))}
+                         </div>
+                      </div>
 
                      <div className="space-y-1">
-                        <span className="text-[9px] font-black uppercase tracking-widest text-white/50 block">Ohraničení textu (Rámeček)</span>
-                        <div className="grid grid-cols-2 gap-1 text-[8px] font-black uppercase tracking-wider text-center bg-white/5 p-1 rounded-xl">
-                           {(["none", "solid-accent", "dashed-warm", "double-vintage", "solid-block"] as const).map(bStyle => (
-                              <button 
-                                key={bStyle} 
-                                onClick={() => handleUpdateElement(selectedElementId!, { borderStyle: bStyle })}
-                                className={`py-1.5 rounded-lg transition-all ${selectedElement.borderStyle === bStyle || (!selectedElement.borderStyle && bStyle === "none") ? 'bg-white text-black font-black shadow-md' : 'hover:bg-white/5 text-white/60'} ${bStyle === "solid-block" ? "col-span-2" : ""}`}
-                              >
-                                 {bStyle === "none" ? "Bez rámečku" : bStyle === "solid-accent" ? "Dolce Vita" : bStyle === "dashed-warm" ? "Deníkový" : bStyle === "double-vintage" ? "Retro dvojitý" : "Accent barevný blok"}
-                              </button>
-                           ))}
-                        </div>
-                     </div>
+                         <span className="text-[9px] font-black uppercase tracking-widest text-white/50 block">Ohraničení textu (Rámeček)</span>
+                         <div className="grid grid-cols-2 gap-1 text-[8px] font-black uppercase tracking-wider text-center bg-white/5 p-1 rounded-xl">
+                            {(["none", "solid-accent", "dashed-warm", "double-vintage", "solid-block", "glassmorphic", "minimal-thin", "shadow-floating", "neo-brutalist"] as const).map(bStyle => (
+                               <button 
+                                 key={bStyle} 
+                                 onClick={() => handleUpdateElement(selectedElementId!, { borderStyle: bStyle })}
+                                 className={`py-1.5 rounded-lg transition-all ${selectedElement.borderStyle === bStyle || (!selectedElement.borderStyle && bStyle === "none") ? 'bg-white text-black font-black shadow-md' : 'hover:bg-white/5 text-white/60'} ${bStyle === "solid-block" || bStyle === "glassmorphic" || bStyle === "shadow-floating" || bStyle === "neo-brutalist" ? "col-span-2" : ""}`}
+                               >
+                                  {bStyle === "none" ? "Bez rámečku" : bStyle === "solid-accent" ? "Dolce Vita" : bStyle === "dashed-warm" ? "Deníkový" : bStyle === "double-vintage" ? "Retro dvojitý" : bStyle === "solid-block" ? "Accent barevný blok" : bStyle === "glassmorphic" ? "Frosted Glassmorphic ❄️" : bStyle === "minimal-thin" ? "Galerijní linka 🖼️" : bStyle === "shadow-floating" ? "Levitující karta ☁️" : "Brutalistický blok 🧱"}
+                               </button>
+                            ))}
+                         </div>
+                      </div>
 
                       <div className="space-y-1">
                          <span className="text-[9px] font-black uppercase tracking-widest text-white/50 block">Decentní barva motivu</span>
                          <div className="flex flex-wrap gap-2 bg-white/5 p-2 rounded-xl justify-between">
-                            {(["default", "terracotta", "navy", "sage", "charcoal", "plum", "sand", "rose"] as const).map(color => {
+                            {(["default", "terracotta", "navy", "sage", "charcoal", "plum", "sand", "rose", "emerald", "violet", "sunset", "ocean"] as const).map(color => {
                                const colorMap = {
                                   default: "bg-stone-600 border-stone-400",
                                   terracotta: "bg-[#B85C43] border-[#D87C63]",
@@ -2304,7 +2512,11 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                                   charcoal: "bg-[#3D3A36] border-[#5D5A56]",
                                   plum: "bg-[#5E3E52] border-[#7E5E72]",
                                   sand: "bg-[#A89B85] border-[#C8BBA5]",
-                                  rose: "bg-[#A87C7C] border-[#C89C9C]"
+                                  rose: "bg-[#A87C7C] border-[#C89C9C]",
+                                  emerald: "bg-[#059669] border-[#25B689]",
+                                  violet: "bg-[#7C3AED] border-[#9C5AED]",
+                                  sunset: "bg-[#F43F5E] border-[#FF5F7E]",
+                                  ocean: "bg-[#0284C7] border-[#22A4E7]"
                                };
                                const labelMap = {
                                   default: "Výchozí",
@@ -2314,7 +2526,11 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                                   charcoal: "Uhlí",
                                   plum: "Švestka",
                                   sand: "Písek",
-                                  rose: "Růže"
+                                  rose: "Růže",
+                                  emerald: "Smaragdová",
+                                  violet: "Fialová",
+                                  sunset: "Západ slunce",
+                                  ocean: "Oceánská"
                                };
                                const isActive = selectedElement.blockColor === color || (!selectedElement.blockColor && color === "default");
                                return (
@@ -2338,13 +2554,29 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                       <div className="space-y-1">
                          <span className="text-[9px] font-black uppercase tracking-widest text-white/50 block">Styl a úhly fotek</span>
                         <div className="grid grid-cols-2 gap-1 text-[8px] font-black uppercase tracking-wider text-center bg-white/5 p-1 rounded-xl">
-                           {(["standard", "polaroid", "scrapbook", "tilted", "circle-oval"] as const).map(pStyle => (
+                           {(["standard", "polaroid", "scrapbook", "tilted", "circle-oval", "modern-glow", "art-gallery", "rounded-soft", "duotone-filter"] as const).map(pStyle => (
                               <button 
                                 key={pStyle} 
                                 onClick={() => handleUpdateElement(selectedElementId!, { photoStyle: pStyle })}
-                                className={`py-1.5 rounded-lg transition-all ${selectedElement.photoStyle === pStyle || (!selectedElement.photoStyle && pStyle === "standard") ? 'bg-white text-black font-black shadow-md' : 'hover:bg-white/5 text-white/60'} ${pStyle === "circle-oval" ? "col-span-2" : ""}`}
+                                className={`py-1.5 rounded-lg transition-all ${selectedElement.photoStyle === pStyle || (!selectedElement.photoStyle && pStyle === "standard") ? 'bg-white text-black font-black shadow-md' : 'hover:bg-white/5 text-white/60'} ${pStyle === "circle-oval" || pStyle === "modern-glow" || pStyle === "duotone-filter" ? "col-span-2" : ""}`}
                               >
-                                 {pStyle === "standard" ? "Standard" : pStyle === "polaroid" ? "Polaroid" : pStyle === "scrapbook" ? "Scrapbook (rožky)" : pStyle === "tilted" ? "Koláž (úhly)" : "Magazínový oblouk"}
+                                 {pStyle === "standard" ? "Standard" : pStyle === "polaroid" ? "Polaroid" : pStyle === "scrapbook" ? "Scrapbook (rožky)" : pStyle === "tilted" ? "Koláž (úhly)" : pStyle === "circle-oval" ? "Magazínový oblouk" : pStyle === "modern-glow" ? "Modern Ambient Glow 🌟" : pStyle === "art-gallery" ? "Galerijní pasparta 🖼️" : pStyle === "rounded-soft" ? "Zaoblený roh 🌿" : "Designový Duo-tón 🎞️"}
+                              </button>
+                           ))}
+                        </div>
+                     </div>
+
+                     {/* Font Family Selector */}
+                     <div className="space-y-1">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-white/50 block">Písmo a Typografie</span>
+                        <div className="grid grid-cols-1 gap-1 text-[8px] font-black tracking-wider bg-white/5 p-1 rounded-xl">
+                           {(["default", "editorial-serif", "clean-sans", "avant-garde", "handwritten"] as const).map(ff => (
+                              <button 
+                                key={ff} 
+                                onClick={() => handleUpdateElement(selectedElementId!, { fontFamily: ff })}
+                                className={`py-1.5 px-2 rounded-lg transition-all text-left ${selectedElement.fontFamily === ff || (!selectedElement.fontFamily && ff === "default") ? 'bg-white text-black font-black shadow-md' : 'hover:bg-white/5 text-white/60'}`}
+                              >
+                                 {ff === "default" ? "Výchozí podle šablony 📁" : ff === "editorial-serif" ? "Luxusní antikva (Cormorant) 👑" : ff === "clean-sans" ? "Čistý geometrický (Inter) 📱" : ff === "avant-garde" ? "Výrazný umělecký (Syne) 🎨" : "Osobní rukopis (Caveat) ✍️"}
                               </button>
                            ))}
                         </div>
@@ -2537,13 +2769,13 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                <div className="space-y-1">
                   <span className="text-[9px] font-black uppercase tracking-widest text-white/50 block">Globální šablona</span>
                   <div className="grid grid-cols-2 gap-1 text-[8px] font-black uppercase tracking-wider text-center bg-white/5 p-1 rounded-xl">
-                     {(["clean", "journal", "magazine", "travelbook"] as const).map(style => (
+                     {(["clean", "journal", "magazine", "travelbook", "modern", "editorial"] as const).map(style => (
                         <button 
                           key={style} 
                           onClick={() => handleApplyGlobalStyle({ themeStyle: style })}
-                          className="py-1.5 rounded-lg transition-all hover:bg-white/5 text-white/60"
+                          className={`py-1.5 rounded-lg transition-all hover:bg-white/5 ${style === "modern" || style === "editorial" ? "col-span-2 font-black" : ""} ${style === "editorial" ? "text-violet-400" : style === "modern" ? "text-orange-400" : "text-white/60"}`}
                         >
-                           {style === "clean" ? "Modern" : style === "journal" ? "Deník" : style === "magazine" ? "Editorial" : "Cestokniha"}
+                           {style === "clean" ? "Modern" : style === "journal" ? "Deník" : style === "magazine" ? "Editorial" : style === "travelbook" ? "Cestokniha" : style === "modern" ? "Sleek Moderní ✨" : "Moderní Editorial 📑"}
                         </button>
                      ))}
                   </div>
@@ -2553,13 +2785,13 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                <div className="space-y-1">
                   <span className="text-[9px] font-black uppercase tracking-widest text-white/50 block">Globální ohraničení (Rámeček)</span>
                   <div className="grid grid-cols-2 gap-1 text-[8px] font-black uppercase tracking-wider text-center bg-white/5 p-1 rounded-xl">
-                     {(["none", "solid-accent", "dashed-warm", "double-vintage", "solid-block"] as const).map(bStyle => (
+                     {(["none", "solid-accent", "dashed-warm", "double-vintage", "solid-block", "glassmorphic", "minimal-thin", "shadow-floating", "neo-brutalist"] as const).map(bStyle => (
                         <button 
                           key={bStyle} 
                           onClick={() => handleApplyGlobalStyle({ borderStyle: bStyle })}
-                          className={`py-1.5 rounded-lg transition-all hover:bg-white/5 text-white/60 ${bStyle === "solid-block" ? "col-span-2" : ""}`}
+                          className={`py-1.5 rounded-lg transition-all hover:bg-white/5 text-white/60 ${bStyle === "solid-block" || bStyle === "glassmorphic" || bStyle === "shadow-floating" || bStyle === "neo-brutalist" ? "col-span-2" : ""}`}
                         >
-                           {bStyle === "none" ? "Bez rámečku" : bStyle === "solid-accent" ? "Dolce Vita" : bStyle === "dashed-warm" ? "Deníkový" : bStyle === "double-vintage" ? "Retro dvojitý" : "Accent barevný blok"}
+                           {bStyle === "none" ? "Bez rámečku" : bStyle === "solid-accent" ? "Dolce Vita" : bStyle === "dashed-warm" ? "Deníkový" : bStyle === "double-vintage" ? "Retro dvojitý" : bStyle === "solid-block" ? "Accent barevný blok" : bStyle === "glassmorphic" ? "Frosted Glassmorphic ❄️" : bStyle === "minimal-thin" ? "Galerijní linka 🖼️" : bStyle === "shadow-floating" ? "Levitující karta ☁️" : "Brutalistický blok 🧱"}
                         </button>
                      ))}
                   </div>
@@ -2569,7 +2801,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                <div className="space-y-1">
                   <span className="text-[9px] font-black uppercase tracking-widest text-white/50 block">Globální barva motivu</span>
                   <div className="flex flex-wrap gap-2 bg-white/5 p-2 rounded-xl justify-between">
-                     {(["default", "terracotta", "navy", "sage", "charcoal", "plum", "sand", "rose"] as const).map(color => {
+                     {(["default", "terracotta", "navy", "sage", "charcoal", "plum", "sand", "rose", "emerald", "violet", "sunset", "ocean"] as const).map(color => {
                         const colorMap = {
                            default: "bg-stone-600 border-stone-400",
                            terracotta: "bg-[#B85C43] border-[#D87C63]",
@@ -2578,7 +2810,11 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                            charcoal: "bg-[#3D3A36] border-[#5D5A56]",
                            plum: "bg-[#5E3E52] border-[#7E5E72]",
                            sand: "bg-[#A89B85] border-[#C8BBA5]",
-                           rose: "bg-[#A87C7C] border-[#C89C9C]"
+                           rose: "bg-[#A87C7C] border-[#C89C9C]",
+                           emerald: "bg-[#059669] border-[#25B689]",
+                           violet: "bg-[#7C3AED] border-[#9C5AED]",
+                           sunset: "bg-[#F43F5E] border-[#FF5F7E]",
+                           ocean: "bg-[#0284C7] border-[#22A4E7]"
                         };
                         const labelMap = {
                            default: "Výchozí",
@@ -2588,7 +2824,11 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                            charcoal: "Uhlí",
                            plum: "Švestka",
                            sand: "Písek",
-                           rose: "Růže"
+                           rose: "Růže",
+                           emerald: "Smaragdová",
+                           violet: "Fialová",
+                           sunset: "Západ slunce",
+                           ocean: "Oceánská"
                         };
                         return (
                            <button
@@ -2612,13 +2852,13 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                <div className="space-y-1">
                   <span className="text-[9px] font-black uppercase tracking-widest text-white/50 block">Globální styl a úhly fotek</span>
                   <div className="grid grid-cols-2 gap-1 text-[8px] font-black uppercase tracking-wider text-center bg-white/5 p-1 rounded-xl">
-                     {(["standard", "polaroid", "scrapbook", "tilted", "circle-oval"] as const).map(pStyle => (
+                     {(["standard", "polaroid", "scrapbook", "tilted", "circle-oval", "modern-glow", "art-gallery", "rounded-soft", "duotone-filter"] as const).map(pStyle => (
                         <button 
                           key={pStyle} 
                           onClick={() => handleApplyGlobalStyle({ photoStyle: pStyle })}
-                          className={`py-1.5 rounded-lg transition-all hover:bg-white/5 text-white/60 ${pStyle === "circle-oval" ? "col-span-2" : ""}`}
+                          className={`py-1.5 rounded-lg transition-all hover:bg-white/5 text-white/60 ${pStyle === "circle-oval" || pStyle === "modern-glow" || pStyle === "duotone-filter" ? "col-span-2" : ""}`}
                         >
-                           {pStyle === "standard" ? "Standard" : pStyle === "polaroid" ? "Polaroid" : pStyle === "scrapbook" ? "Scrapbook" : pStyle === "tilted" ? "Koláž" : "Magazínový oblouk"}
+                           {pStyle === "standard" ? "Standard" : pStyle === "polaroid" ? "Polaroid" : pStyle === "scrapbook" ? "Scrapbook" : pStyle === "tilted" ? "Koláž" : pStyle === "circle-oval" ? "Magazínový oblouk" : pStyle === "modern-glow" ? "Modern Ambient Glow 🌟" : pStyle === "art-gallery" ? "Galerijní pasparta 🖼️" : pStyle === "rounded-soft" ? "Zaoblený roh 🌿" : "Designový Duo-tón 🎞️"}
                         </button>
                      ))}
                   </div>
@@ -2651,6 +2891,22 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                           className="py-1 rounded transition-all hover:bg-white/5 text-white/60"
                         >
                            {pd === "none" ? "Bez" : pd === "small" ? "Malé" : pd === "medium" ? "Střed" : "Velké"}
+                        </button>
+                     ))}
+                  </div>
+               </div>
+
+               {/* Global Font Family */}
+               <div className="space-y-1">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-white/50 block">Globální písmo knihy</span>
+                  <div className="grid grid-cols-1 gap-1 text-[8px] font-black tracking-wider bg-white/5 p-1 rounded-xl">
+                     {(["default", "editorial-serif", "clean-sans", "avant-garde", "handwritten"] as const).map(ff => (
+                        <button 
+                          key={ff} 
+                          onClick={() => handleApplyGlobalStyle({ fontFamily: ff })}
+                          className="py-1.5 px-2 rounded-lg transition-all text-left hover:bg-white/5 text-white/60"
+                        >
+                           {ff === "default" ? "Výchozí podle šablony 📁" : ff === "editorial-serif" ? "Luxusní antikva (Cormorant) 👑" : ff === "clean-sans" ? "Čistý geometrický (Inter) 📱" : ff === "avant-garde" ? "Výrazný umělecký (Syne) 🎨" : "Osobní rukopis (Caveat) ✍️"}
                         </button>
                      ))}
                   </div>

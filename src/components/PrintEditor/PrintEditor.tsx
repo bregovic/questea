@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { X, ChevronLeft, ChevronRight, Plus, Trash2, Maximize, Type, Image as ImageIcon, Printer, MapPin, Crop, ChevronUp, ChevronDown } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Plus, Trash2, Maximize, Type, Image as ImageIcon, Printer, MapPin, Crop, ChevronUp, ChevronDown, ZoomIn, ZoomOut } from "lucide-react";
 import { JourneyMap } from "../Blog/BlogClient";
 
 interface PrintElement {
@@ -29,6 +29,7 @@ interface PrintElement {
   isContinuation?: boolean;
   customImageHeights?: Record<string, number>;
   customImageFits?: Record<string, "cover" | "contain">;
+  customImageZooms?: Record<string, number>;
 }
 
 interface PrintPage {
@@ -1445,6 +1446,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                         const customHeight = (el.customImageHeights || {})[att.id];
                         const dynamicHeight = customHeight !== undefined ? customHeight : defaultHeight;
                         const customFit = (el.customImageFits || {})[att.id] || "cover";
+                        const customZoom = (el.customImageZooms || {})[att.id] || 1.0;
 
                         if (pStyle === "polaroid") {
                           const angle = ((hash + attIdx * 17) % 11) - 5; // -5 to +5 degrees
@@ -1502,19 +1504,33 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                               </>
                             )}
 
-                            <img 
-                              src={att.url} 
-                              className={`w-full block mx-auto transition-all ${
-                                customFit === "contain" 
-                                  ? "object-contain bg-stone-100/30 border border-stone-200/20" 
-                                  : "object-cover"
-                              }`}
-                              style={{ height: dynamicHeight ? `${dynamicHeight}px` : undefined }} 
-                            />
+                            <div 
+                              className="w-full overflow-hidden relative"
+                              style={{ height: dynamicHeight ? `${dynamicHeight}px` : undefined }}
+                            >
+                              <img 
+                                src={att.url} 
+                                className={`w-full block mx-auto transition-transform duration-200 ${
+                                  customFit === "contain" 
+                                    ? "object-contain bg-stone-100/30 border border-stone-200/20" 
+                                    : "object-cover"
+                                }`}
+                                style={{ 
+                                  height: dynamicHeight ? "100%" : undefined,
+                                  transform: customZoom !== 1 ? `scale(${customZoom})` : undefined,
+                                  transformOrigin: "center center"
+                                }} 
+                              />
+                            </div>
                             
                             {isInteractive && (
                               <>
                                 <div className="no-print absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-black/75 backdrop-blur-sm p-1 rounded-lg z-[20]">
+                                  {customZoom > 1.0 && (
+                                    <span className="text-[9px] text-orange-400 px-1 font-bold select-none">
+                                      {customZoom}x
+                                    </span>
+                                  )}
                                   <button 
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -1526,6 +1542,32 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                                     className={`p-1 hover:text-orange-400 text-white transition-colors ${customFit === "contain" ? "text-orange-400" : ""}`}
                                   >
                                     <Crop size={12} />
+                                  </button>
+                                  <button 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const currentZooms = { ...(el.customImageZooms || {}) };
+                                      const currentZ = currentZooms[att.id] !== undefined ? currentZooms[att.id] : 1.0;
+                                      currentZooms[att.id] = Number(Math.min(3.0, currentZ + 0.1).toFixed(1));
+                                      handleUpdateElement(el.id, { customImageZooms: currentZooms });
+                                    }}
+                                    title="Přiblížit fotku (Zoom In)"
+                                    className="p-1 hover:text-orange-400 text-white transition-colors"
+                                  >
+                                    <ZoomIn size={12} />
+                                  </button>
+                                  <button 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const currentZooms = { ...(el.customImageZooms || {}) };
+                                      const currentZ = currentZooms[att.id] !== undefined ? currentZooms[att.id] : 1.0;
+                                      currentZooms[att.id] = Number(Math.max(1.0, currentZ - 0.1).toFixed(1));
+                                      handleUpdateElement(el.id, { customImageZooms: currentZooms });
+                                    }}
+                                    title="Oddálit fotku (Zoom Out)"
+                                    className="p-1 hover:text-orange-400 text-white transition-colors"
+                                  >
+                                    <ZoomOut size={12} />
                                   </button>
                                   <button 
                                     onClick={(e) => {
@@ -1621,6 +1663,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                   const customHeight = (el.customImageHeights || {})[att.id];
                   const dynamicHeight = customHeight !== undefined ? customHeight : defaultHeight;
                   const customFit = (el.customImageFits || {})[att.id] || "cover";
+                  const customZoom = (el.customImageZooms || {})[att.id] || 1.0;
 
                   if (pStyle === "polaroid") {
                     const angle = ((hash + attIdx * 17) % 11) - 5; // -5 to +5 degrees
@@ -1675,19 +1718,33 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                         </>
                       )}
 
-                      <img 
-                        src={att.url} 
-                        className={`w-full block mx-auto transition-all ${
-                          customFit === "contain" 
-                            ? "object-contain bg-stone-100/30 border border-stone-200/20" 
-                            : "object-cover"
-                        }`}
-                        style={{ height: dynamicHeight ? `${dynamicHeight}px` : undefined }} 
-                      />
+                      <div 
+                        className="w-full overflow-hidden relative"
+                        style={{ height: dynamicHeight ? `${dynamicHeight}px` : undefined }}
+                      >
+                        <img 
+                          src={att.url} 
+                          className={`w-full block mx-auto transition-transform duration-200 ${
+                            customFit === "contain" 
+                              ? "object-contain bg-stone-100/30 border border-stone-200/20" 
+                              : "object-cover"
+                          }`}
+                          style={{ 
+                            height: dynamicHeight ? "100%" : undefined,
+                            transform: customZoom !== 1 ? `scale(${customZoom})` : undefined,
+                            transformOrigin: "center center"
+                          }} 
+                        />
+                      </div>
                       
                       {isInteractive && (
                         <>
                           <div className="no-print absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-black/75 backdrop-blur-sm p-1 rounded-lg z-[20]">
+                            {customZoom > 1.0 && (
+                              <span className="text-[9px] text-orange-400 px-1 font-bold select-none">
+                                {customZoom}x
+                              </span>
+                            )}
                             <button 
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -1699,6 +1756,32 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                               className={`p-1 hover:text-orange-400 text-white transition-colors ${customFit === "contain" ? "text-orange-400" : ""}`}
                             >
                               <Crop size={12} />
+                            </button>
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const currentZooms = { ...(el.customImageZooms || {}) };
+                                const currentZ = currentZooms[att.id] !== undefined ? currentZooms[att.id] : 1.0;
+                                currentZooms[att.id] = Number(Math.min(3.0, currentZ + 0.1).toFixed(1));
+                                handleUpdateElement(el.id, { customImageZooms: currentZooms });
+                              }}
+                              title="Přiblížit fotku (Zoom In)"
+                              className="p-1 hover:text-orange-400 text-white transition-colors"
+                            >
+                              <ZoomIn size={12} />
+                            </button>
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const currentZooms = { ...(el.customImageZooms || {}) };
+                                const currentZ = currentZooms[att.id] !== undefined ? currentZooms[att.id] : 1.0;
+                                currentZooms[att.id] = Number(Math.max(1.0, currentZ - 0.1).toFixed(1));
+                                handleUpdateElement(el.id, { customImageZooms: currentZooms });
+                              }}
+                              title="Oddálit fotku (Zoom Out)"
+                              className="p-1 hover:text-orange-400 text-white transition-colors"
+                            >
+                              <ZoomOut size={12} />
                             </button>
                             <button 
                               onClick={(e) => {

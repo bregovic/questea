@@ -476,6 +476,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
   const pageRef = useRef<HTMLDivElement>(null);
   const [pageOverflows, setPageOverflows] = useState<Record<number, boolean>>({});
   const [imageAspects, setImageAspects] = useState<Record<string, number>>({});
+  const [focusedImageId, setFocusedImageId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!pageRef.current) return;
@@ -1039,6 +1040,8 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
       e.preventDefault();
       e.stopPropagation();
       
+      setFocusedImageId(attId);
+      
       const startX = e.clientX;
       const startY = e.clientY;
       
@@ -1560,7 +1563,11 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                             )}
 
                             <div 
-                              className="w-full overflow-hidden relative"
+                              className={`w-full overflow-hidden relative transition-all ${
+                                isInteractive && focusedImageId === att.id 
+                                  ? "ring-2 ring-orange-500 ring-offset-1 z-10" 
+                                  : ""
+                              }`}
                               style={{ height: dynamicHeight ? `${dynamicHeight}px` : undefined }}
                             >
                               <img 
@@ -1575,8 +1582,10 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                                 }}
                                 onMouseDown={(e) => handleImageDragStart(e, att.id)}
                                 onDoubleClick={(e) => { e.stopPropagation(); handleResetImage(att.id); }}
+                                onClick={(e) => e.stopPropagation()}
                                 onWheel={(e) => {
                                   if (!isInteractive) return;
+                                  if (focusedImageId !== att.id) return;
                                   e.preventDefault();
                                   e.stopPropagation();
                                   const currentZooms = { ...(el.customImageZooms || {}) };
@@ -1591,7 +1600,11 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                                   handleUpdateElement(el.id, { customImageZooms: currentZooms });
                                 }}
                                 title={isInteractive ? "Tažením posunete fotku, kolečkem myši změníte zoom, dvojklikem resetujete" : undefined}
-                                className={`w-full block mx-auto transition-transform ${isInteractive ? "cursor-grab active:cursor-grabbing" : ""} ${
+                                className={`w-full block mx-auto transition-transform ${
+                                  isInteractive 
+                                    ? (focusedImageId === att.id ? "cursor-grab active:cursor-grabbing" : "cursor-pointer") 
+                                    : ""
+                                } ${
                                   customFit === "contain" 
                                     ? "object-contain bg-stone-100/30 border border-stone-200/20" 
                                     : "object-cover"
@@ -1809,7 +1822,11 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                       )}
 
                       <div 
-                        className="w-full overflow-hidden relative"
+                        className={`w-full overflow-hidden relative transition-all ${
+                          isInteractive && focusedImageId === att.id 
+                            ? "ring-2 ring-orange-500 ring-offset-1 z-10" 
+                            : ""
+                        }`}
                         style={{ height: dynamicHeight ? `${dynamicHeight}px` : undefined }}
                       >
                         <img 
@@ -1824,8 +1841,10 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                           }}
                           onMouseDown={(e) => handleImageDragStart(e, att.id)}
                           onDoubleClick={(e) => { e.stopPropagation(); handleResetImage(att.id); }}
+                          onClick={(e) => e.stopPropagation()}
                           onWheel={(e) => {
                             if (!isInteractive) return;
+                            if (focusedImageId !== att.id) return;
                             e.preventDefault();
                             e.stopPropagation();
                             const currentZooms = { ...(el.customImageZooms || {}) };
@@ -1840,7 +1859,11 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                             handleUpdateElement(el.id, { customImageZooms: currentZooms });
                           }}
                           title={isInteractive ? "Tažením posunete fotku, kolečkem myši změníte zoom, dvojklikem resetujete" : undefined}
-                          className={`w-full block mx-auto transition-transform ${isInteractive ? "cursor-grab active:cursor-grabbing" : ""} ${
+                          className={`w-full block mx-auto transition-transform ${
+                            isInteractive 
+                              ? (focusedImageId === att.id ? "cursor-grab active:cursor-grabbing" : "cursor-pointer") 
+                              : ""
+                          } ${
                             customFit === "contain" 
                               ? "object-contain bg-stone-100/30 border border-stone-200/20" 
                               : "object-cover"
@@ -2646,7 +2669,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
            <div 
              ref={pageRef}
              className={`print-page relative paper-bg shadow-2xl flex-shrink-0 transition-all duration-500 overflow-y-auto overflow-x-hidden text-stone-950 p-4 ${format === 'A4' ? 'w-[794px] h-[1123px]' : 'w-[559px] h-[794px]'}`}
-             onClick={() => setSelectedElementId(null)}
+             onClick={() => { setSelectedElementId(null); setFocusedImageId(null); }}
            >
               {pages[currentPageIndex]?.elements.map((el, elIdx) => (
                 <React.Fragment key={el.id}>
@@ -2658,7 +2681,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                      </div>
                    )}
                    <div 
-                     onClick={(e) => { e.stopPropagation(); setSelectedElementId(el.id); }}
+                     onClick={(e) => { e.stopPropagation(); setSelectedElementId(el.id); setFocusedImageId(null); }}
                      className={`group transition-all absolute-element-container ${
                        (el.x === 0 && el.y === 0 && el.type === 'blog-entry') ? 'relative w-full' : 'absolute'
                      } ${selectedElementId === el.id ? 'border border-orange-500 bg-orange-500/5 z-[100]' : 'border border-transparent hover:border-orange-500/10'}`}

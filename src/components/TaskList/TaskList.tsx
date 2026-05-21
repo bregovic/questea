@@ -272,32 +272,30 @@ export const TaskList = () => {
 
       let totalDist = 0;
       for (let i = 0; i < sorted.length - 1; i++) {
-        const loc1 = sorted[i].locations?.[0];
-        const loc2 = sorted[i+1].locations?.[0];
-        if (loc1 && loc2 && loc1.latitude && loc1.longitude && loc2.latitude && loc2.longitude) {
-          totalDist += calculateDistance(loc1.latitude, loc1.longitude, loc2.latitude, loc2.longitude);
+        const current = sorted[i];
+        const next = sorted[i+1];
+        if (next.calculatedDistance !== null && next.calculatedDistance !== undefined) {
+          totalDist += next.calculatedDistance;
+        } else {
+          const loc1 = current.locations?.[0];
+          const loc2 = next.locations?.[0];
+          if (loc1 && loc2 && loc1.latitude && loc1.longitude && loc2.latitude && loc2.longitude) {
+            totalDist += calculateDistance(loc1.latitude, loc1.longitude, loc2.latitude, loc2.longitude);
+          }
         }
       }
 
       const start = sorted[0] ? new Date(sorted[0].recordedAt || sorted[0].createdAt) : new Date();
       const end = sorted[sorted.length - 1] ? new Date(sorted[sorted.length - 1].recordedAt || sorted[sorted.length - 1].createdAt) : new Date();
       
-      // Calibration calculation
       const odometerTasks = sorted.filter(t => t.odometer !== null && t.odometer !== undefined).sort((a, b) => {
         return new Date(a.recordedAt || a.createdAt).getTime() - new Date(b.recordedAt || b.createdAt).getTime();
       });
 
-      let displayTotalDist = totalDist;
-      if (odometerTasks.length >= 2) {
-        const firstOdo = odometerTasks[0].odometer;
-        const lastOdo = odometerTasks[odometerTasks.length - 1].odometer;
-        displayTotalDist = Math.abs(lastOdo - firstOdo);
-      }
-
       return {
-        totalDistance: displayTotalDist.toFixed(1),
+        totalDistance: totalDist.toFixed(1),
         gpsDistance: totalDist.toFixed(1),
-        timeRange: `${start.toLocaleDateString("cs-CZ")} - ${end.toLocaleDateString("cs-CZ")}`,
+        timeRange: `${end.toLocaleDateString("cs-CZ")} - ${start.toLocaleDateString("cs-CZ")}`,
         sortedTasks: sorted,
         odometerPoints: odometerTasks
       };
@@ -1075,64 +1073,16 @@ export const TaskList = () => {
               displayTasks.map((task, idx) => {
                 const nextTask = displayTasks[idx + 1];
                 let distToNext = 0;
-                
+
                 if (isLocationHistoryFolder && nextTask) {
-                   const loc1 = task.locations?.[0];
-                   const loc2 = nextTask.locations?.[0];
-                   if (loc1 && loc2) {
-                     const gpsDist = calculateDistance(loc1.latitude, loc1.longitude, loc2.latitude, loc2.longitude);
-                     distToNext = gpsDist;
-
-                     // Apply Calibration if possible
-                     if (stats?.odometerPoints && stats.odometerPoints.length >= 2) {
-                        // Find which odometer segment this belongs to
-                        // (Simplified: find the nearest odometer anchors that surround these two tasks)
-                        const taskDate = new Date(task.recordedAt || task.createdAt).getTime();
-                        const nextDate = new Date(nextTask.recordedAt || nextTask.createdAt).getTime();
-                        
-                        const anchors = stats.odometerPoints;
-                        let segmentAnchorStart = null;
-                        let segmentAnchorEnd = null;
-                        
-                        for (let i = 0; i < anchors.length - 1; i++) {
-                           const a1 = anchors[i];
-                           const a2 = anchors[i+1];
-                           const d1 = new Date(a1.recordedAt || a1.createdAt).getTime();
-                           const d2 = new Date(a2.recordedAt || a2.createdAt).getTime();
-                           
-                           // If our segment is within or equal to this anchor window
-                           if (taskDate <= d2 && nextDate >= d1) {
-                              segmentAnchorStart = a1;
-                              segmentAnchorEnd = a2;
-                              break;
-                           }
-                        }
-
-                        if (segmentAnchorStart && segmentAnchorEnd) {
-                           const realSegDist = segmentAnchorEnd.odometer - segmentAnchorStart.odometer;
-                           
-                           // We need GPS distance of the ENTIRE anchor segment to get the ratio
-                           let anchorGpsDist = 0;
-                           const startIdx = stats.sortedTasks.findIndex(t => t.id === segmentAnchorStart.id);
-                           const endIdx = stats.sortedTasks.findIndex(t => t.id === segmentAnchorEnd.id);
-                           
-                           for (let j = endIdx; j < startIdx; j++) { // Remember sorted is DESCENDING (newest first)
-                              const t1 = stats.sortedTasks[j];
-                              const t2 = stats.sortedTasks[j+1];
-                              if (t1.locations?.[0] && t2.locations?.[0]) {
-                                 anchorGpsDist += calculateDistance(
-                                    t1.locations[0].latitude, t1.locations[0].longitude,
-                                    t2.locations[0].latitude, t2.locations[0].longitude
-                                 );
-                              }
-                           }
-
-                           if (anchorGpsDist > 0) {
-                              const ratio = realSegDist / anchorGpsDist;
-                              distToNext = gpsDist * ratio;
-                           }
-                        }
-                     }
+                   if (nextTask.calculatedDistance !== null && nextTask.calculatedDistance !== undefined) {
+                      distToNext = nextTask.calculatedDistance;
+                   } else {
+                      const loc1 = task.locations?.[0];
+                      const loc2 = nextTask.locations?.[0];
+                      if (loc1 && loc2) {
+                        distToNext = calculateDistance(loc1.latitude, loc1.longitude, loc2.latitude, loc2.longitude);
+                      }
                    }
                 }
 

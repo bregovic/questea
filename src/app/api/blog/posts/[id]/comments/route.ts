@@ -42,7 +42,7 @@ export async function POST(
       return NextResponse.json({ error: "Content is required" }, { status: 400 });
     }
 
-    let userId = null;
+    let userId: string | null = null;
 
     if (session?.user?.email) {
       const user = await prisma.user.findUnique({

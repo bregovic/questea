@@ -195,10 +195,10 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
                 {!isMinimal && (
                   <div className="md:col-span-2 hidden md:block pt-6 sticky top-24">
                      <Reveal>
-                       <div className={`text-[12px] font-black uppercase tracking-[0.3em] mb-6 ${isAdventure ? 'text-[#a68a64]' : isElegant ? 'text-[#c5a059]' : isDark ? 'text-white/40' : 'text-[#ea580c]'}`}>
+                       <div className={`text-[13px] font-black uppercase tracking-[0.3em] mb-6 ${isAdventure ? 'text-[#a68a64]' : isElegant ? 'text-[#c5a059]' : isDark ? 'text-white/60' : 'text-[#ea580c]'}`}>
                           {visualIndex}
                        </div>
-                       <div className={`text-[11px] font-black space-y-2 opacity-60 ${isDark ? 'text-white/30' : 'text-stone-400'}`}>
+                       <div className={`text-[12px] font-black space-y-2 ${isDark ? 'text-white/50' : 'text-stone-500'}`}>
                           <div>{mounted ? date.toLocaleTimeString("cs-CZ", { hour: '2-digit', minute: '2-digit' }) : "--:--"}</div>
                           <div>{mounted ? date.toLocaleDateString("cs-CZ") : "--.--.----"}</div>
                        </div>
@@ -215,7 +215,7 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
                           {post.title}
                        </h2>
                        {post.locations?.[0] && !isMinimal && (
-                         <div className={`flex items-center gap-3 text-xs font-black uppercase tracking-[0.2em] ${isDark ? 'text-white/40' : 'text-stone-400'}`}>
+                         <div className={`flex items-center gap-3 text-xs font-black uppercase tracking-[0.2em] ${isDark ? 'text-white/60' : 'text-stone-500'}`}>
                            <MapPin size={16} className={isAdventure ? 'text-[#a68a64]' : isElegant ? 'text-[#c5a059]' : 'text-[#ea580c]'} />
                            {post.locations[0].placeName || post.locations[0].address}
                          </div>

@@ -23,6 +23,7 @@ interface PrintElement {
   themeStyle?: "clean" | "journal" | "magazine" | "travelbook";
   borderStyle?: "none" | "solid-accent" | "dashed-warm" | "double-vintage" | "solid-block";
   photoStyle?: "standard" | "polaroid" | "scrapbook" | "tilted" | "circle-oval";
+  blockColor?: "default" | "terracotta" | "navy" | "sage" | "charcoal" | "plum" | "sand" | "rose";
   startParagraphIndex?: number;
   endParagraphIndex?: number;
 }
@@ -115,6 +116,7 @@ const paginateAllSubtasks = (
         themeStyle: savedStyle.themeStyle || defaultThemeStyle,
         borderStyle: savedStyle.borderStyle || defaultBorderStyle,
         photoStyle: savedStyle.photoStyle || defaultPhotoStyle,
+        blockColor: savedStyle.blockColor || "default",
         imageSize: savedStyle.imageSize || "medium",
         startParagraphIndex: start,
         endParagraphIndex: end,
@@ -150,6 +152,7 @@ const paginateAllSubtasks = (
               themeStyle: savedStyle.themeStyle || defaultThemeStyle,
               borderStyle: savedStyle.borderStyle || defaultBorderStyle,
               photoStyle: savedStyle.photoStyle || defaultPhotoStyle,
+              blockColor: savedStyle.blockColor || "default",
               imageSize: savedStyle.imageSize || "medium",
               startParagraphIndex: 0,
               endParagraphIndex: 0,
@@ -174,6 +177,7 @@ const paginateAllSubtasks = (
             themeStyle: savedStyle.themeStyle || defaultThemeStyle,
             borderStyle: savedStyle.borderStyle || defaultBorderStyle,
             photoStyle: savedStyle.photoStyle || defaultPhotoStyle,
+            blockColor: savedStyle.blockColor || "default",
             imageSize: savedStyle.imageSize || "medium",
             startParagraphIndex: 0,
             endParagraphIndex: 0,
@@ -232,6 +236,7 @@ const paginateAllSubtasks = (
                   themeStyle: savedStyle.themeStyle || defaultThemeStyle,
                   borderStyle: savedStyle.borderStyle || defaultBorderStyle,
                   photoStyle: savedStyle.photoStyle || defaultPhotoStyle,
+                  blockColor: savedStyle.blockColor || "default",
                   imageSize: savedStyle.imageSize || "medium",
                   startParagraphIndex: 0,
                   endParagraphIndex: 0,
@@ -256,6 +261,7 @@ const paginateAllSubtasks = (
                 themeStyle: savedStyle.themeStyle || defaultThemeStyle,
                 borderStyle: savedStyle.borderStyle || defaultBorderStyle,
                 photoStyle: savedStyle.photoStyle || defaultPhotoStyle,
+                blockColor: savedStyle.blockColor || "default",
                 imageSize: savedStyle.imageSize || "medium",
                 startParagraphIndex: 0,
                 endParagraphIndex: 0,
@@ -347,6 +353,7 @@ const paginateAllSubtasks = (
         themeStyle: savedStyle.themeStyle || defaultThemeStyle,
         borderStyle: savedStyle.borderStyle || defaultBorderStyle,
         photoStyle: savedStyle.photoStyle || defaultPhotoStyle,
+        blockColor: savedStyle.blockColor || "default",
         imageSize: savedStyle.imageSize || "medium",
         startParagraphIndex: currentStart,
         endParagraphIndex: bestEnd,
@@ -789,7 +796,8 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
       fontSize: selectedElement.fontSize,
       imageSize: selectedElement.imageSize,
       imageDensity: selectedElement.imageDensity,
-      paddingY: selectedElement.paddingY
+      paddingY: selectedElement.paddingY,
+      blockColor: selectedElement.blockColor
     });
     alert("Styl byl úspěšně aplikován na celou knihu!");
   };
@@ -811,7 +819,8 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
             themeStyle: el.themeStyle,
             borderStyle: el.borderStyle,
             photoStyle: el.photoStyle,
-            imageSize: el.imageSize
+            imageSize: el.imageSize,
+            blockColor: el.blockColor
           };
         }
       });
@@ -978,7 +987,25 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
     }
 
     const isSolidBlock = border === "solid-block";
-    const customAccentColor = isAdventure ? "#d4a373" : "#ea580c";
+    const baseAccentColor = isAdventure ? "#d4a373" : "#ea580c";
+    
+    // Resolve block color theme
+    const bColor = el.blockColor || "default";
+    let accentColorTheme = baseAccentColor;
+    if (bColor === "terracotta") accentColorTheme = "#B85C43";
+    else if (bColor === "navy") accentColorTheme = "#2C4E65";
+    else if (bColor === "sage") accentColorTheme = "#526E5B";
+    else if (bColor === "charcoal") accentColorTheme = "#3D3A36";
+    else if (bColor === "plum") accentColorTheme = "#5E3E52";
+    else if (bColor === "sand") accentColorTheme = "#A89B85";
+    else if (bColor === "rose") accentColorTheme = "#A87C7C";
+
+    // If it is solid block, determine background color
+    let blockBg = accentColorTheme;
+    if (bColor === "default") {
+      blockBg = isAdventure ? "#1E3E54" : "#853E2B"; // default navy/terracotta
+      accentColorTheme = isAdventure ? "#1E3E54" : "#853E2B";
+    }
 
     let articleClass = `blog-article-print transition-all duration-300 ${paddingClass} `;
     let styleObj: React.CSSProperties = {};
@@ -987,17 +1014,17 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
       articleClass += "bg-[#FAF7F0] border-2 border-dashed border-[#E4DEC6] rounded-[24px] shadow-[0_8px_20px_rgba(180,170,140,0.15)] mx-2 my-3 relative overflow-hidden";
     } else if (border === "solid-accent") {
       articleClass += "bg-white border-[4px] rounded-none shadow-lg mx-2 my-3";
-      styleObj = { borderColor: customAccentColor };
+      styleObj = { borderColor: accentColorTheme };
     } else if (border === "double-vintage") {
       articleClass += "bg-[#FCFAF2] border-[5px] border-double border-[#5C4D3C] rounded-[4px] shadow-[0_6px_22px_rgba(90,80,60,0.12)] mx-2 my-3";
     } else if (border === "solid-block") {
-      const blockBg = isAdventure ? "#1E3E54" : "#853E2B"; // deep navy or terracotta block
       articleClass += "text-stone-50 rounded-[16px] shadow-[0_10px_25px_rgba(0,0,0,0.08)] mx-2 my-3 border border-transparent";
       styleObj = { backgroundColor: blockBg };
     } else {
       // none or default
       if (themeStyle === "magazine") {
-        articleClass += "bg-gradient-to-br from-white to-stone-50/70 border border-stone-200/80 border-l-[6px] border-orange-500 shadow-[0_10px_25px_rgba(0,0,0,0.03)] rounded-r-3xl rounded-l-md mx-2 my-3";
+        articleClass += "bg-gradient-to-br from-white to-stone-50/70 border border-stone-200/80 border-l-[6px] shadow-[0_10px_25px_rgba(0,0,0,0.03)] rounded-r-3xl rounded-l-md mx-2 my-3";
+        styleObj = { borderLeftColor: accentColorTheme };
       } else if (themeStyle === "travelbook") {
         articleClass += "bg-[#FCFAF2] border border-[#5C4D3C]/30 rounded-lg shadow-md mx-2 my-3";
       } else {
@@ -1013,7 +1040,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
       : themeStyle === "travelbook"
       ? "text-[#4E3629]"
       : themeStyle === "magazine"
-      ? "text-orange-600 font-extrabold uppercase tracking-tight"
+      ? "font-extrabold uppercase tracking-tight"
       : "text-stone-950";
 
     const titleFontClass = 
@@ -1056,18 +1083,19 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                 handleUpdateElement(el.id, { content: { ...post, title: newTitle } });
               }}
               className={`text-4xl font-black leading-tight mb-3 outline-none ${titleFontClass} ${headerColorClass}`}
+              style={(!isSolidBlock && themeStyle === "magazine") ? { color: accentColorTheme } : {}}
             >
               {post.title}
             </h2>
             
             <div className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[10px] font-black uppercase tracking-[0.2em] ${metaColorClass}`}>
-              <span style={isSolidBlock ? {} : { color: customAccentColor }}>
+              <span style={isSolidBlock ? {} : { color: accentColorTheme }}>
                 {date.toLocaleDateString("cs-CZ")} o {date.toLocaleTimeString("cs-CZ", { hour: '2-digit', minute: '2-digit' })}
               </span>
               {post.locations?.[0] && (
                 <div className="flex items-center gap-1.5">
                   <span className="opacity-40">•</span>
-                  <MapPin size={12} style={isSolidBlock ? {} : { color: customAccentColor }} />
+                  <MapPin size={12} style={isSolidBlock ? {} : { color: accentColorTheme }} />
                   <span>{post.locations[0].placeName || post.locations[0].address}</span>
                 </div>
               )}
@@ -1089,22 +1117,28 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                 mbClass = "mb-2";
               }
 
-              return (
-                <div key={pIdx} className="space-y-4">
-                  <div className={`relative font-medium ${fontSizeClass} ${textColorClass}`}>
-                    {pIdx === 0 && showDropCap && (
-                      <span className={`drop-cap-print ${
-                        themeStyle === "journal" 
-                          ? "text-[#8C7A5F] opacity-50 font-serif" 
-                          : themeStyle === "travelbook"
-                          ? "text-[#5C4D3C] opacity-50 font-serif"
-                          : themeStyle === "magazine" 
-                          ? "text-orange-600 opacity-80" 
-                          : ""
-                      }`}>
-                        {para.charAt(0)}
-                      </span>
-                    )}
+              const isOddImages = density !== "hidden" && paraImages.length > 0 && (paraImages.length % 2 !== 0);
+
+              const renderParagraphText = (isInCard: boolean) => {
+                const dropCapSpan = pIdx === 0 && showDropCap && (
+                  <span className={`drop-cap-print ${
+                    themeStyle === "journal" 
+                      ? "text-[#8C7A5F] opacity-50 font-serif" 
+                      : themeStyle === "travelbook"
+                      ? "text-[#5C4D3C] opacity-50 font-serif"
+                      : themeStyle === "magazine" 
+                      ? "opacity-80" 
+                      : ""
+                  }`}
+                  style={themeStyle === "magazine" ? { color: accentColorTheme } : {}}
+                  >
+                    {para.charAt(0)}
+                  </span>
+                );
+
+                return (
+                  <div className={`relative font-medium`}>
+                    {dropCapSpan}
                     <p 
                       contentEditable={isInteractive}
                       suppressContentEditableWarning
@@ -1120,14 +1154,67 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                         const newDescription = newAllParagraphs.join("\n\n");
                         handleUpdateElement(el.id, { content: { ...post, description: newDescription } });
                       }}
-                      className="whitespace-pre-wrap outline-none focus:bg-orange-500/5 p-1 rounded transition-colors"
+                      className={`whitespace-pre-wrap outline-none focus:bg-orange-500/5 p-1 rounded transition-colors ${fontSizeClass} ${
+                        isInCard 
+                          ? isSolidBlock 
+                            ? "text-stone-100" 
+                            : themeStyle === "journal" 
+                            ? "text-[#4A4335] font-serif" 
+                            : themeStyle === "travelbook" 
+                            ? "text-[#3E342F] font-serif" 
+                            : themeStyle === "magazine" 
+                            ? "text-stone-900" 
+                            : "text-stone-800"
+                          : textColorClass
+                      }`}
                     >
                       {pIdx === 0 && showDropCap ? para.slice(1) : para}
                     </p>
                   </div>
+                );
+              };
+
+              let cardWrapperClass = "break-inside-avoid w-full min-h-[220px] flex flex-col justify-center p-6 rounded-2xl relative shadow-md mb-4 ";
+              let cardStyle: React.CSSProperties = {};
+              
+              if (isSolidBlock) {
+                cardWrapperClass += "bg-white/10 backdrop-blur-sm border border-white/20 shadow-inner";
+              } else {
+                if (themeStyle === "journal") {
+                  cardWrapperClass += "bg-[#FAF7F0] border border-dashed border-[#E4DEC6] rounded-[16px] shadow-[0_4px_12px_rgba(180,170,140,0.1)]";
+                  cardStyle = {
+                    backgroundImage: "linear-gradient(#e4dec6 1px, transparent 1px)",
+                    backgroundSize: "100% 24px",
+                    lineHeight: "24px"
+                  };
+                  const cardHash = pIdx * 13;
+                  const angle = (cardHash % 3) - 1; // -1, 0, 1 degree
+                  cardStyle.transform = `rotate(${angle}deg)`;
+                } else if (themeStyle === "travelbook") {
+                  cardWrapperClass += "bg-[#FCFAF2] border-[4px] border-double border-[#5C4D3C] rounded-sm shadow-md";
+                  const cardHash = pIdx * 17;
+                  const angle = (cardHash % 5) - 2; // -2 to 2 degrees
+                  cardStyle.transform = `rotate(${angle}deg)`;
+                } else if (themeStyle === "magazine") {
+                  cardWrapperClass += "bg-gradient-to-br from-white to-stone-50 border border-stone-200 border-l-[6px] rounded-r-2xl rounded-l-sm shadow-sm";
+                  cardStyle.borderLeftColor = accentColorTheme;
+                } else {
+                  cardWrapperClass += "bg-white/80 backdrop-blur-sm border border-stone-200 shadow-sm rounded-2xl";
+                }
+              }
+
+              return (
+                <div key={pIdx} className="space-y-4">
+                  {!isOddImages && renderParagraphText(false)}
 
                   {density !== "hidden" && paraImages.length > 0 && (
                     <div className={`${columnClass} w-full`}>
+                      {isOddImages && (
+                        <div className={cardWrapperClass} style={cardStyle}>
+                          {renderParagraphText(true)}
+                        </div>
+                      )}
+                      
                       {paraImages.map((att: any, attIdx: number) => {
                         const isLarge = largeImageIds.includes(att.id);
                         
@@ -1153,7 +1240,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                             ...wrapperStyle,
                             transform: `rotate(${angle}deg)`,
                           };
-                          actualWrapperClass = `break-inside-avoid block w-fit max-w-full mx-auto border-[8px] border-b-[28px] border-white bg-white p-0.5 shadow-md shadow-stone-500/20 rounded-sm relative group overflow-hidden ${mbClass}`;
+                          actualWrapperClass = `break-inside-avoid block w-fit max-w-full mx-auto border-[10px] border-b-[32px] border-white bg-[#FCFAF6] p-0.5 shadow-[6px_10px_24px_rgba(50,40,30,0.16)] rounded-sm relative group overflow-hidden ${mbClass}`;
                           showWashiTape = true;
                         } else if (pStyle === "scrapbook") {
                           const angle = ((hash + attIdx * 23) % 13) - 6; // -6 to +6 degrees
@@ -1161,7 +1248,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                             ...wrapperStyle,
                             transform: `rotate(${angle}deg)`,
                           };
-                          actualWrapperClass = `break-inside-avoid block w-fit max-w-full mx-auto border-[6px] border-white bg-[#F4EFE6] p-0.5 shadow-[2px_4px_12px_rgba(0,0,0,0.12)] rounded-sm relative group ${mbClass}`;
+                          actualWrapperClass = `break-inside-avoid block w-fit max-w-full mx-auto border-[8px] border-white bg-[#FAF6EE] p-0.5 shadow-[4px_8px_20px_rgba(70,60,50,0.15)] rounded-sm relative group ${mbClass}`;
                           showPhotoCorners = true;
                         } else if (pStyle === "tilted") {
                           const baseAngle = attIdx % 2 === 0 ? -4 : 4;
@@ -1171,14 +1258,14 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                             ...wrapperStyle,
                             transform: `rotate(${angle}deg)`,
                           };
-                          actualWrapperClass = `break-inside-avoid block w-fit max-w-full mx-auto border-[6px] border-white bg-white p-0.5 shadow-xl relative group ${mbClass}`;
+                          actualWrapperClass = `break-inside-avoid block w-fit max-w-full mx-auto border-[8px] border-white bg-white p-0.5 shadow-[8px_16px_35px_rgba(0,0,0,0.14)] relative group ${mbClass}`;
                         } else if (pStyle === "circle-oval") {
-                          actualWrapperClass = `break-inside-avoid block w-fit max-w-full mx-auto rounded-t-[100px] rounded-b-[20px] shadow-lg border border-stone-200/40 bg-white p-1 relative group overflow-hidden ${mbClass}`;
+                          actualWrapperClass = `break-inside-avoid block w-fit max-w-full mx-auto rounded-t-[140px] rounded-b-[30px] border border-stone-200/40 bg-white p-1.5 shadow-[0_20px_45px_rgba(0,0,0,0.08)] relative group overflow-hidden ${mbClass}`;
                         } else {
                           // standard
                           actualWrapperClass = isAdventure
-                            ? `break-inside-avoid block w-fit max-w-full mx-auto border-[8px] border-white bg-white p-0.5 shadow-md shadow-stone-400/30 rounded-sm relative group overflow-hidden ${mbClass}`
-                            : `break-inside-avoid block w-fit max-w-full mx-auto rounded-2xl shadow-xl bg-transparent relative group overflow-hidden ${mbClass}`;
+                            ? `break-inside-avoid block w-fit max-w-full mx-auto border-[10px] border-white bg-white p-0.5 shadow-[0_12px_24px_rgba(0,0,0,0.07)] rounded-sm relative group overflow-hidden ${mbClass}`
+                            : `break-inside-avoid block w-fit max-w-full mx-auto rounded-2xl shadow-[0_15px_35px_rgba(0,0,0,0.08)] bg-transparent border border-stone-100 relative group overflow-hidden ${mbClass}`;
                         }
 
                         return (
@@ -1189,7 +1276,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                           >
                             {showWashiTape && (
                               // Semi-transparent washi tape holding the Polaroid in place!
-                              <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-10 h-3.5 bg-amber-100/40 border-l border-r border-amber-200/20 shadow-sm rotate-[-3deg] pointer-events-none select-none z-[10]" />
+                              <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-10 h-3.5 bg-amber-100/35 border-l border-r border-amber-200/20 shadow-[0_1px_2px_rgba(0,0,0,0.02)] rotate-[-3deg] backdrop-blur-[0.5px] pointer-events-none select-none z-[10]" />
                             )}
 
                             {showPhotoCorners && (
@@ -1274,7 +1361,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                       ...wrapperStyle,
                       transform: `rotate(${angle}deg)`,
                     };
-                    actualWrapperClass = `break-inside-avoid block w-fit max-w-full mx-auto border-[8px] border-b-[28px] border-white bg-white p-0.5 shadow-md shadow-stone-500/20 rounded-sm relative group overflow-hidden ${mbClass}`;
+                    actualWrapperClass = `break-inside-avoid block w-fit max-w-full mx-auto border-[10px] border-b-[32px] border-white bg-[#FCFAF6] p-0.5 shadow-[6px_10px_24px_rgba(50,40,30,0.16)] rounded-sm relative group overflow-hidden ${mbClass}`;
                     showWashiTape = true;
                   } else if (pStyle === "scrapbook") {
                     const angle = ((hash + attIdx * 23) % 13) - 6; // -6 to +6 degrees
@@ -1282,7 +1369,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                       ...wrapperStyle,
                       transform: `rotate(${angle}deg)`,
                     };
-                    actualWrapperClass = `break-inside-avoid block w-fit max-w-full mx-auto border-[6px] border-white bg-[#F4EFE6] p-0.5 shadow-[2px_4px_12px_rgba(0,0,0,0.12)] rounded-sm relative group ${mbClass}`;
+                    actualWrapperClass = `break-inside-avoid block w-fit max-w-full mx-auto border-[8px] border-white bg-[#FAF6EE] p-0.5 shadow-[4px_8px_20px_rgba(70,60,50,0.15)] rounded-sm relative group ${mbClass}`;
                     showPhotoCorners = true;
                   } else if (pStyle === "tilted") {
                     const baseAngle = attIdx % 2 === 0 ? -4 : 4;
@@ -1292,14 +1379,14 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                       ...wrapperStyle,
                       transform: `rotate(${angle}deg)`,
                     };
-                    actualWrapperClass = `break-inside-avoid block w-fit max-w-full mx-auto border-[6px] border-white bg-white p-0.5 shadow-xl relative group ${mbClass}`;
+                    actualWrapperClass = `break-inside-avoid block w-fit max-w-full mx-auto border-[8px] border-white bg-white p-0.5 shadow-[8px_16px_35px_rgba(0,0,0,0.14)] relative group ${mbClass}`;
                   } else if (pStyle === "circle-oval") {
-                    actualWrapperClass = `break-inside-avoid block w-fit max-w-full mx-auto rounded-t-[100px] rounded-b-[20px] shadow-lg border border-stone-200/40 bg-white p-1 relative group overflow-hidden ${mbClass}`;
+                    actualWrapperClass = `break-inside-avoid block w-fit max-w-full mx-auto rounded-t-[140px] rounded-b-[30px] border border-stone-200/40 bg-white p-1.5 shadow-[0_20px_45px_rgba(0,0,0,0.08)] relative group overflow-hidden ${mbClass}`;
                   } else {
                     // standard
                     actualWrapperClass = isAdventure
-                      ? `break-inside-avoid block w-fit max-w-full mx-auto border-[8px] border-white bg-white p-0.5 shadow-md shadow-stone-400/30 rounded-sm relative group overflow-hidden ${mbClass}`
-                      : `break-inside-avoid block w-fit max-w-full mx-auto rounded-2xl shadow-xl bg-transparent relative group overflow-hidden ${mbClass}`;
+                      ? `break-inside-avoid block w-fit max-w-full mx-auto border-[10px] border-white bg-white p-0.5 shadow-[0_12px_24px_rgba(0,0,0,0.07)] rounded-sm relative group overflow-hidden ${mbClass}`
+                      : `break-inside-avoid block w-fit max-w-full mx-auto rounded-2xl shadow-[0_15px_35px_rgba(0,0,0,0.08)] bg-transparent border border-stone-100 relative group overflow-hidden ${mbClass}`;
                   }
 
                   return (
@@ -1309,7 +1396,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                       style={wrapperStyle}
                     >
                       {showWashiTape && (
-                        <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-10 h-3.5 bg-amber-100/40 border-l border-r border-amber-200/20 shadow-sm rotate-[-3deg] pointer-events-none select-none z-[10]" />
+                        <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-10 h-3.5 bg-amber-100/35 border-l border-r border-amber-200/20 shadow-[0_1px_2px_rgba(0,0,0,0.02)] rotate-[-3deg] backdrop-blur-[0.5px] pointer-events-none select-none z-[10]" />
                       )}
 
                       {showPhotoCorners && (
@@ -1621,8 +1708,51 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                         </div>
                      </div>
 
-                     <div className="space-y-1">
-                        <span className="text-[9px] font-black uppercase tracking-widest text-white/50 block">Styl a úhly fotek</span>
+                      <div className="space-y-1">
+                         <span className="text-[9px] font-black uppercase tracking-widest text-white/50 block">Decentní barva motivu</span>
+                         <div className="flex flex-wrap gap-2 bg-white/5 p-2 rounded-xl justify-between">
+                            {(["default", "terracotta", "navy", "sage", "charcoal", "plum", "sand", "rose"] as const).map(color => {
+                               const colorMap = {
+                                  default: "bg-stone-600 border-stone-400",
+                                  terracotta: "bg-[#B85C43] border-[#D87C63]",
+                                  navy: "bg-[#2C4E65] border-[#4C6E85]",
+                                  sage: "bg-[#526E5B] border-[#728E7B]",
+                                  charcoal: "bg-[#3D3A36] border-[#5D5A56]",
+                                  plum: "bg-[#5E3E52] border-[#7E5E72]",
+                                  sand: "bg-[#A89B85] border-[#C8BBA5]",
+                                  rose: "bg-[#A87C7C] border-[#C89C9C]"
+                               };
+                               const labelMap = {
+                                  default: "Výchozí",
+                                  terracotta: "Terakota",
+                                  navy: "Námořnická",
+                                  sage: "Šalvěj",
+                                  charcoal: "Uhlí",
+                                  plum: "Švestka",
+                                  sand: "Písek",
+                                  rose: "Růže"
+                               };
+                               const isActive = selectedElement.blockColor === color || (!selectedElement.blockColor && color === "default");
+                               return (
+                                  <button
+                                    key={color}
+                                    type="button"
+                                    onClick={() => handleUpdateElement(selectedElementId!, { blockColor: color })}
+                                    className={`group relative flex items-center justify-center w-6 h-6 rounded-full transition-all border-2 ${isActive ? 'border-white scale-110 shadow-lg' : 'border-transparent hover:scale-105 opacity-80 hover:opacity-100'}`}
+                                    title={labelMap[color]}
+                                  >
+                                     <span className={`w-full h-full rounded-full ${colorMap[color].split(' ')[0]}`} />
+                                     <span className="absolute bottom-full mb-1 text-[8px] bg-black text-white px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-[30]">
+                                        {labelMap[color]}
+                                     </span>
+                                  </button>
+                               );
+                            })}
+                         </div>
+                      </div>
+
+                      <div className="space-y-1">
+                         <span className="text-[9px] font-black uppercase tracking-widest text-white/50 block">Styl a úhly fotek</span>
                         <div className="grid grid-cols-2 gap-1 text-[8px] font-black uppercase tracking-wider text-center bg-white/5 p-1 rounded-xl">
                            {(["standard", "polaroid", "scrapbook", "tilted", "circle-oval"] as const).map(pStyle => (
                               <button 
@@ -1848,6 +1978,49 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                            {bStyle === "none" ? "Bez rámečku" : bStyle === "solid-accent" ? "Dolce Vita" : bStyle === "dashed-warm" ? "Deníkový" : bStyle === "double-vintage" ? "Retro dvojitý" : "Accent barevný blok"}
                         </button>
                      ))}
+                  </div>
+               </div>
+
+               {/* Global Theme Color */}
+               <div className="space-y-1">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-white/50 block">Globální barva motivu</span>
+                  <div className="flex flex-wrap gap-2 bg-white/5 p-2 rounded-xl justify-between">
+                     {(["default", "terracotta", "navy", "sage", "charcoal", "plum", "sand", "rose"] as const).map(color => {
+                        const colorMap = {
+                           default: "bg-stone-600 border-stone-400",
+                           terracotta: "bg-[#B85C43] border-[#D87C63]",
+                           navy: "bg-[#2C4E65] border-[#4C6E85]",
+                           sage: "bg-[#526E5B] border-[#728E7B]",
+                           charcoal: "bg-[#3D3A36] border-[#5D5A56]",
+                           plum: "bg-[#5E3E52] border-[#7E5E72]",
+                           sand: "bg-[#A89B85] border-[#C8BBA5]",
+                           rose: "bg-[#A87C7C] border-[#C89C9C]"
+                        };
+                        const labelMap = {
+                           default: "Výchozí",
+                           terracotta: "Terakota",
+                           navy: "Námořnická",
+                           sage: "Šalvěj",
+                           charcoal: "Uhlí",
+                           plum: "Švestka",
+                           sand: "Písek",
+                           rose: "Růže"
+                        };
+                        return (
+                           <button
+                             key={color}
+                             type="button"
+                             onClick={() => handleApplyGlobalStyle({ blockColor: color })}
+                             className="group relative flex items-center justify-center w-6 h-6 rounded-full transition-all border-2 border-transparent hover:scale-105 opacity-80 hover:opacity-100"
+                             title={labelMap[color]}
+                           >
+                              <span className={`w-full h-full rounded-full ${colorMap[color].split(' ')[0]}`} />
+                              <span className="absolute bottom-full mb-1 text-[8px] bg-black text-white px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-[30]">
+                                 {labelMap[color]}
+                              </span>
+                           </button>
+                        );
+                     })}
                   </div>
                </div>
 

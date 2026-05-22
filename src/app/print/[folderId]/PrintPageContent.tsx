@@ -110,6 +110,32 @@ const splitCzechSentences = (text: string): string[] => {
   return sentences;
 };
 
+const minifySubTask = (t: any) => {
+  if (!t) return t;
+  return {
+    id: t.id,
+    title: t.title,
+    description: t.description,
+    recordedAt: t.recordedAt,
+    createdAt: t.createdAt,
+    date: t.date,
+    locations: t.locations?.map((l: any) => ({
+      id: l.id,
+      placeName: l.placeName,
+      address: l.address,
+      latitude: l.latitude,
+      longitude: l.longitude
+    })) || [],
+    attachments: t.attachments?.map((a: any) => ({
+      id: a.id,
+      name: a.name,
+      type: a.type,
+      url: a.url,
+      aspect: a.aspect
+    })) || []
+  };
+};
+
 const paginateAllSubtasks = (
   subTasks: any[],
   subtaskStyles: Record<string, any>,
@@ -130,39 +156,78 @@ const paginateAllSubtasks = (
 
   const getElementWeight = (el: PrintElement, density: string = "standard") => {
     const isFirstPage = el.startParagraphIndex === 0 && !el.isContinuation;
-    const headerWeight = isFirstPage ? 5 : 0;
+    const headerWeight = isFirstPage ? 8 : 0;
     
-    const parasCount = (el.endParagraphIndex || 0) - (el.startParagraphIndex || 0);
-    const paraWeight = parasCount * 3.5;
+    // Character-based accurate text weight calculation
+    const allParas = getSentenceChunks(el.content.description || "");
+    const start = el.startParagraphIndex || 0;
+    const end = el.endParagraphIndex || 0;
+    const paragraphs = allParas.slice(start, end);
     
-    const shownImagesCount = el.content.attachments?.filter((a: any) => 
+    const fontSize = el.fontSize || "base";
+    let sizeFactor = 1.0;
+    if (fontSize === "sm") sizeFactor = 0.85;
+    else if (fontSize === "lg") sizeFactor = 1.25;
+    else if (fontSize === "xl") sizeFactor = 1.5;
+    
+    let paraWeight = 0;
+    paragraphs.forEach((p: string) => {
+      const charCount = p.length;
+      const lines = Math.ceil(charCount / 75);
+      paraWeight += (lines * 2.5 + 1.5) * sizeFactor;
+    });
+    
+    const shownImages = el.content.attachments?.filter((a: any) => 
       a.type === "image" && !(el.hiddenImageIds || []).includes(a.id)
-    ).length || 0;
+    ) || [];
     
-    const imagesPerRow = density === "compact" ? 3 : density === "thumbnail" ? 4 : density === "hidden" ? 9999 : 2;
-    const numRows = density === "hidden" ? 0 : Math.ceil(shownImagesCount / imagesPerRow);
-    
-    const imgSize = el.imageSize || "medium";
-    let baseRowWeight = 12;
-    if (imgSize === "small") baseRowWeight = 8;
-    else if (imgSize === "large") baseRowWeight = 18;
-    else if (imgSize === "original") baseRowWeight = 16;
-    
-    let densityFactor = 1.0;
-    if (density === "compact") densityFactor = 0.8;
-    else if (density === "thumbnail") densityFactor = 0.7;
-    
-    const imagesWeight = numRows * Math.ceil(baseRowWeight * densityFactor);
+    let imagesWeight = 0;
+    if (density !== "hidden" && shownImages.length > 0) {
+      const imagesPerRow = density === "compact" ? 3 : density === "thumbnail" ? 4 : 2;
+      let densityFactor = 1.0;
+      if (density === "compact") densityFactor = 0.85;
+      else if (density === "thumbnail") densityFactor = 0.75;
+      
+      const imgSize = el.imageSize || "medium";
+      
+      for (let i = 0; i < shownImages.length; i += imagesPerRow) {
+        const rowImages = shownImages.slice(i, i + imagesPerRow);
+        let maxRowWeight = 0;
+        
+        rowImages.forEach((img: any) => {
+          const isPortrait = img.aspect ? img.aspect < 0.95 : false;
+          let imgWeight = 28; 
+          
+          if (isPortrait) {
+            if (imgSize === "small") imgWeight = 26;
+            else if (imgSize === "large") imgWeight = 56;
+            else if (imgSize === "original") imgWeight = 42;
+            else imgWeight = 42; 
+          } else {
+            if (imgSize === "small") imgWeight = 18;
+            else if (imgSize === "large") imgWeight = 40;
+            else if (imgSize === "original") imgWeight = 30;
+            else imgWeight = 28; 
+          }
+          
+          if (imgWeight > maxRowWeight) {
+            maxRowWeight = imgWeight;
+          }
+        });
+        
+        imagesWeight += Math.ceil(maxRowWeight * densityFactor);
+      }
+    }
     
     return headerWeight + paraWeight + imagesWeight;
   };
 
   const paginated: PrintPage[] = [];
 
-  subTasks.forEach((t: any) => {
+  subTasks.forEach((rawT: any) => {
+    const t = minifySubTask(rawT);
     const savedStyle = subtaskStyles[t.id] || {};
     const density = savedStyle.imageDensity || "standard";
-    const imagesPerRow = density === "compact" ? 3 : density === "thumbnail" ? 4 : density === "hidden" ? 9999 : 2;
     const allImages = t.attachments?.filter((a: any) => a.type === "image") || [];
     
     const allParas = getSentenceChunks(t.description || "");
@@ -205,7 +270,7 @@ const paginateAllSubtasks = (
           lastPage.elements.forEach(el => {
             lastPageWeight += getElementWeight(el, el.imageDensity || "standard");
           });
-          if (lastPageWeight + 5 <= 100) {
+          if (lastPageWeight <= 40 && lastPageWeight + 8 <= 100) {
             lastPage.elements.push({
               id: `entry-${t.id}`,
               type: "blog-entry",
@@ -271,6 +336,7 @@ const paginateAllSubtasks = (
     
     while (currentStart < N || (currentStart === 0 && N === 0 && M > 0)) {
       if (N === 0) {
+        const imagesPerRow = density === "compact" ? 3 : density === "thumbnail" ? 4 : 2;
         const imagesPerPage = imagesPerRow * 2;
         let imgIdx = 0;
         while (imgIdx < M) {
@@ -289,29 +355,41 @@ const paginateAllSubtasks = (
               lastPage.elements.forEach(el => {
                 lastPageWeight += getElementWeight(el, el.imageDensity || "standard");
               });
-              const itemWeight = getCandidateWeight(0, 0, chunkImageIds);
-              if (lastPageWeight + itemWeight <= 100) {
-                lastPage.elements.push({
-                  id: `entry-${t.id}-img-${imgIdx}`,
-                  type: "blog-entry",
-                  content: { ...t },
-                  x: 0,
-                  y: 0,
-                  width: 100,
-                  fontSize: savedStyle.fontSize || "base",
-                  imageDensity: density,
-                  paddingY: savedStyle.paddingY || "medium",
-                  themeStyle: savedStyle.themeStyle || defaultThemeStyle,
-                  borderStyle: savedStyle.borderStyle || defaultBorderStyle,
-                  photoStyle: savedStyle.photoStyle || defaultPhotoStyle,
-                  blockColor: savedStyle.blockColor || "default",
-                  imageSize: savedStyle.imageSize || "medium",
-                  startParagraphIndex: 0,
-                  endParagraphIndex: 0,
-                  hiddenImageIds: hiddenImageIds,
-                  isContinuation: imgIdx > 0
-                });
-                added = true;
+              
+              let canFit = false;
+              if (imgIdx > 0) {
+                canFit = true;
+              } else {
+                const totalSubTaskWeight = getCandidateWeight(0, 0, allImages.map((img: any) => img.id));
+                const fitsEntirely = lastPageWeight + totalSubTaskWeight <= 100;
+                canFit = fitsEntirely || (lastPageWeight <= 30);
+              }
+              
+              if (canFit) {
+                const itemWeight = getCandidateWeight(0, 0, chunkImageIds);
+                if (lastPageWeight + itemWeight <= 100) {
+                  lastPage.elements.push({
+                    id: `entry-${t.id}-img-${imgIdx}`,
+                    type: "blog-entry",
+                    content: { ...t },
+                    x: 0,
+                    y: 0,
+                    width: 100,
+                    fontSize: savedStyle.fontSize || "base",
+                    imageDensity: density,
+                    paddingY: savedStyle.paddingY || "medium",
+                    themeStyle: savedStyle.themeStyle || defaultThemeStyle,
+                    borderStyle: savedStyle.borderStyle || defaultBorderStyle,
+                    photoStyle: savedStyle.photoStyle || defaultPhotoStyle,
+                    blockColor: savedStyle.blockColor || "default",
+                    imageSize: savedStyle.imageSize || "medium",
+                    startParagraphIndex: 0,
+                    endParagraphIndex: 0,
+                    hiddenImageIds: hiddenImageIds,
+                    isContinuation: imgIdx > 0
+                  });
+                  added = true;
+                }
               }
             }
           }
@@ -358,19 +436,30 @@ const paginateAllSubtasks = (
             lastPageWeight += getElementWeight(el, el.imageDensity || "standard");
           });
           
-          for (let endCandidate = currentStart + 1; endCandidate <= N; endCandidate++) {
-            const shownImageIdsOnPage: string[] = [];
-            for (let p = currentStart; p < endCandidate; p++) {
-              const paraImgs = imagesByParaIdx[p] || [];
-              paraImgs.forEach((img: any) => shownImageIdsOnPage.push(img.id));
-            }
-            
-            const itemWeight = getCandidateWeight(currentStart, endCandidate, shownImageIdsOnPage);
-            if (lastPageWeight + itemWeight <= 100) {
-              bestEnd = endCandidate;
-              fitsOnLastPage = true;
-            } else {
-              break;
+          let canFit = false;
+          if (currentStart > 0) {
+            canFit = true;
+          } else {
+            const totalSubTaskWeight = getCandidateWeight(0, N, allImages.map((img: any) => img.id));
+            const fitsEntirely = lastPageWeight + totalSubTaskWeight <= 100;
+            canFit = fitsEntirely || (lastPageWeight <= 30);
+          }
+          
+          if (canFit) {
+            for (let endCandidate = currentStart + 1; endCandidate <= N; endCandidate++) {
+              const shownImageIdsOnPage: string[] = [];
+              for (let p = currentStart; p < endCandidate; p++) {
+                const paraImgs = imagesByParaIdx[p] || [];
+                paraImgs.forEach((img: any) => shownImageIdsOnPage.push(img.id));
+              }
+              
+              const itemWeight = getCandidateWeight(currentStart, endCandidate, shownImageIdsOnPage);
+              if (lastPageWeight + itemWeight <= 100) {
+                bestEnd = endCandidate;
+                fitsOnLastPage = true;
+              } else {
+                break;
+              }
             }
           }
         }

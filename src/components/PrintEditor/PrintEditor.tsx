@@ -15,7 +15,7 @@ interface PrintElement {
   height?: number;
   rotation?: number;
   // Custom styles for elements
-  fontSize?: "sm" | "base" | "lg" | "xl";
+  fontSize?: "xs" | "sm" | "base" | "lg" | "xl";
   imageDensity?: "compact" | "standard" | "thumbnail" | "hidden";
   paddingY?: "none" | "small" | "medium" | "large";
   hiddenImageIds?: string[];
@@ -194,9 +194,20 @@ const paginateAllSubtasks = (
     const end = el.endParagraphIndex || 0;
     const paragraphs = allParas.slice(start, end);
     
-    const fontSize = el.fontSize || "base";
+    let effectiveFontSize = el.fontSize || "base";
+    const descLength = el.content.description?.length || 0;
+    if (!el.fontSize) {
+      if (descLength > 1000) {
+        effectiveFontSize = "xs";
+      } else if (descLength > 500) {
+        effectiveFontSize = "sm";
+      }
+    }
+
+    const fontSize = effectiveFontSize;
     let sizeFactor = 1.0;
-    if (fontSize === "sm") sizeFactor = 0.85;
+    if (fontSize === "xs") sizeFactor = 0.7;
+    else if (fontSize === "sm") sizeFactor = 0.85;
     else if (fontSize === "lg") sizeFactor = 1.25;
     else if (fontSize === "xl") sizeFactor = 1.5;
     
@@ -1262,17 +1273,30 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
       });
     };
     
+    // Auto scale down font size for very long text descriptions
+    let effectiveFontSize = el.fontSize || "base";
+    const descLength = el.content.description?.length || 0;
+    if (!el.fontSize) {
+      if (descLength > 1000) {
+        effectiveFontSize = "xs";
+      } else if (descLength > 500) {
+        effectiveFontSize = "sm";
+      }
+    }
+
     // Select sizes based on element configuration
     const fontSizeClass = 
-      el.fontSize === "sm" ? "text-sm leading-relaxed" :
-      el.fontSize === "lg" ? "text-lg leading-relaxed" :
-      el.fontSize === "xl" ? "text-xl leading-relaxed" : "text-base leading-relaxed";
+      effectiveFontSize === "xs" ? "text-xs leading-relaxed" :
+      effectiveFontSize === "sm" ? "text-sm leading-relaxed" :
+      effectiveFontSize === "lg" ? "text-lg leading-relaxed" :
+      effectiveFontSize === "xl" ? "text-xl leading-relaxed" : "text-base leading-relaxed";
 
     // Boosted font size specifically for text cards inside photo grids to fill blank space elegantly
     const cardFontSizeClass = 
-      el.fontSize === "sm" ? "text-lg leading-relaxed font-semibold" :
-      el.fontSize === "lg" ? "text-2xl leading-relaxed font-semibold" :
-      el.fontSize === "xl" ? "text-3xl leading-relaxed font-semibold" : "text-xl leading-relaxed font-semibold";
+      effectiveFontSize === "xs" ? "text-base leading-relaxed font-semibold" :
+      effectiveFontSize === "sm" ? "text-lg leading-relaxed font-semibold" :
+      effectiveFontSize === "lg" ? "text-2xl leading-relaxed font-semibold" :
+      effectiveFontSize === "xl" ? "text-3xl leading-relaxed font-semibold" : "text-xl leading-relaxed font-semibold";
       
     const paddingClass =
       el.paddingY === "none" ? "px-1 py-0.5" :
@@ -1745,6 +1769,20 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
                           if (imgSize === "small") baseHeight = 240;
                           else if (imgSize === "large") baseHeight = 500;
                           else baseHeight = 380;
+                        }
+
+                        // Dynamically adjust standard/medium photo height down if we have many photos or long text to prevent page cropping!
+                        const descLength = el.content.description?.length || 0;
+                        if (imgSize === "medium" || !imgSize) {
+                          if (images.length >= 5) {
+                            baseHeight = descLength > 400 ? (isPortrait ? 210 : 130) : (isPortrait ? 240 : 150);
+                          } else if (images.length === 4) {
+                            baseHeight = descLength > 400 ? (isPortrait ? 240 : 155) : (isPortrait ? 280 : 185);
+                          } else if (images.length === 3) {
+                            baseHeight = descLength > 400 ? (isPortrait ? 290 : 185) : (isPortrait ? 330 : 210);
+                          } else if (images.length <= 2 && descLength > 600) {
+                            baseHeight = isPortrait ? 340 : 225;
+                          }
                         }
 
                         // Dynamic height offset +/- 30px based on hash and local index
@@ -3135,7 +3173,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
            >
               {/* Running header */}
               <div className="page-header select-none">
-                <div className="folder-name">{folder.title}</div>
+                <div></div>
                 <div className="page-num">{currentPageIndex + 1}</div>
               </div>
 
@@ -3280,7 +3318,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
            >
               {/* Running header */}
               <div className="page-header select-none">
-                <div className="folder-name">{folder.title}</div>
+                <div></div>
                 <div className="page-num">{pageIdx + 1}</div>
               </div>
 

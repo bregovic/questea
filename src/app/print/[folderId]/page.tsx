@@ -69,14 +69,33 @@ export default async function PrintPage({
         })
       : "";
 
+  const latestPrintVersion = await prisma.printVersion.findFirst({
+    where: { taskId: folder.id },
+    orderBy: { updatedAt: "desc" },
+  });
+
+  let dbPages = null;
+  let dbFormat = format;
+  if (latestPrintVersion) {
+    try {
+      dbPages = JSON.parse(latestPrintVersion.layout);
+      if (latestPrintVersion.format) {
+        dbFormat = latestPrintVersion.format;
+      }
+    } catch (e) {
+      console.error("Failed to parse DB layout:", e);
+    }
+  }
+
   return (
     <PrintPageContent
       folder={folder}
       posts={posts}
-      format={format as "A4" | "A5"}
+      format={(dbFormat || format) as "A4" | "A5"}
       style={style}
       startDate={startDate}
       endDate={endDate}
+      dbPages={dbPages}
     />
   );
 }

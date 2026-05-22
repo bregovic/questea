@@ -13,7 +13,7 @@ interface PrintElement {
   width: number;
   height?: number;
   rotation?: number;
-  fontSize?: "sm" | "base" | "lg" | "xl";
+  fontSize?: "xs" | "sm" | "base" | "lg" | "xl";
   imageDensity?: "compact" | "standard" | "thumbnail" | "hidden";
   paddingY?: "none" | "small" | "medium" | "large";
   hiddenImageIds?: string[];
@@ -44,6 +44,7 @@ interface PrintPageContentProps {
   style: string;
   startDate: string;
   endDate: string;
+  dbPages?: any[] | null;
 }
 
 const splitCzechSentences = (text: string): string[] => {
@@ -136,13 +137,78 @@ const minifySubTask = (t: any) => {
   };
 };
 
+const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+  const R = 6371; // Earth radius in km
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
+
 const paginateAllSubtasks = (
   subTasks: any[],
   subtaskStyles: Record<string, any>,
   defaultThemeStyle: string,
   defaultBorderStyle: string,
-  defaultPhotoStyle: string
+  defaultPhotoStyle: string,
+  folderTitle?: string
 ): PrintPage[] => {
+  // Compute journey map points & distances
+  const mapPoints = subTasks
+    .map((p: any) => {
+      const loc = p.locations?.[0];
+      if (loc && loc.latitude && loc.longitude) {
+        return { 
+          lat: loc.latitude, 
+          lng: loc.longitude, 
+          title: p.title 
+        };
+      }
+      return null;
+    })
+    .filter(Boolean) as { lat: number, lng: number, title: string }[];
+
+  let totalDist = 0;
+  for (let i = 0; i < subTasks.length - 1; i++) {
+    const current = subTasks[i];
+    const next = subTasks[i+1];
+    if (next.calculatedDistance !== null && next.calculatedDistance !== undefined) {
+      totalDist += next.calculatedDistance;
+    } else {
+      const loc1 = current.locations?.[0];
+      const loc2 = next.locations?.[0];
+      if (loc1 && loc2 && loc1.latitude && loc1.longitude && loc2.latitude && loc2.longitude) {
+        totalDist += calculateDistance(loc1.latitude, loc1.longitude, loc2.latitude, loc2.longitude);
+      }
+    }
+  }
+
+  const paginated: PrintPage[] = [];
+
+  // Add journey map page at the very beginning if points exist
+  if (mapPoints.length > 0) {
+    paginated.push({
+      elements: [{
+        id: "journey-map-cover",
+        type: "journey-map",
+        content: {
+          title: folderTitle || "",
+          points: mapPoints,
+          totalDistance: totalDist.toFixed(1)
+        },
+        x: 0,
+        y: 0,
+        width: 100
+      }]
+    });
+  }
+
   const getSentenceChunks = (text: string) => {
     if (!text) return [];
     const sentences = splitCzechSentences(text);
@@ -164,9 +230,20 @@ const paginateAllSubtasks = (
     const end = el.endParagraphIndex || 0;
     const paragraphs = allParas.slice(start, end);
     
-    const fontSize = el.fontSize || "base";
+    let effectiveFontSize = el.fontSize || "base";
+    const descLength = el.content.description?.length || 0;
+    if (!el.fontSize) {
+      if (descLength > 1000) {
+        effectiveFontSize = "xs";
+      } else if (descLength > 500) {
+        effectiveFontSize = "sm";
+      }
+    }
+
+    const fontSize = effectiveFontSize;
     let sizeFactor = 1.0;
-    if (fontSize === "sm") sizeFactor = 0.85;
+    if (fontSize === "xs") sizeFactor = 0.7;
+    else if (fontSize === "sm") sizeFactor = 0.85;
     else if (fontSize === "lg") sizeFactor = 1.25;
     else if (fontSize === "xl") sizeFactor = 1.5;
     
@@ -222,7 +299,8 @@ const paginateAllSubtasks = (
     return headerWeight + paraWeight + imagesWeight;
   };
 
-  const paginated: PrintPage[] = [];
+
+
 
   subTasks.forEach((rawT: any) => {
     const t = minifySubTask(rawT);
@@ -542,9 +620,10 @@ export function PrintPageContent({
   style,
   startDate,
   endDate,
+  dbPages,
 }: PrintPageContentProps) {
   const [mounted, setMounted] = useState(false);
-  const [pages, setPages] = useState<PrintPage[] | null>(null);
+  const [pages, setPages] = useState<PrintPage[] | null>(dbPages || null);
   const [formatState, setFormatState] = useState<"A4" | "A5">(format);
   const [ready, setReady] = useState(false);
 
@@ -574,8 +653,10 @@ export function PrintPageContent({
       } catch (e) {
         console.error("Failed to parse custom print layout:", e);
       }
+    } else if (dbPages) {
+      setPages(dbPages);
     }
-  }, [mounted, folder.id]);
+  }, [mounted, folder.id, dbPages]);
 
   const [templateState, setTemplateState] = useState<string>(folder.blogTemplate || "ADVENTURE");
   const isAdventure = templateState === "ADVENTURE";
@@ -585,8 +666,8 @@ export function PrintPageContent({
   const defaultPhotoStyle = isAdventure ? "scrapbook" : isElegant ? "circle-oval" : "polaroid";
 
   const autogeneratedPages = useMemo(() => {
-    return paginateAllSubtasks(posts, {}, defaultThemeStyle, defaultBorderStyle, defaultPhotoStyle);
-  }, [posts, defaultThemeStyle, defaultBorderStyle, defaultPhotoStyle]);
+    return paginateAllSubtasks(posts, {}, defaultThemeStyle, defaultBorderStyle, defaultPhotoStyle, folder.title);
+  }, [posts, defaultThemeStyle, defaultBorderStyle, defaultPhotoStyle, folder.title]);
 
   const activePages = pages || autogeneratedPages;
   const accentColor = isAdventure ? "#d4a373" : "#ea580c";
@@ -607,15 +688,28 @@ export function PrintPageContent({
   const BlogEntryRenderer = ({ post, el }: { post: any; el: PrintElement }) => {
     const date = new Date(post.recordedAt || post.createdAt);
     
+    // Auto scale down font size for very long text descriptions
+    let effectiveFontSize = el.fontSize || "base";
+    const descLength = el.content.description?.length || 0;
+    if (!el.fontSize) {
+      if (descLength > 1000) {
+        effectiveFontSize = "xs";
+      } else if (descLength > 500) {
+        effectiveFontSize = "sm";
+      }
+    }
+
     const fontSizeClass = 
-      el.fontSize === "sm" ? "text-sm leading-relaxed" :
-      el.fontSize === "lg" ? "text-lg leading-relaxed" :
-      el.fontSize === "xl" ? "text-xl leading-relaxed" : "text-base leading-relaxed";
+      effectiveFontSize === "xs" ? "text-xs leading-relaxed" :
+      effectiveFontSize === "sm" ? "text-sm leading-relaxed" :
+      effectiveFontSize === "lg" ? "text-lg leading-relaxed" :
+      effectiveFontSize === "xl" ? "text-xl leading-relaxed" : "text-base leading-relaxed";
 
     const cardFontSizeClass = 
-      el.fontSize === "sm" ? "text-lg leading-relaxed font-semibold" :
-      el.fontSize === "lg" ? "text-2xl leading-relaxed font-semibold" :
-      el.fontSize === "xl" ? "text-3xl leading-relaxed font-semibold" : "text-xl leading-relaxed font-semibold";
+      effectiveFontSize === "xs" ? "text-base leading-relaxed font-semibold" :
+      effectiveFontSize === "sm" ? "text-lg leading-relaxed font-semibold" :
+      effectiveFontSize === "lg" ? "text-2xl leading-relaxed font-semibold" :
+      effectiveFontSize === "xl" ? "text-3xl leading-relaxed font-semibold" : "text-xl leading-relaxed font-semibold";
       
     const paddingClass =
       el.paddingY === "none" ? "px-1 py-0.5" :
@@ -1054,6 +1148,21 @@ export function PrintPageContent({
                           else if (imgSize === "large") baseHeight = 500;
                           else baseHeight = 380;
                         }
+
+                        // Dynamically adjust standard/medium photo height down if we have many photos or long text to prevent page cropping!
+                        const descLength = el.content.description?.length || 0;
+                        if (imgSize === "medium" || !imgSize) {
+                          if (images.length >= 5) {
+                            baseHeight = descLength > 400 ? (isPortrait ? 210 : 130) : (isPortrait ? 240 : 150);
+                          } else if (images.length === 4) {
+                            baseHeight = descLength > 400 ? (isPortrait ? 240 : 155) : (isPortrait ? 280 : 185);
+                          } else if (images.length === 3) {
+                            baseHeight = descLength > 400 ? (isPortrait ? 290 : 185) : (isPortrait ? 330 : 210);
+                          } else if (images.length <= 2 && descLength > 600) {
+                            baseHeight = isPortrait ? 340 : 225;
+                          }
+                        }
+
 
                         const heightOffset = ((hash + attIdx * 31) % 7) * 10 - 30;
                         const defaultHeight = imgSize === "original" ? undefined : baseHeight + heightOffset;
@@ -1618,7 +1727,7 @@ export function PrintPageContent({
             <div className="pb-page paper-bg" key={pageIdx}>
               {/* Running header */}
               <div className="page-header">
-                <div className="folder-name">{folder.title}</div>
+                <div></div>
                 <div className="page-num">{pageIdx + 1}</div>
               </div>
 

@@ -575,6 +575,22 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
   useEffect(() => {
     if (isLoaded || !folder.subTasks) return;
     
+    // Load from localStorage if present
+    const saved = localStorage.getItem(`questea-print-layout-${folder.id}`);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed.pages && parsed.pages.length > 0) {
+          setPages(parsed.pages);
+          if (parsed.format) setFormat(parsed.format);
+          setIsLoaded(true);
+          return;
+        }
+      } catch (e) {
+        console.error("Failed to load layout from localStorage on mount:", e);
+      }
+    }
+    
     const subTasks = [...folder.subTasks]
       .filter((t: any) => !t.isDeleted && t.taskType !== "GPS_LOG")
       .sort((a: any, b: any) => new Date(a.recordedAt || a.createdAt).getTime() - new Date(b.recordedAt || b.createdAt).getTime());
@@ -644,6 +660,19 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
     setPages(paginated.length > 0 ? paginated : [{ elements: [] }]);
     setIsLoaded(true);
   }, [folder, isLoaded]);
+
+  // Real-time autosave to localStorage
+  useEffect(() => {
+    if (!isLoaded || pages.length === 0) return;
+    try {
+      localStorage.setItem(`questea-print-layout-${folder.id}`, JSON.stringify({
+        pages,
+        format
+      }));
+    } catch (e) {
+      console.error("Failed to autosave layout to localStorage:", e);
+    }
+  }, [pages, format, folder.id, isLoaded]);
 
   const handleUpdateElement = (id: string, data: Partial<PrintElement>) => {
     setPages(prev => prev.map(page => ({
@@ -991,26 +1020,19 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
     alert("Kniha byla úspěšně automaticky rozvržena!");
   };
 
-  const handleExport = async () => {
-    if (!pdfContainerRef.current) return;
-    if (pdfProgress) return; // already generating
-
-    setPdfProgress({ current: 0, total: pages.length });
-
+  const handleExport = () => {
+    // Open the dedicated print page in a new tab
+    // Save the layout and format to localStorage so the print page can pick it up!
     try {
-      await generatePhotoBookPdf(pdfContainerRef.current, {
-        format,
-        title: folder.title || "fotokniha",
-        onProgress: (current, total) => {
-          setPdfProgress({ current, total });
-        },
-      });
-    } catch (err) {
-      console.error("PDF generation failed:", err);
-      alert("Generování PDF se nezdařilo. Zkuste to prosím znovu.");
-    } finally {
-      setPdfProgress(null);
+      localStorage.setItem(`questea-print-layout-${folder.id}`, JSON.stringify({
+        pages,
+        format
+      }));
+    } catch (e) {
+      console.error("Failed to save layout to localStorage:", e);
     }
+    const printUrl = `/print/${folder.id}?format=${format}`;
+    window.open(printUrl, "_blank");
   };
 
 

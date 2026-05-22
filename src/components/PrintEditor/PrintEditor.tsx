@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { X, ChevronLeft, ChevronRight, Plus, Trash2, Maximize, Type, Image as ImageIcon, Printer, MapPin, Crop, ChevronUp, ChevronDown, ZoomIn, ZoomOut } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Plus, Trash2, Maximize, Type, Image as ImageIcon, Printer, MapPin, Crop, ChevronUp, ChevronDown, ZoomIn, ZoomOut, Download, Loader2 } from "lucide-react";
 import { JourneyMap } from "../Blog/BlogClient";
+import { generatePhotoBookPdf } from "../../lib/generatePdf";
 
 interface PrintElement {
   id: string;
@@ -475,9 +476,11 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
   const [customImageUrl, setCustomImageUrl] = useState("");
 
   const pageRef = useRef<HTMLDivElement>(null);
+  const pdfContainerRef = useRef<HTMLDivElement>(null);
   const [pageOverflows, setPageOverflows] = useState<Record<number, boolean>>({});
   const [imageAspects, setImageAspects] = useState<Record<string, number>>({});
   const [focusedImageId, setFocusedImageId] = useState<string | null>(null);
+  const [pdfProgress, setPdfProgress] = useState<{ current: number; total: number } | null>(null);
 
   useEffect(() => {
     if (!pageRef.current) return;
@@ -988,26 +991,26 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
     alert("Kniha byla úspěšně automaticky rozvržena!");
   };
 
-  const handleExport = () => {
-    // Inject dynamic @page size rule to match selected format
-    const pageSize = format === 'A5' ? '148mm 210mm' : '210mm 297mm';
-    const styleId = 'print-page-size-override';
-    let styleEl = document.getElementById(styleId) as HTMLStyleElement | null;
-    if (!styleEl) {
-      styleEl = document.createElement('style');
-      styleEl.id = styleId;
-      document.head.appendChild(styleEl);
+  const handleExport = async () => {
+    if (!pdfContainerRef.current) return;
+    if (pdfProgress) return; // already generating
+
+    setPdfProgress({ current: 0, total: pages.length });
+
+    try {
+      await generatePhotoBookPdf(pdfContainerRef.current, {
+        format,
+        title: folder.title || "fotokniha",
+        onProgress: (current, total) => {
+          setPdfProgress({ current, total });
+        },
+      });
+    } catch (err) {
+      console.error("PDF generation failed:", err);
+      alert("Generování PDF se nezdařilo. Zkuste to prosím znovu.");
+    } finally {
+      setPdfProgress(null);
     }
-    styleEl.textContent = `@media print { @page { size: ${pageSize} !important; margin: 0 !important; } }`;
-    
-    // Small delay to ensure style injection is applied, then print
-    setTimeout(() => {
-      window.print();
-      // Clean up after print dialog closes
-      setTimeout(() => {
-        styleEl?.remove();
-      }, 2000);
-    }, 100);
   };
 
 
@@ -2255,87 +2258,6 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
           left: -9999px;
           top: -9999px;
         }
-
-        @media print {
-          /* Default page = A4 */
-          @page {
-            margin: 0;
-            size: 210mm 297mm;
-          }
-          /* A5 override via class on body (set by JS before printing) */
-          @page :left, @page :right {
-            margin: 0;
-          }
-          body, html { 
-            margin: 0 !important; 
-            padding: 0 !important; 
-            background: white !important; 
-            overflow: visible !important;
-            height: auto !important;
-            width: auto !important;
-          }
-          .no-print { 
-            display: none !important; 
-          }
-          .print-editor-wrapper {
-            position: static !important;
-            display: block !important;
-            background: white !important;
-            color: #1c1917 !important;
-            overflow: visible !important;
-            height: auto !important;
-            width: auto !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            z-index: auto !important;
-          }
-          .print-only-container {
-            position: static !important;
-            left: auto !important;
-            top: auto !important;
-            display: block !important;
-            width: 100% !important;
-            height: auto !important;
-            margin: 0 !important;
-            padding: 0 !important;
-          }
-          .print-page { 
-            display: block !important;
-            position: relative !important;
-            page-break-after: always !important;
-            break-after: page !important;
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
-            box-shadow: none !important;
-            border: none !important;
-            margin: 0 !important;
-            background: #fcfaf7 !important;
-            color: #1c1917 !important;
-            overflow: hidden !important;
-          }
-          /* Force A4 physical page size */
-          .print-page.w-\[794px\] {
-            width: 210mm !important;
-            height: 297mm !important;
-            min-height: unset !important;
-            max-height: 297mm !important;
-            padding: 15mm !important;
-            box-sizing: border-box !important;
-          }
-          /* Force A5 physical page size */
-          .print-page.w-\[559px\] {
-            width: 148mm !important;
-            height: 210mm !important;
-            min-height: unset !important;
-            max-height: 210mm !important;
-            padding: 10mm !important;
-            box-sizing: border-box !important;
-          }
-          /* For A5 format, override the @page size */
-          body.print-format-a5 {
-            --page-format: a5;
-          }
-        }
       `}</style>
 
       {/* Header */}
@@ -2352,10 +2274,52 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
            ))}
         </div>
 
-        <button onClick={handleExport} className="flex items-center gap-2 bg-orange-600 hover:bg-orange-500 px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
-          <Printer size={14} /> PDF Tisk ({pages.length} stran)
+        <button 
+          onClick={handleExport} 
+          disabled={!!pdfProgress}
+          className={`flex items-center gap-2 px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+            pdfProgress 
+              ? 'bg-orange-800/50 text-orange-300 cursor-not-allowed' 
+              : 'bg-orange-600 hover:bg-orange-500 text-white'
+          }`}
+        >
+          {pdfProgress ? (
+            <>
+              <Loader2 size={14} className="animate-spin" />
+              Generuji {pdfProgress.current}/{pdfProgress.total}…
+            </>
+          ) : (
+            <>
+              <Download size={14} /> Stáhnout PDF ({pages.length} {pages.length === 1 ? 'strana' : pages.length < 5 ? 'strany' : 'stran'})
+            </>
+          )}
         </button>
       </header>
+
+      {/* PDF Generation Loading Overlay */}
+      {pdfProgress && (
+        <div className="fixed inset-0 z-[20000] bg-black/80 backdrop-blur-md flex flex-col items-center justify-center gap-6">
+          <div className="bg-stone-900 border border-white/10 rounded-3xl p-10 flex flex-col items-center gap-6 shadow-2xl max-w-sm w-full mx-4">
+            <Loader2 size={40} className="animate-spin text-orange-500" />
+            <div className="text-center space-y-1">
+              <p className="text-white font-black text-lg tracking-tight">Generuji fotoknihu…</p>
+              <p className="text-white/50 text-sm font-medium">
+                Stránka {pdfProgress.current} z {pdfProgress.total}
+              </p>
+            </div>
+            {/* Progress bar */}
+            <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden">
+              <div 
+                className="h-full bg-gradient-to-r from-orange-600 to-amber-500 rounded-full transition-all duration-300"
+                style={{ width: `${pdfProgress.total > 0 ? (pdfProgress.current / pdfProgress.total) * 100 : 0}%` }}
+              />
+            </div>
+            <p className="text-white/30 text-[11px] font-medium text-center">
+              Fotky se zachycují ve vysokém rozlišení.<br/>Vydrž chvíli, bude to hezké 📖
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="editor-container flex-1 flex overflow-hidden no-print">
         {/* Left Professional Sidebar Panel */}
@@ -3067,11 +3031,12 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
       </div>
 
       {/* OFF-SCREEN COMPILATION FOR PERFECT ALL-PAGES PDF PRINTING */}
-      <div className="print-only-container">
+      <div className="print-only-container" ref={pdfContainerRef}>
          {pages.map((page, pageIdx) => (
            <div 
              key={pageIdx} 
-             className={`print-page relative paper-bg overflow-hidden text-stone-950 p-4 ${format === 'A4' ? 'w-[794px] h-[1123px]' : 'w-[559px] h-[794px]'}`}
+             className={`print-page relative paper-bg overflow-hidden text-stone-950 ${format === 'A4' ? 'w-[794px] h-[1123px]' : 'w-[559px] h-[794px]'}`}
+             style={{ padding: format === 'A4' ? '56px' : '40px' }}
            >
               {page.elements.map((el, elIdx) => (
                 <React.Fragment key={el.id}>

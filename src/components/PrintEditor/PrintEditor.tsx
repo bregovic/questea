@@ -688,12 +688,13 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
     try {
       localStorage.setItem(`questea-print-layout-${folder.id}`, JSON.stringify({
         pages,
-        format
+        format,
+        template
       }));
     } catch (e) {
       console.error("Failed to autosave layout to localStorage:", e);
     }
-  }, [pages, format, folder.id, isLoaded]);
+  }, [pages, format, folder.id, isLoaded, template]);
 
   const handleUpdateElement = (id: string, data: Partial<PrintElement>) => {
     setPages(prev => prev.map(page => ({
@@ -1047,7 +1048,8 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
     try {
       localStorage.setItem(`questea-print-layout-${folder.id}`, JSON.stringify({
         pages,
-        format
+        format,
+        template
       }));
     } catch (e) {
       console.error("Failed to save layout to localStorage:", e);
@@ -2303,7 +2305,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
         }
 
         .page-header {
-          padding: 24px 48px 12px;
+          padding: 16px 48px 8px;
           border-bottom: 1px solid rgba(0,0,0,0.05);
           display: flex;
           justify-content: space-between;
@@ -2328,7 +2330,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
 
         .page-footer {
           margin-top: auto;
-          padding: 12px 48px 24px;
+          padding: 8px 48px 16px;
           border-top: 1px solid rgba(0,0,0,0.05);
           display: flex;
           justify-content: space-between;
@@ -3034,7 +3036,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
               </div>
 
               {/* Page Contents Wrapper */}
-              <div className="page-content-wrapper flex-1 relative w-full h-full overflow-hidden" style={{ padding: format === 'A4' ? '40px 56px' : '24px 36px' }}>
+              <div className="page-content-wrapper flex-1 relative w-full h-full overflow-hidden" style={{ padding: format === 'A4' ? '24px 56px' : '16px 36px' }}>
                  {pages[currentPageIndex]?.elements.map((el, elIdx) => (
                    <React.Fragment key={el.id}>
                       {elIdx > 0 && (
@@ -3179,7 +3181,7 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
               </div>
 
               {/* Page Contents */}
-              <div className="page-content-wrapper flex-1 relative w-full h-full overflow-hidden" style={{ padding: format === 'A4' ? '40px 56px' : '24px 36px' }}>
+              <div className="page-content-wrapper flex-1 relative w-full h-full overflow-hidden" style={{ padding: format === 'A4' ? '24px 56px' : '16px 36px' }}>
                 {page.elements.map((el, elIdx) => (
                   <React.Fragment key={el.id}>
                     {elIdx > 0 && (

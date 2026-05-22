@@ -479,15 +479,18 @@ export function PrintPageContent({
         if (parsed.format) {
           setFormatState(parsed.format);
         }
+        if (parsed.template) {
+          setTemplateState(parsed.template);
+        }
       } catch (e) {
         console.error("Failed to parse custom print layout:", e);
       }
     }
   }, [mounted, folder.id]);
 
-  const template = folder.blogTemplate || "MODERN";
-  const isAdventure = template === "ADVENTURE";
-  const isElegant = template === "ELEGANT";
+  const [templateState, setTemplateState] = useState<string>(folder.blogTemplate || "ADVENTURE");
+  const isAdventure = templateState === "ADVENTURE";
+  const isElegant = templateState === "ELEGANT";
   const defaultThemeStyle = isAdventure ? "travelbook" : isElegant ? "magazine" : "journal";
   const defaultBorderStyle = isAdventure ? "double-vintage" : isElegant ? "solid-accent" : "dashed-warm";
   const defaultPhotoStyle = isAdventure ? "scrapbook" : isElegant ? "circle-oval" : "polaroid";
@@ -1309,7 +1312,7 @@ export function PrintPageContent({
         .title-page .meta-accent { color: ${accentColor}; }
 
         .page-header {
-          padding: 24px 48px 12px;
+          padding: 16px 48px 8px;
           border-bottom: 1px solid rgba(0,0,0,0.05);
           display: flex;
           justify-content: space-between;
@@ -1333,7 +1336,7 @@ export function PrintPageContent({
 
         .page-footer {
           margin-top: auto;
-          padding: 12px 48px 24px;
+          padding: 8px 48px 16px;
           border-top: 1px solid rgba(0,0,0,0.05);
           display: flex;
           justify-content: space-between;
@@ -1453,8 +1456,8 @@ export function PrintPageContent({
             top: 0 !important;
             left: 0 !important;
             right: 0 !important;
-            height: 50px !important;
-            padding: 24px 48px 12px !important;
+            height: 40px !important;
+            padding: 16px 48px 8px !important;
             display: flex !important;
             justify-content: space-between !important;
             align-items: center !important;
@@ -1466,8 +1469,8 @@ export function PrintPageContent({
             bottom: 0 !important;
             left: 0 !important;
             right: 0 !important;
-            height: 50px !important;
-            padding: 12px 48px 24px !important;
+            height: 40px !important;
+            padding: 8px 48px 16px !important;
             display: flex !important;
             justify-content: space-between !important;
             align-items: center !important;
@@ -1476,13 +1479,13 @@ export function PrintPageContent({
 
           .pb-page .page-content-wrapper {
             position: absolute !important;
-            top: 50px !important;
-            bottom: 50px !important;
+            top: 40px !important;
+            bottom: 40px !important;
             left: 0 !important;
             right: 0 !important;
-            height: calc(${pageH} - 100px) !important;
+            height: calc(${pageH} - 80px) !important;
             overflow: hidden !important;
-            padding: ${formatState === 'A4' ? '40px 56px' : '24px 36px'} !important;
+            padding: ${formatState === 'A4' ? '24px 56px' : '16px 36px'} !important;
           }
 
           .pb-page:last-child {
@@ -1531,7 +1534,7 @@ export function PrintPageContent({
               </div>
 
               {/* Page Contents */}
-              <div className="page-content-wrapper" style={{ padding: formatState === 'A4' ? '40px 56px' : '24px 36px' }}>
+              <div className="page-content-wrapper" style={{ padding: formatState === 'A4' ? '24px 56px' : '16px 36px' }}>
                 {page.elements.map((el, elIdx) => (
                   <React.Fragment key={el.id}>
                     {elIdx > 0 && (

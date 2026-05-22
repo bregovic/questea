@@ -54,7 +54,7 @@ export async function generatePhotoBookPdf(
   containerEl.style.top = "0px";
   containerEl.style.zIndex = "-100";
   containerEl.style.width = `${pxW}px`;
-  containerEl.style.opacity = "0"; // invisible but renderable
+  containerEl.style.opacity = "1"; // hidden via z-index behind editor overlay
 
   // Small delay for layout to settle
   await new Promise((r) => setTimeout(r, 150));

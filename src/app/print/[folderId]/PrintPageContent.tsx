@@ -1371,28 +1371,29 @@ export function PrintPageContent({
         }
 
         @media print {
-          html, body {
+          /* Force all parent wrappers to let natural layout flow without collapsing or height restrictions */
+          html, body, body > div, main, #__next, .pages-wrapper {
             background: white !important;
+            color: #1c1917 !important;
             margin: 0 !important;
             padding: 0 !important;
-            width: ${pageW} !important;
-            height: ${pageH} !important;
+            width: auto !important;
+            height: auto !important;
+            min-height: 0 !important;
+            max-height: none !important;
+            overflow: visible !important;
+            position: static !important;
+            display: block !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
+          
           .print-controls { display: none !important; }
-          .pages-wrapper {
-            padding: 0 !important;
-            margin: 0 !important;
-            gap: 0 !important;
-            background: transparent !important;
-            width: 100% !important;
-            height: 100% !important;
-          }
-          .pb-page {
+          
+          /* Title page styling with high contrast */
+          .title-page {
             box-shadow: none !important;
             margin: 0 !important;
-            padding: 0 !important;
             border: none !important;
             width: ${pageW} !important;
             height: ${pageH} !important;
@@ -1402,9 +1403,88 @@ export function PrintPageContent({
             position: relative !important;
             display: flex !important;
             flex-direction: column !important;
+            justify-content: flex-end !important;
+            background: #FEFCF8 !important;
+            color: #1c1917 !important;
+            padding: 60px 56px !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
+          
+          .title-page h1 {
+            color: #1c1917 !important;
+            font-size: ${formatState === "A4" ? "82px" : "56px"} !important;
+            margin-bottom: 48px !important;
+          }
+          .title-page .eyebrow {
+            color: #ea580c !important;
+            margin-bottom: 24px !important;
+          }
+          .title-page .meta-line {
+            color: #78716c !important;
+            border-top: 1px solid rgba(0,0,0,0.08) !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 24px !important;
+            padding-top: 24px !important;
+          }
+          .title-page .meta-accent {
+            color: #ea580c !important;
+          }
+
+          /* Body page styling with highly stable absolute layout to avoid flex collapse bugs */
+          .pb-page {
+            box-shadow: none !important;
+            margin: 0 !important;
+            border: none !important;
+            width: ${pageW} !important;
+            height: ${pageH} !important;
+            page-break-after: always !important;
+            break-after: page !important;
+            overflow: hidden !important;
+            position: relative !important;
+            display: block !important; /* block layout so absolute children are sized perfectly */
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+
+          .pb-page .page-header {
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            height: 50px !important;
+            padding: 24px 48px 12px !important;
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            border-bottom: 1px solid rgba(0,0,0,0.05) !important;
+          }
+
+          .pb-page .page-footer {
+            position: absolute !important;
+            bottom: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            height: 50px !important;
+            padding: 12px 48px 24px !important;
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            border-top: 1px solid rgba(0,0,0,0.05) !important;
+          }
+
+          .pb-page .page-content-wrapper {
+            position: absolute !important;
+            top: 50px !important;
+            bottom: 50px !important;
+            left: 0 !important;
+            right: 0 !important;
+            height: calc(${pageH} - 100px) !important;
+            overflow: hidden !important;
+            padding: ${formatState === 'A4' ? '40px 56px' : '24px 36px'} !important;
+          }
+
           .pb-page:last-child {
             page-break-after: avoid !important;
             break-after: avoid !important;

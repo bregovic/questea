@@ -482,6 +482,27 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
   const [focusedImageId, setFocusedImageId] = useState<string | null>(null);
   const [pdfProgress, setPdfProgress] = useState<{ current: number; total: number } | null>(null);
 
+  const subTasksSortedForDates = useMemo(() => {
+    if (!folder.subTasks) return [];
+    return [...folder.subTasks]
+      .filter((t: any) => !t.isDeleted && t.taskType !== "GPS_LOG")
+      .sort((a: any, b: any) => new Date(a.recordedAt || a.createdAt).getTime() - new Date(b.recordedAt || b.createdAt).getTime());
+  }, [folder.subTasks]);
+
+  const startDate = useMemo(() => {
+    if (subTasksSortedForDates.length === 0) return "";
+    return new Date(subTasksSortedForDates[0].recordedAt || subTasksSortedForDates[0].createdAt).toLocaleDateString(
+      "cs-CZ", { day: "numeric", month: "long", year: "numeric" }
+    );
+  }, [subTasksSortedForDates]);
+
+  const endDate = useMemo(() => {
+    if (subTasksSortedForDates.length === 0) return "";
+    return new Date(subTasksSortedForDates[subTasksSortedForDates.length - 1].recordedAt || subTasksSortedForDates[subTasksSortedForDates.length - 1].createdAt).toLocaleDateString(
+      "cs-CZ", { day: "numeric", month: "long", year: "numeric" }
+    );
+  }, [subTasksSortedForDates]);
+
   useEffect(() => {
     if (!pageRef.current) return;
     
@@ -2280,6 +2301,64 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
           left: -9999px;
           top: -9999px;
         }
+
+        .page-header {
+          padding: 24px 48px 12px;
+          border-bottom: 1px solid rgba(0,0,0,0.05);
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          flex-shrink: 0;
+          width: 100%;
+        }
+        .page-header .folder-name {
+          font-family: 'Outfit', sans-serif;
+          font-size: 9px;
+          font-weight: 700;
+          letter-spacing: 0.25em;
+          text-transform: uppercase;
+          color: #A09580;
+        }
+        .page-header .page-num {
+          font-family: 'Playfair Display', serif;
+          font-size: 14px;
+          color: #C0B8A8;
+          font-style: italic;
+        }
+
+        .page-footer {
+          margin-top: auto;
+          padding: 12px 48px 24px;
+          border-top: 1px solid rgba(0,0,0,0.05);
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          flex-shrink: 0;
+          width: 100%;
+        }
+        .page-footer span {
+          font-family: 'Inter', sans-serif;
+          font-size: 8px;
+          font-weight: 600;
+          letter-spacing: 0.2em;
+          text-transform: uppercase;
+          color: #C0B8A8;
+        }
+        .questea-mark {
+          font-family: 'Playfair Display', serif;
+          font-size: 12px;
+          font-style: italic;
+          color: ${accentColor};
+          font-weight: 900;
+        }
+
+        .page-content-wrapper {
+          flex: 1;
+          position: relative;
+          width: 100%;
+          height: 100%;
+          overflow: hidden;
+        }
       `}</style>
 
       {/* Header */}
@@ -2945,77 +3024,90 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
            {/* The Interactive Page Canvas */}
            <div 
              ref={pageRef}
-             className={`print-page relative paper-bg shadow-2xl flex-shrink-0 transition-all duration-500 overflow-y-auto overflow-x-hidden text-stone-950 p-4 ${format === 'A4' ? 'w-[794px] h-[1123px]' : 'w-[559px] h-[794px]'}`}
+             className={`print-page relative paper-bg shadow-2xl flex-shrink-0 transition-all duration-500 overflow-hidden text-stone-950 flex flex-col ${format === 'A4' ? 'w-[794px] h-[1123px]' : 'w-[559px] h-[794px]'}`}
              onClick={() => { setSelectedElementId(null); setFocusedImageId(null); }}
            >
-              {pages[currentPageIndex]?.elements.map((el, elIdx) => (
-                <React.Fragment key={el.id}>
-                   {elIdx > 0 && (
-                     <div className="w-full py-4 flex items-center justify-center select-none no-print">
-                       <div className="h-px w-24 bg-stone-400/20 border-dashed border-t" />
-                       <span className="mx-3 text-[8px] font-black uppercase tracking-[0.3em] text-stone-400">Další stanoviště</span>
-                       <div className="h-px w-24 bg-stone-400/20 border-dashed border-t" />
-                     </div>
-                   )}
-                   <div 
-                     onClick={(e) => { e.stopPropagation(); setSelectedElementId(el.id); setFocusedImageId(null); }}
-                     className={`group transition-all absolute-element-container ${
-                       (el.x === 0 && el.y === 0 && el.type === 'blog-entry') ? 'relative w-full' : 'absolute'
-                     } ${selectedElementId === el.id ? 'border border-orange-500 bg-orange-500/5 z-[100]' : 'border border-transparent hover:border-orange-500/10'}`}
-                     style={{
-                       position: (el.x === 0 && el.y === 0 && el.type === 'blog-entry') ? 'relative' : 'absolute',
-                       left: (el.x === 0 && el.y === 0 && el.type === 'blog-entry') ? undefined : `${el.x}%`,
-                       top: (el.x === 0 && el.y === 0 && el.type === 'blog-entry') ? undefined : `${el.y}%`,
-                       width: `${el.width}%`,
-                       transform: el.rotation ? `rotate(${el.rotation}deg)` : 'none',
-                       marginBottom: (el.x === 0 && el.y === 0 && el.type === 'blog-entry') ? '1.5rem' : undefined
-                     }}
-                   >
-                  {el.type === 'blog-entry' ? (
-                    <BlogEntryRenderer post={el.content} el={el} isInteractive={true} />
-                  ) : el.type === 'custom-text' ? (
-                    <textarea 
-                      className={`w-full bg-transparent outline-none resize-none serif-font p-4 text-stone-900 border border-dashed border-stone-300 focus:border-stone-500 rounded-lg ${
-                        el.fontSize === "sm" ? "text-sm" : 
-                        el.fontSize === "lg" ? "text-lg" : 
-                        el.fontSize === "xl" ? "text-xl" : "text-base"
-                      }`} 
-                      value={el.content} 
-                      onChange={(e) => handleUpdateElement(el.id, { content: e.target.value })} 
-                    />
-                  ) : el.type === 'custom-image' ? (
-                    <div className="relative w-full h-full flex justify-center items-center group/img">
-                      <img src={el.content} className="max-w-full max-h-[500px] object-contain rounded-lg shadow-md border border-stone-200/40 p-1" />
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); handleDeleteElement(el.id); }}
-                        className="no-print absolute top-2 right-2 bg-black/80 hover:bg-red-600 text-white rounded-lg p-1.5 opacity-0 group-hover/img:opacity-100 transition-opacity"
+              {/* Running header */}
+              <div className="page-header select-none">
+                <div className="folder-name">{folder.title}</div>
+                <div className="page-num">{currentPageIndex + 1}</div>
+              </div>
+
+              {/* Page Contents Wrapper */}
+              <div className="page-content-wrapper flex-1 relative w-full h-full overflow-hidden" style={{ padding: format === 'A4' ? '40px 56px' : '24px 36px' }}>
+                 {pages[currentPageIndex]?.elements.map((el, elIdx) => (
+                   <React.Fragment key={el.id}>
+                      {elIdx > 0 && (
+                        <div className="w-full py-4 flex items-center justify-center select-none no-print">
+                          <div className="h-px w-24 bg-stone-400/20 border-dashed border-t" />
+                          <span className="mx-3 text-[8px] font-black uppercase tracking-[0.3em] text-stone-400">Další stanoviště</span>
+                          <div className="h-px w-24 bg-stone-400/20 border-dashed border-t" />
+                        </div>
+                      )}
+                      <div 
+                        onClick={(e) => { e.stopPropagation(); setSelectedElementId(el.id); setFocusedImageId(null); }}
+                        className={`group transition-all absolute-element-container ${
+                          (el.x === 0 && el.y === 0 && el.type === 'blog-entry') ? 'relative w-full' : 'absolute'
+                        } ${selectedElementId === el.id ? 'border border-orange-500 bg-orange-500/5 z-[100]' : 'border border-transparent hover:border-orange-500/10'}`}
+                        style={{
+                          position: (el.x === 0 && el.y === 0 && el.type === 'blog-entry') ? 'relative' : 'absolute',
+                          left: (el.x === 0 && el.y === 0 && el.type === 'blog-entry') ? undefined : `${el.x}%`,
+                          top: (el.x === 0 && el.y === 0 && el.type === 'blog-entry') ? undefined : `${el.y}%`,
+                          width: `${el.width}%`,
+                          transform: el.rotation ? `rotate(${el.rotation}deg)` : 'none',
+                          marginBottom: (el.x === 0 && el.y === 0 && el.type === 'blog-entry') ? '1.5rem' : undefined
+                        }}
                       >
-                         <Trash2 size={12} />
-                      </button>
-                    </div>
-                  ) : el.type === 'journey-map' ? (
-                    <div className={`px-12 py-12 flex flex-col justify-start items-center text-stone-900 w-full ${format === "A4" ? "h-[1000px]" : "h-[680px]"}`}>
-                      <div className="w-full text-center space-y-2 mt-4 mb-2">
-                         <span className="text-[11px] font-black uppercase tracking-[0.4em] text-orange-600 block">Expedice</span>
-                         <h1 className="text-5xl font-black tracking-tight leading-none text-stone-950 serif-font italic">
-                            {el.content.title}
-                         </h1>
-                         <div className="text-[10px] font-black uppercase tracking-widest text-stone-400 mt-2">
-                            {el.content.totalDistance} km • {el.content.points.length} zastávek
-                         </div>
-                         <div className="h-0.5 w-16 bg-orange-600/30 mx-auto mt-2" />
+                        {el.type === 'blog-entry' ? (
+                          <BlogEntryRenderer post={el.content} el={el} isInteractive={true} />
+                        ) : el.type === 'custom-text' ? (
+                          <textarea 
+                            className={`w-full bg-transparent outline-none resize-none serif-font p-4 text-stone-900 border border-dashed border-stone-300 focus:border-stone-500 rounded-lg ${
+                              el.fontSize === "sm" ? "text-sm" : 
+                              el.fontSize === "lg" ? "text-lg" : 
+                              el.fontSize === "xl" ? "text-xl" : "text-base"
+                            }`} 
+                            value={el.content} 
+                            onChange={(e) => handleUpdateElement(el.id, { content: e.target.value })} 
+                          />
+                        ) : el.type === 'custom-image' ? (
+                          <div className="relative w-full h-full flex justify-center items-center group/img">
+                            <img src={el.content} className="max-w-full max-h-[500px] object-contain rounded-lg shadow-md border border-stone-200/40 p-1" />
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); handleDeleteElement(el.id); }}
+                              className="no-print absolute top-2 right-2 bg-black/80 hover:bg-red-600 text-white rounded-lg p-1.5 opacity-0 group-hover/img:opacity-100 transition-opacity"
+                            >
+                               <Trash2 size={12} />
+                            </button>
+                          </div>
+                        ) : el.type === 'journey-map' ? (
+                          <div className={`px-12 py-12 flex flex-col justify-start items-center text-stone-900 w-full ${format === "A4" ? "h-[1000px]" : "h-[680px]"}`}>
+                            <div className="w-full text-center space-y-2 mt-4 mb-2">
+                               <span className="text-[11px] font-black uppercase tracking-[0.4em] text-orange-600 block">Expedice</span>
+                               <h1 className="text-5xl font-black tracking-tight leading-none text-stone-950 serif-font italic">
+                                  {el.content.title}
+                               </h1>
+                               <div className="text-[10px] font-black uppercase tracking-widest text-stone-400 mt-2">
+                                  {el.content.totalDistance} km • {el.content.points.length} zastávek
+                               </div>
+                               <div className="h-0.5 w-16 bg-orange-600/30 mx-auto mt-2" />
+                            </div>
+                            
+                            <div className={`w-full mt-4 flex-1 ${format === "A4" ? "h-[740px] min-h-[660px]" : "h-[460px] min-h-[400px]"} relative rounded-3xl overflow-hidden border border-stone-200 shadow-xl bg-white p-2`}>
+                               <JourneyMap points={el.content.points} id={`editor-print-map-${el.id}`} className="w-full h-full rounded-2xl" />
+                            </div>
+                          </div>
+                        ) : null}
                       </div>
-                      
-                      <div className={`w-full mt-4 flex-1 ${format === "A4" ? "h-[740px] min-h-[660px]" : "h-[460px] min-h-[400px]"} relative rounded-3xl overflow-hidden border border-stone-200 shadow-xl bg-white p-2`}>
-                         <JourneyMap points={el.content.points} id={`editor-print-map-${el.id}`} className="w-full h-full rounded-2xl" />
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-                </React.Fragment>
-              ))}
-              
-              <div className="absolute bottom-10 left-0 w-full text-center text-[10px] font-black uppercase tracking-widest opacity-30">— {currentPageIndex + 1} —</div>
+                   </React.Fragment>
+                 ))}
+              </div>
+
+              {/* Running footer */}
+              <div className="page-footer select-none">
+                 <span>{startDate !== endDate ? `${startDate} — ${endDate}` : startDate}</span>
+                 <span className="questea-mark">Questea</span>
+              </div>
            </div>
 
            {/* Page Navigation Controls */}
@@ -3054,73 +3146,107 @@ export const PrintEditor: React.FC<PrintEditorProps> = ({ folder, onClose }) => 
 
       {/* OFF-SCREEN COMPILATION FOR PERFECT ALL-PAGES PDF PRINTING */}
       <div className="print-only-container" ref={pdfContainerRef}>
+         {/* COVER PAGE / TITLE PAGE */}
+         <div 
+           className={`print-page relative overflow-hidden flex flex-col title-page ${format === 'A4' ? 'w-[794px] h-[1123px]' : 'w-[559px] h-[794px]'}`}
+           style={{ backgroundColor: '#1a1410', color: '#F5F0E8', padding: format === 'A4' ? '60px 56px' : '40px 36px', justifyContent: 'flex-end', gap: 0 }}
+         >
+           <div className="eyebrow" style={{ fontFamily: 'Outfit, sans-serif', fontSize: '10px', fontWeight: 800, letterSpacing: '0.35em', textTransform: 'uppercase', color: accentColor, marginBottom: '24px' }}>Questea · Fotokniha</div>
+           <h1 className="title-font" style={{ fontFamily: 'Playfair Display, serif', fontSize: format === 'A4' ? '82px' : '56px', fontWeight: 700, fontStyle: 'italic', lineHeight: 0.88, color: '#F5F0E8', marginBottom: '48px', letterSpacing: '-0.01em' }}>{folder.title}</h1>
+           <div className="meta-line" style={{ display: 'flex', alignItems: 'center', gap: '24px', fontFamily: 'Inter, sans-serif', fontSize: '10px', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(245,240,232,0.45)', borderTop: '1px solid rgba(245,240,232,0.1)', paddingTop: '24px' }}>
+             <div className="meta-item" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+               <span className="meta-accent" style={{ color: accentColor }}>📅</span>
+               {startDate}
+               {startDate !== endDate && <> — {endDate}</>}
+             </div>
+             <div className="meta-item" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+               <span className="meta-accent" style={{ color: accentColor }}>📍</span>
+               {folder.subTasks?.filter((t: any) => !t.isDeleted && t.taskType !== 'GPS_LOG').length} zastávek
+             </div>
+           </div>
+         </div>
+
+         {/* BODY PAGES */}
          {pages.map((page, pageIdx) => (
            <div 
              key={pageIdx} 
-             className={`print-page relative paper-bg overflow-hidden text-stone-950 ${format === 'A4' ? 'w-[794px] h-[1123px]' : 'w-[559px] h-[794px]'}`}
-             style={{ padding: format === 'A4' ? '56px' : '40px' }}
+             className={`print-page relative paper-bg overflow-hidden text-stone-950 flex flex-col ${format === 'A4' ? 'w-[794px] h-[1123px]' : 'w-[559px] h-[794px]'}`}
            >
-              {page.elements.map((el, elIdx) => (
-                <React.Fragment key={el.id}>
-                   {elIdx > 0 && (
-                     <div className="w-full py-4 flex items-center justify-center select-none">
-                       <div className="h-px w-24 bg-[#5C4D3C]/10 border-dashed border-t" />
-                       <span className="mx-3 text-[8px] font-black uppercase tracking-[0.3em] text-[#5C4D3C]/40">Další stanoviště</span>
-                       <div className="h-px w-24 bg-[#5C4D3C]/10 border-dashed border-t" />
-                     </div>
-                   )}
-                   <div 
-                     key={el.id}
-                     className={`${
-                       (el.x === 0 && el.y === 0 && el.type === 'blog-entry') ? 'relative w-full' : 'absolute'
-                     }`}
-                     style={{
-                       position: (el.x === 0 && el.y === 0 && el.type === 'blog-entry') ? 'relative' : 'absolute',
-                       left: (el.x === 0 && el.y === 0 && el.type === 'blog-entry') ? undefined : `${el.x}%`,
-                       top: (el.x === 0 && el.y === 0 && el.type === 'blog-entry') ? undefined : `${el.y}%`,
-                       width: `${el.width}%`,
-                       transform: el.rotation ? `rotate(${el.rotation}deg)` : 'none',
-                       marginBottom: (el.x === 0 && el.y === 0 && el.type === 'blog-entry') ? '1.5rem' : undefined
-                     }}
-                   >
-                  {el.type === 'blog-entry' ? (
-                    <BlogEntryRenderer post={el.content} el={el} isInteractive={false} />
-                  ) : el.type === 'custom-text' ? (
-                    <p 
-                      className={`w-full bg-transparent serif-font p-4 text-stone-900 whitespace-pre-wrap ${
-                        el.fontSize === "sm" ? "text-sm" : 
-                        el.fontSize === "lg" ? "text-lg" : 
-                        el.fontSize === "xl" ? "text-xl" : "text-base"
+              {/* Running header */}
+              <div className="page-header select-none">
+                <div className="folder-name">{folder.title}</div>
+                <div className="page-num">{pageIdx + 1}</div>
+              </div>
+
+              {/* Page Contents */}
+              <div className="page-content-wrapper flex-1 relative w-full h-full overflow-hidden" style={{ padding: format === 'A4' ? '40px 56px' : '24px 36px' }}>
+                {page.elements.map((el, elIdx) => (
+                  <React.Fragment key={el.id}>
+                    {elIdx > 0 && (
+                      <div className="w-full py-4 flex items-center justify-center select-none">
+                        <div className="h-px w-24 bg-[#5C4D3C]/10 border-dashed border-t" />
+                        <span className="mx-3 text-[8px] font-black uppercase tracking-[0.3em] text-[#5C4D3C]/40">Další stanoviště</span>
+                        <div className="h-px w-24 bg-[#5C4D3C]/10 border-dashed border-t" />
+                      </div>
+                    )}
+                    <div 
+                      key={el.id}
+                      className={`${
+                        (el.x === 0 && el.y === 0 && el.type === 'blog-entry') ? 'relative w-full' : 'absolute'
                       }`}
+                      style={{
+                        position: (el.x === 0 && el.y === 0 && el.type === 'blog-entry') ? 'relative' : 'absolute',
+                        left: (el.x === 0 && el.y === 0 && el.type === 'blog-entry') ? undefined : `${el.x}%`,
+                        top: (el.x === 0 && el.y === 0 && el.type === 'blog-entry') ? undefined : `${el.y}%`,
+                        width: `${el.width}%`,
+                        transform: el.rotation ? `rotate(${el.rotation}deg)` : 'none',
+                        marginBottom: (el.x === 0 && el.y === 0 && el.type === 'blog-entry') ? '1.5rem' : undefined
+                      }}
                     >
-                      {el.content}
-                    </p>
-                  ) : el.type === 'custom-image' ? (
-                    <div className="relative w-full h-full flex justify-center items-center">
-                      <img src={el.content} className="max-w-full max-h-[600px] object-contain rounded-lg shadow-md" />
+                      {el.type === 'blog-entry' ? (
+                        <BlogEntryRenderer post={el.content} el={el} isInteractive={false} />
+                      ) : el.type === 'custom-text' ? (
+                        <p 
+                          className={`w-full bg-transparent serif-font p-4 text-stone-900 whitespace-pre-wrap ${
+                            el.fontSize === "sm" ? "text-sm" : 
+                            el.fontSize === "lg" ? "text-lg" : 
+                            el.fontSize === "xl" ? "text-xl" : "text-base"
+                          }`}
+                        >
+                          {el.content}
+                        </p>
+                      ) : el.type === 'custom-image' ? (
+                        <div className="relative w-full h-full flex justify-center items-center">
+                          <img src={el.content} className="max-w-full max-h-[600px] object-contain rounded-lg shadow-md" />
+                        </div>
+                      ) : el.type === 'journey-map' ? (
+                        <div className={`px-12 py-12 flex flex-col justify-start items-center text-stone-900 w-full ${format === "A4" ? "h-[1000px]" : "h-[680px]"}`}>
+                          <div className="w-full text-center space-y-2 mt-4 mb-2">
+                             <span className="text-[11px] font-black uppercase tracking-[0.4em] text-orange-600 block">Expedice</span>
+                             <h1 className="text-5xl font-black tracking-tight leading-none text-stone-950 serif-font italic">
+                                {el.content.title}
+                             </h1>
+                             <div className="text-[10px] font-black uppercase tracking-widest text-stone-400 mt-2">
+                                {el.content.totalDistance} km • {el.content.points.length} zastávek
+                             </div>
+                             <div className="h-0.5 w-16 bg-orange-600/30 mx-auto mt-2" />
+                          </div>
+                          
+                          <div className={`w-full mt-4 flex-1 ${format === "A4" ? "h-[740px] min-h-[660px]" : "h-[460px] min-h-[400px]"} relative rounded-3xl overflow-hidden border border-stone-200 shadow-xl bg-white p-2`}>
+                             <JourneyMap points={el.content.points} id={`print-map-${el.id}`} className="w-full h-full rounded-2xl" />
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
-                  ) : el.type === 'journey-map' ? (
-                    <div className={`px-12 py-12 flex flex-col justify-start items-center text-stone-900 w-full ${format === "A4" ? "h-[1000px]" : "h-[680px]"}`}>
-                      <div className="w-full text-center space-y-2 mt-4 mb-2">
-                         <span className="text-[11px] font-black uppercase tracking-[0.4em] text-orange-600 block">Expedice</span>
-                         <h1 className="text-5xl font-black tracking-tight leading-none text-stone-950 serif-font italic">
-                            {el.content.title}
-                         </h1>
-                         <div className="text-[10px] font-black uppercase tracking-widest text-stone-400 mt-2">
-                            {el.content.totalDistance} km • {el.content.points.length} zastávek
-                         </div>
-                         <div className="h-0.5 w-16 bg-orange-600/30 mx-auto mt-2" />
-                      </div>
-                      
-                      <div className={`w-full mt-4 flex-1 ${format === "A4" ? "h-[740px] min-h-[660px]" : "h-[460px] min-h-[400px]"} relative rounded-3xl overflow-hidden border border-stone-200 shadow-xl bg-white p-2`}>
-                         <JourneyMap points={el.content.points} id={`print-map-${el.id}`} className="w-full h-full rounded-2xl" />
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-                </React.Fragment>
-              ))}
-              <div className="absolute bottom-10 left-0 w-full text-center text-[10px] font-black uppercase tracking-widest opacity-30">— {pageIdx + 1} —</div>
+                  </React.Fragment>
+                ))}
+              </div>
+
+              {/* Running footer */}
+              <div className="page-footer select-none">
+                <span>{startDate !== endDate ? `${startDate} — ${endDate}` : startDate}</span>
+                <span className="questea-mark">Questea</span>
+              </div>
            </div>
          ))}
       </div>

@@ -7,7 +7,7 @@ import { TaskDetail } from "../TaskDetail/TaskDetail";
 import { QuickExpenseModal } from "../QuickExpenseModal/QuickExpenseModal";
 import { LocationSelectionModal } from "../LocationSelectionModal/LocationSelectionModal";
 import { LocationTracker } from "../LocationTracker/LocationTracker";
-import { PrintEditor } from "../PrintEditor/PrintEditor";
+import { PhotoBook } from "../PhotoBook/PhotoBook";
 import { Search, Grid, List as ListIcon, Home, ChevronRight, Maximize2, Minimize2, Wallet, Tag, Building, X, Save, MapPin, Share, CheckSquare, FolderOpen, Navigation, Settings as SettingsIcon, FileUp, FileDown, Command, PlusCircle, LayoutGrid, FileText, Printer } from "lucide-react";
 import InstallPWA from "../InstallPWA/InstallPWA";
 import styles from "./TaskList.module.css";
@@ -647,9 +647,9 @@ export const TaskList = () => {
           />
         )}
         {isPrintEditorOpen && quickActionTask && (
-          <PrintEditor 
+          <PhotoBook
             folder={quickActionTask}
-            onClose={() => { 
+            onClose={() => {
               setIsPrintEditorOpen(false);
               setQuickActionTask(null);
             }}

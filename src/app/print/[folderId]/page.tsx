@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
-import { PrintPageContent } from "./PrintPageContent";
+import { PhotoBook } from "@/components/PhotoBook/PhotoBook";
 
 export const dynamic = "force-dynamic";
 
@@ -43,59 +43,12 @@ export default async function PrintPage({
   searchParams: Promise<{ format?: string; style?: string }>;
 }) {
   const { folderId } = await params;
-  const { format = "A4", style = "editorial" } = await searchParams;
+  const { format = "A4" } = await searchParams;
 
   const data = await getPrintData(folderId);
   if (!data) notFound();
 
   const { folder, posts } = data;
 
-  const startDate =
-    posts.length > 0
-      ? new Date(posts[0].recordedAt || posts[0].createdAt).toLocaleDateString(
-          "cs-CZ",
-          { day: "numeric", month: "long", year: "numeric" }
-        )
-      : "";
-  const endDate =
-    posts.length > 0
-      ? new Date(
-          posts[posts.length - 1].recordedAt ||
-            posts[posts.length - 1].createdAt
-        ).toLocaleDateString("cs-CZ", {
-          day: "numeric",
-          month: "long",
-          year: "numeric",
-        })
-      : "";
-
-  const latestPrintVersion = await prisma.printVersion.findFirst({
-    where: { taskId: folder.id },
-    orderBy: { updatedAt: "desc" },
-  });
-
-  let dbPages = null;
-  let dbFormat = format;
-  if (latestPrintVersion) {
-    try {
-      dbPages = JSON.parse(latestPrintVersion.layout);
-      if (latestPrintVersion.format) {
-        dbFormat = latestPrintVersion.format;
-      }
-    } catch (e) {
-      console.error("Failed to parse DB layout:", e);
-    }
-  }
-
-  return (
-    <PrintPageContent
-      folder={folder}
-      posts={posts}
-      format={(dbFormat || format) as "A4" | "A5"}
-      style={style}
-      startDate={startDate}
-      endDate={endDate}
-      dbPages={dbPages}
-    />
-  );
+  return <PhotoBook folder={folder} posts={posts} format={format as "A4" | "A5"} />;
 }

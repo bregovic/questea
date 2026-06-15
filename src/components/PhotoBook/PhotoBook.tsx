@@ -13,7 +13,7 @@ import { X, Download, Loader2, Image as ImageIcon } from "lucide-react";
 import { generatePhotoBookPdf } from "@/lib/generatePdf";
 
 type Att = { id: string; type: string; url: string };
-type Loc = { address?: string | null; placeName?: string | null };
+type Loc = { address?: string | null; placeName?: string | null; latitude?: number | null; longitude?: number | null };
 type Post = {
   id: string;
   title?: string | null;
@@ -223,6 +223,36 @@ export function PhotoBook({
     return a && b && a !== b ? `${a} — ${b}` : a || b;
   }, [posts]);
 
+  // Stopa trasy z GPS bodů (stylizovaná, spolehlivá v PDF) – na obálku.
+  const routeSvg = useMemo(() => {
+    const pts: { lat: number; lng: number }[] = [];
+    (posts || []).forEach((p) =>
+      (p.locations || []).forEach((l) => {
+        if (typeof l.latitude === "number" && typeof l.longitude === "number") pts.push({ lat: l.latitude, lng: l.longitude });
+      }),
+    );
+    if (pts.length < 2) return null;
+    const W = 1000, H = 360, pad = 50;
+    const lats = pts.map((p) => p.lat), lngs = pts.map((p) => p.lng);
+    const minLat = Math.min(...lats), maxLat = Math.max(...lats), minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
+    const kx = Math.cos(((minLat + maxLat) / 2) * Math.PI / 180) || 1;
+    const w = Math.max((maxLng - minLng) * kx, 1e-6), h = Math.max(maxLat - minLat, 1e-6);
+    const bw = W - 2 * pad, bh = H - 2 * pad;
+    const scale = Math.min(bw / w, bh / h);
+    const ox = pad + (bw - w * scale) / 2, oy = pad + (bh - h * scale) / 2;
+    const xy = pts.map((p) => [ox + (p.lng - minLng) * kx * scale, oy + (maxLat - p.lat) * scale] as [number, number]);
+    const d = "M" + xy.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join(" L ");
+    const [sx, sy] = xy[0], [ex, ey] = xy[xy.length - 1];
+    return (
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto", display: "block" }}>
+        <path d={d} fill="none" stroke={accent} strokeWidth={3} strokeLinejoin="round" strokeLinecap="round" />
+        {xy.map(([x, y], i) => <circle key={i} cx={x} cy={y} r={2.5} fill="rgba(245,240,232,0.45)" />)}
+        <circle cx={sx} cy={sy} r={6} fill={accent} />
+        <circle cx={ex} cy={ey} r={6} fill="#F5F0E8" />
+      </svg>
+    );
+  }, [posts, accent]);
+
   async function exportPdf() {
     if (!containerRef.current) return;
     setProgress({ cur: 0, total: pages.length + 1 });
@@ -284,10 +314,20 @@ export function PhotoBook({
           <div ref={containerRef} className="mx-auto flex flex-col items-center gap-8" style={{ width: dims.w }}>
             {/* OBÁLKA */}
             <div className="print-page relative overflow-hidden"
-              style={{ width: dims.w, height: dims.h, background: "#1a1410", color: "#F5F0E8", display: "flex", flexDirection: "column", justifyContent: "flex-end", padding: format === "A4" ? "60px 56px" : "40px 36px" }}>
-              <div style={{ fontFamily: "Outfit, sans-serif", fontSize: 10, fontWeight: 800, letterSpacing: "0.35em", textTransform: "uppercase", color: accent, marginBottom: 24 }}>Questea · Fotokniha</div>
-              <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: format === "A4" ? 80 : 54, fontWeight: 700, fontStyle: "italic", lineHeight: 0.9, marginBottom: 32 }}>{folder.title}</h1>
-              <div style={{ fontFamily: "Outfit, sans-serif", fontSize: 11, fontWeight: 800, letterSpacing: "0.25em", textTransform: "uppercase", color: "rgba(245,240,232,0.55)" }}>{dateRange}</div>
+              style={{ width: dims.w, height: dims.h, background: "#1a1410", color: "#F5F0E8", display: "flex", flexDirection: "column", justifyContent: "space-between", padding: format === "A4" ? "60px 56px" : "40px 36px" }}>
+              <div style={{ width: "100%" }}>
+                {routeSvg && (
+                  <>
+                    <div style={{ fontFamily: "Outfit, sans-serif", fontSize: 9, fontWeight: 800, letterSpacing: "0.3em", textTransform: "uppercase", color: "rgba(245,240,232,0.4)", marginBottom: 14 }}>Trasa cesty</div>
+                    {routeSvg}
+                  </>
+                )}
+              </div>
+              <div>
+                <div style={{ fontFamily: "Outfit, sans-serif", fontSize: 10, fontWeight: 800, letterSpacing: "0.35em", textTransform: "uppercase", color: accent, marginBottom: 24 }}>Questea · Fotokniha</div>
+                <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: format === "A4" ? 80 : 54, fontWeight: 700, fontStyle: "italic", lineHeight: 0.9, marginBottom: 32 }}>{folder.title}</h1>
+                <div style={{ fontFamily: "Outfit, sans-serif", fontSize: 11, fontWeight: 800, letterSpacing: "0.25em", textTransform: "uppercase", color: "rgba(245,240,232,0.55)" }}>{dateRange}</div>
+              </div>
             </div>
 
             {/* OBSAH */}

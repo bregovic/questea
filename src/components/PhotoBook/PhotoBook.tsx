@@ -1,10 +1,11 @@
 "use client";
 
 /**
- * PhotoBook – nová fotokniha (magazínová mozaika na spad, vyplní celou A4).
- * Nahrazuje původní PrintEditor. Layout staví na pevných šablonách
- * (grid-template-areas), které vždy pokryjí celou stránku → žádné prázdné dno.
- * PDF se generuje stávající pipeline (generatePhotoBookPdf – snímky .print-page).
+ * PhotoBook – fotokniha (magazínová koláž, vyplní A4).
+ * Layout je "justified" (řádkový jako Google Photos): podle skutečného poměru
+ * stran fotek skládá řádky tak, aby fotka na šířku dostala širokou buňku a na
+ * výšku vysokou → žádné "nudle", minimální ořez. Řádky vyplní celou stránku.
+ * PDF přes stávající pipeline (generatePhotoBookPdf – snímky .print-page).
  */
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -23,55 +24,19 @@ type Post = {
   attachments?: Att[];
 };
 type Folder = { id: string; title?: string | null; blogTemplate?: string | null };
-
 type Format = "A4" | "A5";
 
-// Šablony mozaiky: pro N fotek pokryjí celou stránku (žádné mezery na dně).
-type Tpl = { cols: string; rows: string; areas: string };
-const AREA_KEYS = ["a", "b", "c", "d", "e", "f"];
-const TEMPLATES: Record<number, Tpl[]> = {
-  1: [{ cols: "1fr", rows: "1fr", areas: `"a"` }],
-  2: [
-    { cols: "1fr 1fr", rows: "1fr", areas: `"a b"` },
-    { cols: "1fr", rows: "1fr 1fr", areas: `"a" "b"` },
-  ],
-  3: [
-    { cols: "1.6fr 1fr", rows: "1fr 1fr", areas: `"a b" "a c"` },
-    { cols: "1fr 1.6fr", rows: "1fr 1fr", areas: `"b a" "c a"` },
-  ],
-  4: [
-    { cols: "1fr 1fr", rows: "1fr 1fr", areas: `"a b" "c d"` },
-    { cols: "1.5fr 1fr", rows: "1fr 1fr 1fr", areas: `"a b" "a c" "a d"` },
-  ],
-  5: [
-    { cols: "1fr 1fr 1fr", rows: "1.4fr 1fr", areas: `"a a b" "c d e"` },
-    { cols: "1fr 1fr 1fr", rows: "1fr 1.4fr", areas: `"a b c" "d d e"` },
-  ],
-  6: [
-    { cols: "1fr 1fr 1fr", rows: "1fr 1fr", areas: `"a b c" "d e f"` },
-    { cols: "1fr 1fr", rows: "1fr 1fr 1fr", areas: `"a b" "c d" "e f"` },
-  ],
-};
+type Cell = { img: Att; w: number };
+type Row = { h: number; cells: Cell[] };
+type Header = { title: string; meta: string; desc?: string };
+type Page =
+  | { kind: "mosaic"; rows: Row[]; header?: Header }
+  | { kind: "text"; title: string; meta: string; desc: string };
 
-function chunkSizes(n: number): number[] {
-  const out: number[] = [];
-  let r = n;
-  while (r > 0) {
-    const s = r > 6 ? (r - 5 === 1 ? 4 : 5) : r;
-    out.push(s);
-    r -= s;
-  }
-  return out;
-}
-
-type MosaicPage = {
-  kind: "mosaic";
-  imgs: Att[];
-  tpl: Tpl;
-  header?: { title: string; meta: string; desc?: string };
+const SIZES: Record<Format, { w: number; h: number }> = {
+  A4: { w: 794, h: 1123 },
+  A5: { w: 559, h: 794 },
 };
-type TextPage = { kind: "text"; title: string; meta: string; desc: string };
-type Page = MosaicPage | TextPage;
 
 function accentFor(template?: string | null): string {
   switch (template) {
@@ -89,45 +54,72 @@ function fmtDate(p: Post): string {
   return new Date(d).toLocaleDateString("cs-CZ", { day: "numeric", month: "long", year: "numeric" });
 }
 
-function buildPages(posts: Post[]): Page[] {
+/** Justified layout: poskládá fotky do řádků a stránek dle poměru stran. */
+function buildPages(
+  posts: Post[],
+  aspects: Record<string, number>,
+  pageW: number,
+  pageH: number,
+  gap: number,
+  targetRowH: number,
+): Page[] {
   const pages: Page[] = [];
-  let tplCounter = 0;
+
   for (const post of posts) {
     const imgs = (post.attachments || []).filter((a) => a.type === "image");
     const meta = [fmtDate(post), post.locations?.[0]?.placeName || post.locations?.[0]?.address]
-      .filter(Boolean)
-      .join(" · ");
+      .filter(Boolean).join(" · ");
     const title = (post.title || "").trim();
     const desc = (post.description || "").trim();
+    const header: Header | undefined = title || meta ? { title, meta, desc: desc || undefined } : undefined;
 
     if (imgs.length === 0) {
       if (title || desc) pages.push({ kind: "text", title: title || "Zápis", meta, desc });
       continue;
     }
 
-    const sizes = chunkSizes(imgs.length);
-    let offset = 0;
-    sizes.forEach((size, idx) => {
-      const slice = imgs.slice(offset, offset + size);
-      offset += size;
-      const variants = TEMPLATES[size] || TEMPLATES[6];
-      const tpl = variants[tplCounter % variants.length];
-      tplCounter++;
-      pages.push({
-        kind: "mosaic",
-        imgs: slice,
-        tpl,
-        header: idx === 0 && (title || meta) ? { title, meta, desc: desc || undefined } : undefined,
-      });
-    });
+    // 1) Fotky do řádků (každý ~ targetRowH; šířka řádku = pageW).
+    const rows: Row[] = [];
+    let cur: { img: Att; a: number }[] = [];
+    let arSum = 0;
+    const flush = (last: boolean) => {
+      if (!cur.length) return;
+      let h = (pageW - gap * (cur.length - 1)) / arSum;
+      if (last) h = Math.min(h, targetRowH * 1.4); // osamělý poslední řádek nepřefoukne
+      rows.push({ h, cells: cur.map((x) => ({ img: x.img, w: x.a * h })) });
+      cur = [];
+      arSum = 0;
+    };
+    for (const img of imgs) {
+      const a = aspects[img.id] || 1.5;
+      cur.push({ img, a });
+      arSum += a;
+      const h = (pageW - gap * (cur.length - 1)) / arSum;
+      if (h <= targetRowH) flush(false);
+    }
+    flush(true);
+
+    // 2) Řádky do stránek podle výšky; první strana dostane hlavičku.
+    let pageRows: Row[] = [];
+    let usedH = 0;
+    let first = true;
+    const pushPage = () => {
+      pages.push({ kind: "mosaic", rows: pageRows, header: first ? header : undefined });
+      first = false;
+      pageRows = [];
+      usedH = 0;
+    };
+    for (const row of rows) {
+      const add = row.h + (pageRows.length ? gap : 0);
+      if (usedH + add > pageH && pageRows.length) pushPage();
+      pageRows.push(row);
+      usedH += row.h + (pageRows.length > 1 ? gap : 0);
+    }
+    if (pageRows.length) pushPage();
   }
+
   return pages;
 }
-
-const SIZES: Record<Format, { w: number; h: number }> = {
-  A4: { w: 794, h: 1123 },
-  A5: { w: 559, h: 794 },
-};
 
 export function PhotoBook({
   folder,
@@ -142,6 +134,7 @@ export function PhotoBook({
 }) {
   const [posts, setPosts] = useState<Post[] | null>(postsProp ?? null);
   const [format, setFormat] = useState<Format>(formatProp);
+  const [aspects, setAspects] = useState<Record<string, number>>({});
   const [progress, setProgress] = useState<{ cur: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -166,11 +159,39 @@ export function PhotoBook({
     return () => { live = false; };
   }, [folder.id, posts]);
 
+  // Změř poměry stran všech fotek (kvůli orientačně správné koláži).
+  const allImages = useMemo(
+    () => (posts || []).flatMap((p) => (p.attachments || []).filter((a) => a.type === "image")),
+    [posts],
+  );
+  useEffect(() => {
+    if (allImages.length === 0) return;
+    let cancelled = false;
+    const next: Record<string, number> = {};
+    let pending = allImages.length;
+    const done = () => { if (--pending <= 0 && !cancelled) setAspects(next); };
+    allImages.forEach((a) => {
+      const im = new window.Image();
+      im.onload = () => { next[a.id] = im.naturalWidth / im.naturalHeight || 1.5; done(); };
+      im.onerror = () => { next[a.id] = 1.5; done(); };
+      im.src = a.url;
+    });
+    return () => { cancelled = true; };
+  }, [allImages]);
+
   const accent = accentFor(folder.blogTemplate);
-  const pages = useMemo(() => (posts ? buildPages(posts) : []), [posts]);
   const dims = SIZES[format];
-  const PAD = format === "A4" ? 30 : 22; // jemný okraj stránky (rám)
-  const GAP = 5; // mezera mezi fotkami
+  const PAD = format === "A4" ? 34 : 24;
+  const GAP = 6;
+  const pageW = dims.w - 2 * PAD;
+  const pageH = dims.h - 2 * PAD;
+  const targetRowH = pageH / (format === "A4" ? 4 : 3.4); // menší fotky = víc řádků
+
+  const aspectsReady = allImages.length === 0 || Object.keys(aspects).length >= allImages.length;
+  const pages = useMemo(
+    () => (posts && aspectsReady ? buildPages(posts, aspects, pageW, pageH, GAP, targetRowH) : []),
+    [posts, aspects, aspectsReady, pageW, pageH, targetRowH],
+  );
 
   const dateRange = useMemo(() => {
     if (!posts || posts.length === 0) return "";
@@ -217,8 +238,8 @@ export function PhotoBook({
           <button
             onClick={exportPdf}
             disabled={!!progress || !posts || pages.length === 0}
-            className="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-1.5 text-sm font-bold text-stone-950 hover:bg-stone-200 disabled:opacity-50"
-            style={{ background: progress ? undefined : accent, color: "white" }}
+            className="inline-flex items-center gap-2 rounded-lg px-4 py-1.5 text-sm font-bold text-white hover:opacity-90 disabled:opacity-50"
+            style={{ background: accent }}
           >
             {progress ? (
               <><Loader2 size={16} className="animate-spin" /> {progress.cur}/{progress.total}</>
@@ -234,18 +255,20 @@ export function PhotoBook({
         </div>
       </div>
 
-      {/* Náhled (všechny stránky ve skutečné velikosti, scrollovatelné) */}
+      {/* Náhled */}
       <div className="flex-1 overflow-auto p-8">
         {error && (
           <p className="mx-auto mb-4 max-w-md rounded-lg bg-red-950/60 px-4 py-2 text-center text-sm text-red-200">{error}</p>
         )}
-        {!posts ? (
-          <p className="py-20 text-center text-sm text-white/50">Načítám…</p>
+        {!posts || !aspectsReady ? (
+          <p className="py-20 text-center text-sm text-white/50">
+            {!posts ? "Načítám…" : "Připravuji fotky…"}
+          </p>
         ) : pages.length === 0 ? (
           <p className="py-20 text-center text-sm text-white/50">Tato složka nemá žádné fotky k vytištění.</p>
         ) : (
           <div ref={containerRef} className="mx-auto flex flex-col items-center gap-8" style={{ width: dims.w }}>
-            {/* COVER */}
+            {/* OBÁLKA */}
             <div
               className="print-page relative overflow-hidden"
               style={{ width: dims.w, height: dims.h, background: "#1a1410", color: "#F5F0E8", display: "flex", flexDirection: "column", justifyContent: "flex-end", padding: format === "A4" ? "60px 56px" : "40px 36px" }}
@@ -261,80 +284,67 @@ export function PhotoBook({
               </div>
             </div>
 
-            {/* CONTENT PAGES */}
+            {/* OBSAH */}
             {pages.map((page, i) => (
               <div
                 key={i}
                 className="print-page relative overflow-hidden"
                 style={{ width: dims.w, height: dims.h, background: "#ffffff" }}
               >
-               <div style={{ position: "absolute", inset: PAD, overflow: "hidden", borderRadius: 4 }}>
-                {page.kind === "mosaic" ? (
-                  <>
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: page.tpl.cols,
-                        gridTemplateRows: page.tpl.rows,
-                        gridTemplateAreas: page.tpl.areas,
-                        gap: GAP,
-                        width: "100%",
-                        height: "100%",
-                      }}
-                    >
-                      {page.imgs.map((img, idx) => (
-                        <div key={img.id} style={{ gridArea: AREA_KEYS[idx], overflow: "hidden", background: "#ece8e1", borderRadius: 3 }}>
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={img.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                        </div>
-                      ))}
-                    </div>
-                    {page.header && (
-                      <div
-                        style={{
-                          position: "absolute", left: 0, right: 0, bottom: 0, padding: "64px 28px 24px",
-                          background: "linear-gradient(to top, rgba(0,0,0,0.72), rgba(0,0,0,0))",
-                          color: "white",
-                        }}
-                      >
-                        {page.header.meta && (
-                          <div style={{ fontFamily: "Outfit, sans-serif", fontSize: 10, fontWeight: 800, letterSpacing: "0.22em", textTransform: "uppercase", color: accent, marginBottom: 8 }}>
-                            {page.header.meta}
+                <div style={{ position: "absolute", inset: PAD, overflow: "hidden" }}>
+                  {page.kind === "mosaic" ? (
+                    <>
+                      <div style={{ display: "flex", flexDirection: "column", gap: GAP, width: "100%", height: "100%" }}>
+                        {page.rows.map((row, ri) => (
+                          <div key={ri} style={{ display: "flex", gap: GAP, flex: `${row.h} 1 0`, minHeight: 0 }}>
+                            {row.cells.map((c) => (
+                              <div key={c.img.id} style={{ flex: `${c.w} 1 0`, minWidth: 0, overflow: "hidden", borderRadius: 3, background: "#ece8e1" }}>
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={c.img.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                              </div>
+                            ))}
                           </div>
-                        )}
-                        {page.header.title && (
-                          <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: format === "A4" ? 40 : 28, fontWeight: 700, fontStyle: "italic", lineHeight: 1, margin: 0 }}>
-                            {page.header.title}
-                          </h2>
-                        )}
-                        {page.header.desc && (
-                          <p style={{ fontFamily: "Outfit, sans-serif", fontSize: 13, lineHeight: 1.5, marginTop: 10, maxWidth: 560, color: "rgba(255,255,255,0.88)" }}>
-                            {page.header.desc.length > 220 ? page.header.desc.slice(0, 220) + "…" : page.header.desc}
-                          </p>
-                        )}
+                        ))}
                       </div>
-                    )}
-                  </>
-                ) : (
-                  // TEXT PAGE
-                  <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", justifyContent: "center", padding: format === "A4" ? "48px 52px" : "32px 36px", color: "#1c1917", background: "#fcfaf7" }}>
-                    {page.meta && (
-                      <div style={{ fontFamily: "Outfit, sans-serif", fontSize: 11, fontWeight: 800, letterSpacing: "0.25em", textTransform: "uppercase", color: accent, marginBottom: 16 }}>
-                        {page.meta}
-                      </div>
-                    )}
-                    <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: format === "A4" ? 48 : 34, fontWeight: 700, fontStyle: "italic", lineHeight: 1.05, marginBottom: 24 }}>
-                      {page.title}
-                    </h2>
-                    <p style={{ fontFamily: "Outfit, sans-serif", fontSize: 15, lineHeight: 1.7, color: "#44403c", whiteSpace: "pre-wrap" }}>
-                      {page.desc}
-                    </p>
-                  </div>
-                )}
-               </div>
+                      {page.header && (
+                        <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, padding: "60px 26px 22px", background: "linear-gradient(to top, rgba(0,0,0,0.74), rgba(0,0,0,0))", color: "white" }}>
+                          {page.header.meta && (
+                            <div style={{ fontFamily: "Outfit, sans-serif", fontSize: 10, fontWeight: 800, letterSpacing: "0.22em", textTransform: "uppercase", color: accent, marginBottom: 8 }}>
+                              {page.header.meta}
+                            </div>
+                          )}
+                          {page.header.title && (
+                            <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: format === "A4" ? 38 : 26, fontWeight: 700, fontStyle: "italic", lineHeight: 1, margin: 0 }}>
+                              {page.header.title}
+                            </h2>
+                          )}
+                          {page.header.desc && (
+                            <p style={{ fontFamily: "Outfit, sans-serif", fontSize: 13, lineHeight: 1.5, marginTop: 10, maxWidth: 560, color: "rgba(255,255,255,0.88)" }}>
+                              {page.header.desc.length > 220 ? page.header.desc.slice(0, 220) + "…" : page.header.desc}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", justifyContent: "center", padding: format === "A4" ? "48px 52px" : "32px 36px", color: "#1c1917", background: "#fcfaf7" }}>
+                      {page.meta && (
+                        <div style={{ fontFamily: "Outfit, sans-serif", fontSize: 11, fontWeight: 800, letterSpacing: "0.25em", textTransform: "uppercase", color: accent, marginBottom: 16 }}>
+                          {page.meta}
+                        </div>
+                      )}
+                      <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: format === "A4" ? 48 : 34, fontWeight: 700, fontStyle: "italic", lineHeight: 1.05, marginBottom: 24 }}>
+                        {page.title}
+                      </h2>
+                      <p style={{ fontFamily: "Outfit, sans-serif", fontSize: 15, lineHeight: 1.7, color: "#44403c", whiteSpace: "pre-wrap" }}>
+                        {page.desc}
+                      </p>
+                    </div>
+                  )}
+                </div>
 
                 {/* Číslo stránky */}
-                <div style={{ position: "absolute", bottom: 14, right: 18, fontFamily: "Outfit, sans-serif", fontSize: 10, fontWeight: 700, color: page.kind === "mosaic" && page.header ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.35)" }}>
+                <div style={{ position: "absolute", bottom: 14, right: 18, fontFamily: "Outfit, sans-serif", fontSize: 10, fontWeight: 700, color: "rgba(0,0,0,0.4)" }}>
                   {i + 1}
                 </div>
               </div>

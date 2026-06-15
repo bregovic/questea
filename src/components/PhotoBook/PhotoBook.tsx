@@ -1,11 +1,11 @@
 "use client";
 
 /**
- * PhotoBook – fotokniha (magazínová koláž, vyplní A4).
- * Layout je "justified" (řádkový jako Google Photos): podle skutečného poměru
- * stran fotek skládá řádky tak, aby fotka na šířku dostala širokou buňku a na
- * výšku vysokou → žádné "nudle", minimální ořez. Řádky vyplní celou stránku.
- * PDF přes stávající pipeline (generatePhotoBookPdf – snímky .print-page).
+ * PhotoBook – fotokniha (magazínová sazba, vyplní A4).
+ * Příspěvky tečou za sebou jako bloky o přirozené výšce (víc příspěvků na
+ * stránku). Fotky se skládají "justified" dle poměru stran (na šířku → široká
+ * buňka, na výšku → vysoká) → bez "nudlí" a ořezů. Kompozice se liší podle
+ * počtu fotek a délky textu. PDF přes generatePhotoBookPdf (snímky .print-page).
  */
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -18,6 +18,7 @@ type Post = {
   id: string;
   title?: string | null;
   description?: string | null;
+  taskType?: string | null;
   recordedAt?: string | Date | null;
   createdAt?: string | Date | null;
   locations?: Loc[];
@@ -27,11 +28,12 @@ type Folder = { id: string; title?: string | null; blogTemplate?: string | null 
 type Format = "A4" | "A5";
 
 type Cell = { img: Att; w: number };
-type Row = { h: number; cells: Cell[] };
 type Header = { title: string; meta: string; desc?: string };
-type Page =
-  | { kind: "mosaic"; rows: Row[]; header?: Header }
-  | { kind: "text"; title: string; meta: string; desc: string };
+// Plynulé prvky sazby
+type RowEl = { type: "row"; h: number; cells: Cell[]; header?: Header; topGap: number };
+type HeadEl = { type: "head"; h: number; title: string; meta: string; topGap: number };
+type TextEl = { type: "text"; h: number; title?: string; meta?: string; desc: string; topGap: number };
+type FlowEl = RowEl | HeadEl | TextEl;
 
 const SIZES: Record<Format, { w: number; h: number }> = {
   A4: { w: 794, h: 1123 },
@@ -42,7 +44,7 @@ function accentFor(template?: string | null): string {
   switch (template) {
     case "ADVENTURE": return "#a68a64";
     case "ELEGANT": return "#c5a059";
-    case "DARK": return "#e5e5e5";
+    case "DARK": return "#737373";
     case "MINIMAL": return "#111111";
     default: return "#ea580c";
   }
@@ -54,70 +56,93 @@ function fmtDate(p: Post): string {
   return new Date(d).toLocaleDateString("cs-CZ", { day: "numeric", month: "long", year: "numeric" });
 }
 
-/** Justified layout: poskládá fotky do řádků a stránek dle poměru stran. */
+function justify(imgs: Att[], aspects: Record<string, number>, pageW: number, gap: number, targetRowH: number) {
+  const rows: { h: number; cells: Cell[] }[] = [];
+  let cur: { img: Att; a: number }[] = [];
+  let arSum = 0;
+  const flush = (last: boolean) => {
+    if (!cur.length) return;
+    let h = (pageW - gap * (cur.length - 1)) / arSum;
+    if (last) h = Math.min(h, targetRowH * 1.4);
+    rows.push({ h, cells: cur.map((x) => ({ img: x.img, w: x.a * h })) });
+    cur = [];
+    arSum = 0;
+  };
+  for (const img of imgs) {
+    const a = aspects[img.id] || 1.5;
+    cur.push({ img, a });
+    arSum += a;
+    if ((pageW - gap * (cur.length - 1)) / arSum <= targetRowH) flush(false);
+  }
+  flush(true);
+  return rows;
+}
+
+/** Sestaví plynulé prvky (bloky) a rozdělí je do stránek dle výšky. */
 function buildPages(
   posts: Post[],
   aspects: Record<string, number>,
+  fmt: Format,
   pageW: number,
   pageH: number,
   gap: number,
   targetRowH: number,
-): Page[] {
-  const pages: Page[] = [];
+): FlowEl[][] {
+  const POST_GAP = fmt === "A4" ? 34 : 24;
+  const HEAD_H = fmt === "A4" ? 74 : 56;
+  const SHORT = 170;
+  const cpl = Math.max(30, Math.floor(pageW / 7.2));
+  const estTextH = (desc: string) => Math.min(Math.ceil(desc.length / cpl) * 25 + 14, pageH * 0.55);
 
+  const els: FlowEl[] = [];
   for (const post of posts) {
     const imgs = (post.attachments || []).filter((a) => a.type === "image");
-    const meta = [fmtDate(post), post.locations?.[0]?.placeName || post.locations?.[0]?.address]
-      .filter(Boolean).join(" · ");
     const title = (post.title || "").trim();
     const desc = (post.description || "").trim();
-    const header: Header | undefined = title || meta ? { title, meta, desc: desc || undefined } : undefined;
+
+    // GPS log = jen značka pro mapu; bez fotky a bez textu nic neukazujeme
+    // (stejně jako blog). Takové záznamy do knihy nezahrnujeme.
+    if (post.taskType === "GPS_LOG") continue;
+    if (imgs.length === 0 && !desc) continue;
+
+    const meta = [fmtDate(post), post.locations?.[0]?.placeName || post.locations?.[0]?.address]
+      .filter(Boolean).join(" · ");
 
     if (imgs.length === 0) {
-      if (title || desc) pages.push({ kind: "text", title: title || "Zápis", meta, desc });
+      els.push({ type: "text", h: HEAD_H + estTextH(desc), title, meta, desc, topGap: POST_GAP });
       continue;
     }
 
-    // 1) Fotky do řádků (každý ~ targetRowH; šířka řádku = pageW).
-    const rows: Row[] = [];
-    let cur: { img: Att; a: number }[] = [];
-    let arSum = 0;
-    const flush = (last: boolean) => {
-      if (!cur.length) return;
-      let h = (pageW - gap * (cur.length - 1)) / arSum;
-      if (last) h = Math.min(h, targetRowH * 1.4); // osamělý poslední řádek nepřefoukne
-      rows.push({ h, cells: cur.map((x) => ({ img: x.img, w: x.a * h })) });
-      cur = [];
-      arSum = 0;
-    };
-    for (const img of imgs) {
-      const a = aspects[img.id] || 1.5;
-      cur.push({ img, a });
-      arSum += a;
-      const h = (pageW - gap * (cur.length - 1)) / arSum;
-      if (h <= targetRowH) flush(false);
+    const rows = justify(imgs, aspects, pageW, gap, targetRowH);
+    if (desc.length <= SHORT) {
+      // krátký text → překryv přes první fotku
+      const header: Header = { title, meta, desc: desc || undefined };
+      rows.forEach((r, idx) =>
+        els.push({ type: "row", h: r.h, cells: r.cells, header: idx === 0 ? header : undefined, topGap: idx === 0 ? POST_GAP : gap }),
+      );
+    } else {
+      // delší text → nadpis nad fotkami + text pod
+      els.push({ type: "head", h: HEAD_H, title, meta, topGap: POST_GAP });
+      rows.forEach((r) => els.push({ type: "row", h: r.h, cells: r.cells, topGap: gap }));
+      els.push({ type: "text", h: estTextH(desc), desc, topGap: gap });
     }
-    flush(true);
-
-    // 2) Řádky do stránek podle výšky; první strana dostane hlavičku.
-    let pageRows: Row[] = [];
-    let usedH = 0;
-    let first = true;
-    const pushPage = () => {
-      pages.push({ kind: "mosaic", rows: pageRows, header: first ? header : undefined });
-      first = false;
-      pageRows = [];
-      usedH = 0;
-    };
-    for (const row of rows) {
-      const add = row.h + (pageRows.length ? gap : 0);
-      if (usedH + add > pageH && pageRows.length) pushPage();
-      pageRows.push(row);
-      usedH += row.h + (pageRows.length > 1 ? gap : 0);
-    }
-    if (pageRows.length) pushPage();
   }
 
+  // Stránkování dle výšky (kompaktně, bez roztahování → víc bloků na stránku).
+  const pages: FlowEl[][] = [];
+  let cur: FlowEl[] = [];
+  let used = 0;
+  for (const el of els) {
+    const add = el.h + (cur.length ? el.topGap : 0);
+    if (used + add > pageH && cur.length) {
+      pages.push(cur);
+      cur = [];
+      used = 0;
+    }
+    cur.push(el);
+    used += el.h + (cur.length > 1 ? el.topGap : 0);
+  }
+  if (cur.length) pages.push(cur);
   return pages;
 }
 
@@ -139,7 +164,6 @@ export function PhotoBook({
   const [error, setError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Data si umíme dotáhnout sami (TaskList předává jen folder).
   useEffect(() => {
     if (posts !== null) return;
     let live = true;
@@ -159,7 +183,6 @@ export function PhotoBook({
     return () => { live = false; };
   }, [folder.id, posts]);
 
-  // Změř poměry stran všech fotek (kvůli orientačně správné koláži).
   const allImages = useMemo(
     () => (posts || []).flatMap((p) => (p.attachments || []).filter((a) => a.type === "image")),
     [posts],
@@ -181,16 +204,16 @@ export function PhotoBook({
 
   const accent = accentFor(folder.blogTemplate);
   const dims = SIZES[format];
-  const PAD = format === "A4" ? 34 : 24;
+  const PAD = format === "A4" ? 40 : 28; // ~12 mm okraj
   const GAP = 6;
   const pageW = dims.w - 2 * PAD;
   const pageH = dims.h - 2 * PAD;
-  const targetRowH = pageH / (format === "A4" ? 4 : 3.4); // menší fotky = víc řádků
+  const targetRowH = pageH / (format === "A4" ? 3.6 : 3.2);
 
   const aspectsReady = allImages.length === 0 || Object.keys(aspects).length >= allImages.length;
   const pages = useMemo(
-    () => (posts && aspectsReady ? buildPages(posts, aspects, pageW, pageH, GAP, targetRowH) : []),
-    [posts, aspects, aspectsReady, pageW, pageH, targetRowH],
+    () => (posts && aspectsReady ? buildPages(posts, aspects, format, pageW, pageH, GAP, targetRowH) : []),
+    [posts, aspects, aspectsReady, format, pageW, pageH, targetRowH],
   );
 
   const dateRange = useMemo(() => {
@@ -215,9 +238,17 @@ export function PhotoBook({
     setProgress(null);
   }
 
+  // Štítek (meta) s podkladem – ať se neztratí na fotce ani na bílé.
+  const MetaPill = ({ children, onPhoto }: { children: React.ReactNode; onPhoto?: boolean }) => (
+    <span style={{
+      display: "inline-block", background: accent, color: "#fff", padding: "3px 9px", borderRadius: 5,
+      fontFamily: "Outfit, sans-serif", fontSize: 10, fontWeight: 800, letterSpacing: "0.18em", textTransform: "uppercase",
+      boxShadow: onPhoto ? "0 2px 8px rgba(0,0,0,0.35)" : "none",
+    }}>{children}</span>
+  );
+
   return (
     <div className="fixed inset-0 z-[120] flex flex-col bg-stone-950/80 backdrop-blur-sm">
-      {/* Toolbar */}
       <div className="flex items-center justify-between gap-4 border-b border-white/10 bg-stone-950 px-5 py-3 text-white">
         <div className="flex items-center gap-2 text-sm font-bold">
           <ImageIcon size={16} style={{ color: accent }} />
@@ -226,127 +257,83 @@ export function PhotoBook({
         <div className="flex items-center gap-3">
           <div className="flex overflow-hidden rounded-lg border border-white/15">
             {(["A4", "A5"] as Format[]).map((f) => (
-              <button
-                key={f}
-                onClick={() => setFormat(f)}
-                className={`px-3 py-1.5 text-xs font-bold ${format === f ? "bg-white text-stone-950" : "text-white/70 hover:bg-white/10"}`}
-              >
+              <button key={f} onClick={() => setFormat(f)}
+                className={`px-3 py-1.5 text-xs font-bold ${format === f ? "bg-white text-stone-950" : "text-white/70 hover:bg-white/10"}`}>
                 {f}
               </button>
             ))}
           </div>
-          <button
-            onClick={exportPdf}
-            disabled={!!progress || !posts || pages.length === 0}
+          <button onClick={exportPdf} disabled={!!progress || !posts || pages.length === 0}
             className="inline-flex items-center gap-2 rounded-lg px-4 py-1.5 text-sm font-bold text-white hover:opacity-90 disabled:opacity-50"
-            style={{ background: accent }}
-          >
-            {progress ? (
-              <><Loader2 size={16} className="animate-spin" /> {progress.cur}/{progress.total}</>
-            ) : (
-              <><Download size={16} /> Stáhnout PDF</>
-            )}
+            style={{ background: accent }}>
+            {progress ? (<><Loader2 size={16} className="animate-spin" /> {progress.cur}/{progress.total}</>) : (<><Download size={16} /> Stáhnout PDF</>)}
           </button>
           {onClose && (
-            <button onClick={onClose} className="rounded-lg p-2 text-white/70 hover:bg-white/10 hover:text-white">
-              <X size={20} />
-            </button>
+            <button onClick={onClose} className="rounded-lg p-2 text-white/70 hover:bg-white/10 hover:text-white"><X size={20} /></button>
           )}
         </div>
       </div>
 
-      {/* Náhled */}
       <div className="flex-1 overflow-auto p-8">
-        {error && (
-          <p className="mx-auto mb-4 max-w-md rounded-lg bg-red-950/60 px-4 py-2 text-center text-sm text-red-200">{error}</p>
-        )}
+        {error && <p className="mx-auto mb-4 max-w-md rounded-lg bg-red-950/60 px-4 py-2 text-center text-sm text-red-200">{error}</p>}
         {!posts || !aspectsReady ? (
-          <p className="py-20 text-center text-sm text-white/50">
-            {!posts ? "Načítám…" : "Připravuji fotky…"}
-          </p>
+          <p className="py-20 text-center text-sm text-white/50">{!posts ? "Načítám…" : "Připravuji fotky…"}</p>
         ) : pages.length === 0 ? (
           <p className="py-20 text-center text-sm text-white/50">Tato složka nemá žádné fotky k vytištění.</p>
         ) : (
           <div ref={containerRef} className="mx-auto flex flex-col items-center gap-8" style={{ width: dims.w }}>
             {/* OBÁLKA */}
-            <div
-              className="print-page relative overflow-hidden"
-              style={{ width: dims.w, height: dims.h, background: "#1a1410", color: "#F5F0E8", display: "flex", flexDirection: "column", justifyContent: "flex-end", padding: format === "A4" ? "60px 56px" : "40px 36px" }}
-            >
-              <div style={{ fontFamily: "Outfit, sans-serif", fontSize: 10, fontWeight: 800, letterSpacing: "0.35em", textTransform: "uppercase", color: accent, marginBottom: 24 }}>
-                Questea · Fotokniha
-              </div>
-              <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: format === "A4" ? 80 : 54, fontWeight: 700, fontStyle: "italic", lineHeight: 0.9, marginBottom: 32 }}>
-                {folder.title}
-              </h1>
-              <div style={{ fontFamily: "Outfit, sans-serif", fontSize: 11, fontWeight: 800, letterSpacing: "0.25em", textTransform: "uppercase", color: "rgba(245,240,232,0.55)" }}>
-                {dateRange}
-              </div>
+            <div className="print-page relative overflow-hidden"
+              style={{ width: dims.w, height: dims.h, background: "#1a1410", color: "#F5F0E8", display: "flex", flexDirection: "column", justifyContent: "flex-end", padding: format === "A4" ? "60px 56px" : "40px 36px" }}>
+              <div style={{ fontFamily: "Outfit, sans-serif", fontSize: 10, fontWeight: 800, letterSpacing: "0.35em", textTransform: "uppercase", color: accent, marginBottom: 24 }}>Questea · Fotokniha</div>
+              <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: format === "A4" ? 80 : 54, fontWeight: 700, fontStyle: "italic", lineHeight: 0.9, marginBottom: 32 }}>{folder.title}</h1>
+              <div style={{ fontFamily: "Outfit, sans-serif", fontSize: 11, fontWeight: 800, letterSpacing: "0.25em", textTransform: "uppercase", color: "rgba(245,240,232,0.55)" }}>{dateRange}</div>
             </div>
 
             {/* OBSAH */}
-            {pages.map((page, i) => (
-              <div
-                key={i}
-                className="print-page relative overflow-hidden"
-                style={{ width: dims.w, height: dims.h, background: "#ffffff" }}
-              >
+            {pages.map((els, i) => (
+              <div key={i} className="print-page relative overflow-hidden" style={{ width: dims.w, height: dims.h, background: "#ffffff" }}>
                 <div style={{ position: "absolute", inset: PAD, overflow: "hidden" }}>
-                  {page.kind === "mosaic" ? (
-                    <>
-                      <div style={{ display: "flex", flexDirection: "column", gap: GAP, width: "100%", height: "100%" }}>
-                        {page.rows.map((row, ri) => (
-                          <div key={ri} style={{ display: "flex", gap: GAP, flex: `${row.h} 1 0`, minHeight: 0 }}>
-                            {row.cells.map((c) => (
-                              <div key={c.img.id} style={{ flex: `${c.w} 1 0`, minWidth: 0, overflow: "hidden", borderRadius: 3, background: "#ece8e1" }}>
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img src={c.img.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                              </div>
-                            ))}
-                          </div>
-                        ))}
-                      </div>
-                      {page.header && (
-                        <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, padding: "60px 26px 22px", background: "linear-gradient(to top, rgba(0,0,0,0.74), rgba(0,0,0,0))", color: "white" }}>
-                          {page.header.meta && (
-                            <div style={{ fontFamily: "Outfit, sans-serif", fontSize: 10, fontWeight: 800, letterSpacing: "0.22em", textTransform: "uppercase", color: accent, marginBottom: 8 }}>
-                              {page.header.meta}
+                  {els.map((el, idx) => {
+                    const mt = idx > 0 ? el.topGap : 0;
+                    if (el.type === "row") {
+                      return (
+                        <div key={idx} style={{ position: "relative", display: "flex", gap: GAP, height: el.h, marginTop: mt }}>
+                          {el.cells.map((c) => (
+                            <div key={c.img.id} style={{ flex: `${c.w} 1 0`, minWidth: 0, overflow: "hidden", borderRadius: 3, background: "#ece8e1" }}>
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={c.img.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                            </div>
+                          ))}
+                          {el.header && (
+                            <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, padding: "56px 22px 18px", background: "linear-gradient(to top, rgba(0,0,0,0.78), rgba(0,0,0,0))", color: "white" }}>
+                              {el.header.meta && <div style={{ marginBottom: 8 }}><MetaPill onPhoto>{el.header.meta}</MetaPill></div>}
+                              {el.header.title && <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: format === "A4" ? 34 : 24, fontWeight: 700, fontStyle: "italic", lineHeight: 1, margin: 0, textShadow: "0 2px 12px rgba(0,0,0,0.5)" }}>{el.header.title}</h2>}
+                              {el.header.desc && <p style={{ fontFamily: "Outfit, sans-serif", fontSize: 12.5, lineHeight: 1.5, marginTop: 8, maxWidth: 540, color: "rgba(255,255,255,0.9)" }}>{el.header.desc.length > 200 ? el.header.desc.slice(0, 200) + "…" : el.header.desc}</p>}
                             </div>
                           )}
-                          {page.header.title && (
-                            <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: format === "A4" ? 38 : 26, fontWeight: 700, fontStyle: "italic", lineHeight: 1, margin: 0 }}>
-                              {page.header.title}
-                            </h2>
-                          )}
-                          {page.header.desc && (
-                            <p style={{ fontFamily: "Outfit, sans-serif", fontSize: 13, lineHeight: 1.5, marginTop: 10, maxWidth: 560, color: "rgba(255,255,255,0.88)" }}>
-                              {page.header.desc.length > 220 ? page.header.desc.slice(0, 220) + "…" : page.header.desc}
-                            </p>
-                          )}
                         </div>
-                      )}
-                    </>
-                  ) : (
-                    <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", justifyContent: "center", padding: format === "A4" ? "48px 52px" : "32px 36px", color: "#1c1917", background: "#fcfaf7" }}>
-                      {page.meta && (
-                        <div style={{ fontFamily: "Outfit, sans-serif", fontSize: 11, fontWeight: 800, letterSpacing: "0.25em", textTransform: "uppercase", color: accent, marginBottom: 16 }}>
-                          {page.meta}
+                      );
+                    }
+                    if (el.type === "head") {
+                      return (
+                        <div key={idx} style={{ marginTop: mt }}>
+                          {el.meta && <div style={{ marginBottom: 8 }}><MetaPill>{el.meta}</MetaPill></div>}
+                          <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: format === "A4" ? 34 : 24, fontWeight: 700, fontStyle: "italic", lineHeight: 1.05, margin: 0, color: "#1c1917" }}>{el.title}</h2>
                         </div>
-                      )}
-                      <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: format === "A4" ? 48 : 34, fontWeight: 700, fontStyle: "italic", lineHeight: 1.05, marginBottom: 24 }}>
-                        {page.title}
-                      </h2>
-                      <p style={{ fontFamily: "Outfit, sans-serif", fontSize: 15, lineHeight: 1.7, color: "#44403c", whiteSpace: "pre-wrap" }}>
-                        {page.desc}
-                      </p>
-                    </div>
-                  )}
+                      );
+                    }
+                    // text
+                    return (
+                      <div key={idx} style={{ marginTop: mt }}>
+                        {el.meta && <div style={{ marginBottom: 8 }}><MetaPill>{el.meta}</MetaPill></div>}
+                        {el.title && <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: format === "A4" ? 30 : 22, fontWeight: 700, fontStyle: "italic", lineHeight: 1.1, marginBottom: 12, color: "#1c1917" }}>{el.title}</h2>}
+                        <p style={{ fontFamily: "Outfit, sans-serif", fontSize: 14, lineHeight: 1.65, color: "#44403c", whiteSpace: "pre-wrap", margin: 0 }}>{el.desc}</p>
+                      </div>
+                    );
+                  })}
                 </div>
-
-                {/* Číslo stránky */}
-                <div style={{ position: "absolute", bottom: 14, right: 18, fontFamily: "Outfit, sans-serif", fontSize: 10, fontWeight: 700, color: "rgba(0,0,0,0.4)" }}>
-                  {i + 1}
-                </div>
+                <div style={{ position: "absolute", bottom: 14, right: 18, fontFamily: "Outfit, sans-serif", fontSize: 10, fontWeight: 700, color: "rgba(0,0,0,0.4)" }}>{i + 1}</div>
               </div>
             ))}
           </div>

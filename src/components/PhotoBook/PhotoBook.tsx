@@ -169,6 +169,8 @@ export function PhotoBook({
   const accent = accentFor(folder.blogTemplate);
   const pages = useMemo(() => (posts ? buildPages(posts) : []), [posts]);
   const dims = SIZES[format];
+  const PAD = format === "A4" ? 30 : 22; // jemný okraj stránky (rám)
+  const GAP = 5; // mezera mezi fotkami
 
   const dateRange = useMemo(() => {
     if (!posts || posts.length === 0) return "";
@@ -264,8 +266,9 @@ export function PhotoBook({
               <div
                 key={i}
                 className="print-page relative overflow-hidden"
-                style={{ width: dims.w, height: dims.h, background: "#fcfaf7" }}
+                style={{ width: dims.w, height: dims.h, background: "#ffffff" }}
               >
+               <div style={{ position: "absolute", inset: PAD, overflow: "hidden", borderRadius: 4 }}>
                 {page.kind === "mosaic" ? (
                   <>
                     <div
@@ -274,13 +277,13 @@ export function PhotoBook({
                         gridTemplateColumns: page.tpl.cols,
                         gridTemplateRows: page.tpl.rows,
                         gridTemplateAreas: page.tpl.areas,
-                        gap: 4,
+                        gap: GAP,
                         width: "100%",
                         height: "100%",
                       }}
                     >
                       {page.imgs.map((img, idx) => (
-                        <div key={img.id} style={{ gridArea: AREA_KEYS[idx], overflow: "hidden", background: "#ece8e1" }}>
+                        <div key={img.id} style={{ gridArea: AREA_KEYS[idx], overflow: "hidden", background: "#ece8e1", borderRadius: 3 }}>
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img src={img.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                         </div>
@@ -289,7 +292,7 @@ export function PhotoBook({
                     {page.header && (
                       <div
                         style={{
-                          position: "absolute", left: 0, right: 0, bottom: 0, padding: "64px 40px 28px",
+                          position: "absolute", left: 0, right: 0, bottom: 0, padding: "64px 28px 24px",
                           background: "linear-gradient(to top, rgba(0,0,0,0.72), rgba(0,0,0,0))",
                           color: "white",
                         }}
@@ -314,7 +317,7 @@ export function PhotoBook({
                   </>
                 ) : (
                   // TEXT PAGE
-                  <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", justifyContent: "center", padding: format === "A4" ? "80px 72px" : "56px 48px", color: "#1c1917" }}>
+                  <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", justifyContent: "center", padding: format === "A4" ? "48px 52px" : "32px 36px", color: "#1c1917", background: "#fcfaf7" }}>
                     {page.meta && (
                       <div style={{ fontFamily: "Outfit, sans-serif", fontSize: 11, fontWeight: 800, letterSpacing: "0.25em", textTransform: "uppercase", color: accent, marginBottom: 16 }}>
                         {page.meta}
@@ -328,6 +331,7 @@ export function PhotoBook({
                     </p>
                   </div>
                 )}
+               </div>
 
                 {/* Číslo stránky */}
                 <div style={{ position: "absolute", bottom: 14, right: 18, fontFamily: "Outfit, sans-serif", fontSize: 10, fontWeight: 700, color: page.kind === "mosaic" && page.header ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.35)" }}>

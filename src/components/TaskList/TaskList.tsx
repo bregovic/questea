@@ -44,6 +44,7 @@ export const TaskList = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isLookupOpen, setIsLookupOpen] = useState(false);
   const [isPrintEditorOpen, setIsPrintEditorOpen] = useState(false);
+  const [printFolder, setPrintFolder] = useState<any | null>(null);
   const [lookupQuery, setLookupQuery] = useState("");
 
   const toggleZen = () => {
@@ -646,12 +647,12 @@ export const TaskList = () => {
             }}
           />
         )}
-        {isPrintEditorOpen && quickActionTask && (
+        {isPrintEditorOpen && printFolder && (
           <PhotoBook
-            folder={quickActionTask}
+            folder={printFolder}
             onClose={() => {
               setIsPrintEditorOpen(false);
-              setQuickActionTask(null);
+              setPrintFolder(null);
             }}
           />
         )}
@@ -750,7 +751,7 @@ export const TaskList = () => {
                          try {
                            const res = await fetch(`/api/tasks/${currentParentId}`);
                            const fullFolder = await res.json();
-                           setQuickActionTask(fullFolder); // Temporarily reuse this or just open editor
+                           setPrintFolder(fullFolder);
                            setIsPrintEditorOpen(true);
                          } catch (err) {} finally { setIsLoadingDetail(false); }
                        } else alert("Otevřete nejprve složku projektu"); 

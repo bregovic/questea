@@ -32,6 +32,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
   const [priority, setPriority] = useState(task.priority);
   const [parentId, setParentId] = useState(task.parentId || "");
   const [lockStatus, setLockStatus] = useState(task.lockStatus || false);
+  const [status, setStatus] = useState(task.status);
   const [taskType, setTaskType] = useState(task.taskType);
   const [amount, setAmount] = useState(task.amount || "");
   const [currency, setCurrency] = useState(task.currency || "CZK");
@@ -88,6 +89,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
     setPriority(task.priority);
     setParentId(task.parentId || "");
     setLockStatus(task.lockStatus || false);
+    setStatus(task.status);
     setTaskType(task.taskType);
     setAmount(task.amount || "");
     setCurrency(task.currency || "CZK");
@@ -334,6 +336,16 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
   const handleLockStatusChange = (newLock: boolean) => {
     setLockStatus(newLock);
     onUpdate(task.id, { lockStatus: newLock });
+  };
+
+  const handleStatusToggle = () => {
+    if (status !== "DONE" && lockStatus) {
+      alert("Tento úkol je uzamčený a nelze jej uzavřít. Nejdřív zruš zámek stavu.");
+      return;
+    }
+    const newStatus = status === "DONE" ? "TODO" : "DONE";
+    setStatus(newStatus);
+    onUpdate(task.id, { status: newStatus });
   };
 
   const handleTaskTypeChange = (newType: string) => {
@@ -591,6 +603,18 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
       <div className={styles.content}>
         {/* Quick Actions */}
         <div className={styles.actionRow}>
+          {taskType === "TASK" && (
+            <button
+              onClick={handleStatusToggle}
+              className={`${styles.actionBtn} ${styles.statusBtn} ${status === "DONE" ? styles.statusBtnDone : ""}`}
+            >
+              {status === "DONE" ? (
+                <><RotateCcw size={16} /> Znovu otevřít</>
+              ) : (
+                <><CheckSquare size={16} /> Označit jako hotové</>
+              )}
+            </button>
+          )}
           <button onClick={() => window.print()} className={`${styles.actionBtn} ${styles.exportBtn}`}>
             <FileText size={16} /> Export do PDF
           </button>

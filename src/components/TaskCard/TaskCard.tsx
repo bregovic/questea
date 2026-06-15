@@ -100,7 +100,23 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
         className={`${styles.card} ${task.status === "DONE" && task.taskType === "TASK" ? styles.completed : ""} ${isLogRecord ? styles.logCard : ""}`}
       >
         <div className={styles.leftIndicator} style={{ backgroundColor: getPriorityColor(task.priority) }} />
-        
+
+        {!isLogRecord && task.taskType === "TASK" && (
+          <button
+            type="button"
+            className={styles.checkbox}
+            data-done={task.status === "DONE"}
+            title={task.status === "DONE" ? "Označit jako nehotové" : "Označit jako hotové"}
+            onClick={(e) => {
+              e.stopPropagation();
+              onUpdate({ status: task.status === "DONE" ? "TODO" : "DONE" });
+            }}
+            onPointerDownCapture={(e) => e.stopPropagation()}
+          >
+            {task.status === "DONE" && <Check size={15} strokeWidth={3} />}
+          </button>
+        )}
+
         {!isLogRecord ? (
           <>
             <div className={styles.mainInfo}>

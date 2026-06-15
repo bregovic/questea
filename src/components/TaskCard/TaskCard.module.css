@@ -70,6 +70,37 @@
   flex-shrink: 0;
 }
 
+.checkbox {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid var(--panel-border);
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: white;
+  padding: 0;
+  transition: all 0.2s ease;
+}
+
+.checkbox:hover {
+  border-color: #059669;
+  background: #ecfdf5;
+}
+
+.checkbox[data-done="true"] {
+  background: #059669;
+  border-color: #059669;
+}
+
+.checkbox[data-done="true"]:hover {
+  background: #047857;
+  border-color: #047857;
+}
+
 .mainInfo {
   flex: 1;
   display: flex;

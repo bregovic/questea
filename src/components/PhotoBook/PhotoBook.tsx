@@ -2,11 +2,10 @@
 
 /**
  * PhotoBook – fotokniha (magazínová sazba, vyplní A4).
- * Každý příspěvek = atomický blok (nadpis + fotky + text drží pohromadě,
- * nikdy se nerozdělí přes stránky). Šablona se volí podle počtu fotek a délky
- * textu: krátký text vedle fotek, delší pod nimi. Fotky "justified" dle poměru
- * stran (na šířku → široká buňka). Mapa = blogová Leaflet JourneyMap na obálce.
- * PDF přes generatePhotoBookPdf (snímky .print-page).
+ * Fotky i text jsou "položky" se stejným poměrovým systémem (justified). Buňky
+ * mají PŘESNÉ rozměry podle poměru stran fotky → žádné nevhodné ořezy. Krátký
+ * text se vkládá jako textová dlaždice přímo do koláže (ve formátu fotky).
+ * Mapa = blogová Leaflet JourneyMap na obálce. PDF přes generatePhotoBookPdf.
  */
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -29,13 +28,15 @@ type Post = {
 type Folder = { id: string; title?: string | null; blogTemplate?: string | null };
 type Format = "A4" | "A5";
 
-type Cell = { img: Att; w: number };
+type Item =
+  | { key: string; aspect: number; kind: "img"; img: Att }
+  | { key: string; aspect: number; kind: "text"; meta: string; title: string; desc: string };
+type Cell = { item: Item; w: number };
 type Row = { h: number; cells: Cell[] };
 type Header = { title: string; meta: string };
-type StackedBlock = { kind: "stacked"; header?: Header; rows: Row[]; caption?: string; h: number };
-type SideBlock = { kind: "side"; header: Header; rows: Row[]; desc: string; photoW: number; textW: number; colGap: number; h: number };
+type PhotoBlock = { kind: "photos"; header?: Header; rows: Row[]; caption?: string; h: number };
 type TextBlock = { kind: "text"; title?: string; meta: string; desc: string; h: number };
-type Block = StackedBlock | SideBlock | TextBlock;
+type Block = PhotoBlock | TextBlock;
 
 const SIZES: Record<Format, { w: number; h: number }> = {
   A4: { w: 794, h: 1123 },
@@ -58,22 +59,23 @@ function fmtDate(p: Post): string {
   return new Date(d).toLocaleDateString("cs-CZ", { day: "numeric", month: "long", year: "numeric" });
 }
 
-function justify(imgs: Att[], aspects: Record<string, number>, W: number, gap: number, targetRowH: number): Row[] {
+const clip = (s: string, n: number) => (s.length > n ? s.slice(0, n).trimEnd() + "…" : s);
+
+function justify(items: Item[], W: number, gap: number, targetRowH: number): Row[] {
   const rows: Row[] = [];
-  let cur: { img: Att; a: number }[] = [];
+  let cur: Item[] = [];
   let arSum = 0;
   const flush = (last: boolean) => {
     if (!cur.length) return;
     let h = (W - gap * (cur.length - 1)) / arSum;
-    if (last) h = Math.min(h, targetRowH * 1.4);
-    rows.push({ h, cells: cur.map((x) => ({ img: x.img, w: x.a * h })) });
+    if (last) h = Math.min(h, targetRowH * 1.35);
+    rows.push({ h, cells: cur.map((it) => ({ item: it, w: it.aspect * h })) });
     cur = [];
     arSum = 0;
   };
-  for (const img of imgs) {
-    const a = aspects[img.id] || 1.5;
-    cur.push({ img, a });
-    arSum += a;
+  for (const it of items) {
+    cur.push(it);
+    arSum += it.aspect;
     if ((W - gap * (cur.length - 1)) / arSum <= targetRowH) flush(false);
   }
   flush(true);
@@ -82,14 +84,14 @@ function justify(imgs: Att[], aspects: Record<string, number>, W: number, gap: n
 
 const sumH = (rows: Row[], gap: number) => rows.reduce((s, r) => s + r.h, 0) + gap * Math.max(0, rows.length - 1);
 
-/** Poskládá fotky do šířky W tak, aby se vešly do maxH (zmenší fotky, aspekt drží). */
-function fitRows(imgs: Att[], aspects: Record<string, number>, W: number, gap: number, baseRowH: number, maxH: number) {
-  let rows = justify(imgs, aspects, W, gap, baseRowH);
+/** Poskládá položky do šířky W tak, aby se vešly do maxH (zmenší je, aspekt drží). */
+function fitRows(items: Item[], W: number, gap: number, baseRowH: number, maxH: number) {
+  let rows = justify(items, W, gap, baseRowH);
   let h = sumH(rows, gap);
   if (h > maxH && h > 0) {
-    const sumA = imgs.reduce((s, im) => s + (aspects[im.id] || 1.5), 0);
+    const sumA = items.reduce((s, it) => s + it.aspect, 0);
     const rh = Math.sqrt(Math.max(maxH, 40) * W / Math.max(sumA, 0.1));
-    rows = justify(imgs, aspects, W, gap, rh);
+    rows = justify(items, W, gap, rh);
     h = sumH(rows, gap);
   }
   return { rows, h };
@@ -105,7 +107,7 @@ function buildPages(
   baseRowH: number,
 ): Block[][] {
   const POST_GAP = fmt === "A4" ? 30 : 22;
-  const HEAD_H = fmt === "A4" ? 64 : 50;
+  const HEAD_H = fmt === "A4" ? 60 : 46;
   const estTextH = (desc: string, width: number, fontPx: number) => {
     const cpl = Math.max(20, Math.floor(width / (fontPx * 0.52)));
     return Math.ceil(desc.length / cpl) * (fontPx * 1.55) + 8;
@@ -127,38 +129,31 @@ function buildPages(
       continue;
     }
 
-    // Krátký text + málo fotek → text vedle fotek.
-    if (desc && desc.length <= 260 && imgs.length <= 3) {
-      const colGap = fmt === "A4" ? 22 : 16;
-      const photoW = Math.round(pageW * 0.62);
-      const textW = pageW - photoW - colGap;
-      const { rows, h: photosH } = fitRows(imgs, aspects, photoW, gap, baseRowH, pageH * 0.46);
-      const textH = HEAD_H + estTextH(desc, textW, 13.5);
-      const h = Math.min(Math.max(photosH, textH), pageH);
-      blocks.push({ kind: "side", header: { title, meta }, rows, desc, photoW, textW, colGap, h });
+    const items: Item[] = imgs.map((a) => ({ key: a.id, aspect: aspects[a.id] || 1.5, kind: "img" as const, img: a }));
+
+    // Krátký text + rozumný počet fotek → text jako dlaždice v koláži.
+    if (desc && desc.length <= 240 && imgs.length <= 5) {
+      items.unshift({ key: `t-${post.id}`, aspect: 0.82, kind: "text", meta, title, desc: clip(desc, 200) });
+      const { rows, h } = fitRows(items, pageW, gap, baseRowH, pageH - 2);
+      blocks.push({ kind: "photos", rows, h: Math.min(h, pageH) });
       continue;
     }
 
-    // Jinak: nadpis nad + fotky + text pod (vše pohromadě).
+    // Jinak: (volitelný) nadpis nad + fotky + text pod – vše pohromadě.
     const headerH = title || meta ? HEAD_H : 0;
     const captionH = desc ? estTextH(desc, pageW, 13.5) + 6 : 0;
     const maxPhotosH = pageH - headerH - captionH - gap * 2 - 2;
-    const { rows, h: photosH } = fitRows(imgs, aspects, pageW, gap, baseRowH, maxPhotosH);
+    const { rows, h: photosH } = fitRows(items, pageW, gap, baseRowH, maxPhotosH);
     const h = headerH + (headerH ? gap : 0) + photosH + (captionH ? gap + captionH : 0);
-    blocks.push({ kind: "stacked", header: title || meta ? { title, meta } : undefined, rows, caption: desc || undefined, h: Math.min(h, pageH) });
+    blocks.push({ kind: "photos", header: title || meta ? { title, meta } : undefined, rows, caption: desc || undefined, h: Math.min(h, pageH) });
   }
 
-  // Atomické stránkování – blok se nikdy nerozdělí.
   const pages: Block[][] = [];
   let cur: Block[] = [];
   let used = 0;
   for (const b of blocks) {
     const add = b.h + (cur.length ? POST_GAP : 0);
-    if (used + add > pageH && cur.length) {
-      pages.push(cur);
-      cur = [];
-      used = 0;
-    }
+    if (used + add > pageH && cur.length) { pages.push(cur); cur = []; used = 0; }
     cur.push(b);
     used += b.h + (cur.length > 1 ? POST_GAP : 0);
   }
@@ -271,22 +266,34 @@ export function PhotoBook({
   const MetaPill = ({ children, onPhoto }: { children: React.ReactNode; onPhoto?: boolean }) => (
     <span style={{
       display: "inline-block", background: accent, color: "#fff", padding: "3px 9px", borderRadius: 5,
-      fontFamily: "Outfit, sans-serif", fontSize: 10, fontWeight: 800, letterSpacing: "0.16em", textTransform: "uppercase",
+      fontFamily: "Outfit, sans-serif", fontSize: 9.5, fontWeight: 800, letterSpacing: "0.16em", textTransform: "uppercase",
       boxShadow: onPhoto ? "0 2px 8px rgba(0,0,0,0.35)" : "none",
     }}>{children}</span>
   );
-  const Title = ({ children, size, onPhoto }: { children: React.ReactNode; size: number; onPhoto?: boolean }) => (
-    <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: size, fontWeight: 700, fontStyle: "italic", lineHeight: 1.05, margin: 0, color: onPhoto ? "#fff" : "#1c1917", textShadow: onPhoto ? "0 2px 12px rgba(0,0,0,0.5)" : "none" }}>{children}</h2>
-  );
+
+  /** Buňka řádku – fotka, nebo textová dlaždice (ve formátu fotky). */
+  const CellView = ({ cell, h }: { cell: Cell; h: number }) => {
+    const common: React.CSSProperties = { width: cell.w, height: h, flexShrink: 0, overflow: "hidden", borderRadius: 4 };
+    if (cell.item.kind === "img") {
+      return (
+        <div style={{ ...common, background: "#ece8e1" }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={cell.item.img.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+        </div>
+      );
+    }
+    return (
+      <div style={{ ...common, background: "#fbf8f3", border: `1px solid #efe9df`, borderTop: `3px solid ${accent}`, display: "flex", flexDirection: "column", justifyContent: "center", padding: "16px 18px" }}>
+        {cell.item.meta && <div style={{ marginBottom: 9 }}><MetaPill>{cell.item.meta}</MetaPill></div>}
+        {cell.item.title && <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 19, fontWeight: 700, fontStyle: "italic", lineHeight: 1.1, color: "#1c1917", marginBottom: 9 }}>{cell.item.title}</div>}
+        <div style={{ fontFamily: "Outfit, sans-serif", fontSize: 11.5, lineHeight: 1.55, color: "#57534e", whiteSpace: "pre-wrap" }}>{cell.item.desc}</div>
+      </div>
+    );
+  };
   const Rows = ({ rows }: { rows: Row[] }) => (
     <>{rows.map((row, ri) => (
-      <div key={ri} style={{ display: "flex", gap: GAP, height: row.h, marginTop: ri > 0 ? GAP : 0 }}>
-        {row.cells.map((c) => (
-          <div key={c.img.id} style={{ flex: `${c.w} 1 0`, minWidth: 0, overflow: "hidden", borderRadius: 3, background: "#ece8e1" }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={c.img.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-          </div>
-        ))}
+      <div key={ri} style={{ display: "flex", gap: GAP, height: row.h, justifyContent: "center", marginTop: ri > 0 ? GAP : 0 }}>
+        {row.cells.map((c, ci) => <CellView key={ci} cell={c} h={row.h} />)}
       </div>
     ))}</>
   );
@@ -348,39 +355,27 @@ export function PhotoBook({
                 <div style={{ position: "absolute", inset: PAD, overflow: "hidden" }}>
                   {blocks.map((b, bi) => {
                     const mt = bi > 0 ? (format === "A4" ? 30 : 22) : 0;
-                    if (b.kind === "stacked") {
+                    if (b.kind === "photos") {
                       return (
                         <div key={bi} style={{ marginTop: mt }}>
                           {b.header && (b.header.title || b.header.meta) && (
                             <div style={{ marginBottom: GAP }}>
                               {b.header.meta && <div style={{ marginBottom: 6 }}><MetaPill>{b.header.meta}</MetaPill></div>}
-                              {b.header.title && <Title size={format === "A4" ? 30 : 22}>{b.header.title}</Title>}
+                              {b.header.title && <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: format === "A4" ? 30 : 22, fontWeight: 700, fontStyle: "italic", lineHeight: 1.05, margin: 0, color: "#1c1917" }}>{b.header.title}</h2>}
                             </div>
                           )}
                           <Rows rows={b.rows} />
                           {b.caption && (
-                            <p style={{ fontFamily: "Outfit, sans-serif", fontSize: 13.5, lineHeight: 1.6, color: "#44403c", whiteSpace: "pre-wrap", margin: `${GAP}px 0 0` }}>{b.caption}</p>
+                            <p style={{ fontFamily: "Outfit, sans-serif", fontSize: 13.5, lineHeight: 1.6, color: "#44403c", whiteSpace: "pre-wrap", margin: `${GAP}px 0 0`, paddingLeft: 12, borderLeft: `3px solid ${accent}` }}>{b.caption}</p>
                           )}
                         </div>
                       );
                     }
-                    if (b.kind === "side") {
-                      return (
-                        <div key={bi} style={{ display: "flex", gap: b.colGap, marginTop: mt, height: b.h }}>
-                          <div style={{ width: b.photoW, flexShrink: 0 }}><Rows rows={b.rows} /></div>
-                          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "center" }}>
-                            {b.header.meta && <div style={{ marginBottom: 8 }}><MetaPill>{b.header.meta}</MetaPill></div>}
-                            {b.header.title && <div style={{ marginBottom: 10 }}><Title size={format === "A4" ? 26 : 20}>{b.header.title}</Title></div>}
-                            <p style={{ fontFamily: "Outfit, sans-serif", fontSize: 13, lineHeight: 1.6, color: "#44403c", whiteSpace: "pre-wrap", margin: 0 }}>{b.desc}</p>
-                          </div>
-                        </div>
-                      );
-                    }
                     return (
-                      <div key={bi} style={{ marginTop: mt }}>
-                        {b.meta && <div style={{ marginBottom: 8 }}><MetaPill>{b.meta}</MetaPill></div>}
-                        {b.title && <div style={{ marginBottom: 12 }}><Title size={format === "A4" ? 28 : 20}>{b.title}</Title></div>}
-                        <p style={{ fontFamily: "Outfit, sans-serif", fontSize: 14, lineHeight: 1.65, color: "#44403c", whiteSpace: "pre-wrap", margin: 0 }}>{b.desc}</p>
+                      <div key={bi} style={{ marginTop: mt, padding: "4px 0" }}>
+                        {b.meta && <div style={{ marginBottom: 10 }}><MetaPill>{b.meta}</MetaPill></div>}
+                        {b.title && <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: format === "A4" ? 28 : 20, fontWeight: 700, fontStyle: "italic", lineHeight: 1.1, marginBottom: 14, color: "#1c1917" }}>{b.title}</h2>}
+                        <p style={{ fontFamily: "Outfit, sans-serif", fontSize: 14, lineHeight: 1.7, color: "#44403c", whiteSpace: "pre-wrap", margin: 0, paddingLeft: 14, borderLeft: `3px solid ${accent}` }}>{b.desc}</p>
                       </div>
                     );
                   })}

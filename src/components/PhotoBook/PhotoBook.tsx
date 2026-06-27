@@ -1,22 +1,22 @@
 "use client";
 
 /**
- * PhotoBook – fotokniha (magazínová sazba, vyplní A4).
- * Fotky i text jsou "položky" se stejným poměrovým systémem (justified). Buňky
- * mají PŘESNÉ rozměry podle poměru stran fotky → žádné nevhodné ořezy. Krátký
- * text se vkládá jako textová dlaždice přímo do koláže (ve formátu fotky).
- * Mapa = blogová Leaflet JourneyMap na obálce. PDF přes generatePhotoBookPdf.
+ * PhotoBook – editor fotoknihy (šablony + sloty).
+ *
+ * Model: dokument = pole editovatelných A4 stránek { template, title, meta, text,
+ * photos[] }. Z příspěvků se vygeneruje první nástřel (auto-draft), pak ho uživatel
+ * ladí: přepíná šablonu stránky, přehazuje fotky ze zásobníku do slotů, edituje text,
+ * mění pořadí a počet stránek. Stav se ukládá do localStorage (klíč dle složky).
+ *
+ * Export: skrytý "čistý" kontejner renderuje všechny stránky BEZ editačních ovládátek
+ * jako .print-page → generatePhotoBookPdf z nich dělá PDF stránku po stránce.
  */
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { X, Download, Loader2, Image as ImageIcon } from "lucide-react";
+import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { X, Download, Loader2, Image as ImageIcon, Plus, Trash2, ChevronLeft, ChevronRight, RotateCcw, LayoutTemplate } from "lucide-react";
 import { generatePhotoBookPdf } from "@/lib/generatePdf";
 
-/**
- * RouteTrace – vektorová (SVG) stopa trasy pro obálku. Žádné dlaždice z cizí
- * domény → canvas se neušpiní a export do PDF projde (na rozdíl od Leaflet mapy).
- * Mercator projekce bodů, hladká křivka (Catmull-Rom), číslované zastávky.
- */
+/* ───────────────────────── obálková SVG stopa trasy ───────────────────────── */
 function RouteTrace({ points, accent, height }: {
   points: { lat: number; lng: number; title: string }[];
   accent: string;
@@ -71,30 +71,26 @@ function RouteTrace({ points, accent, height }: {
   );
 }
 
+/* ───────────────────────────────── typy ──────────────────────────────────── */
 type Att = { id: string; type: string; url: string };
 type Loc = { address?: string | null; placeName?: string | null; latitude?: number | null; longitude?: number | null };
 type Post = {
-  id: string;
-  title?: string | null;
-  description?: string | null;
-  taskType?: string | null;
-  recordedAt?: string | Date | null;
-  createdAt?: string | Date | null;
-  locations?: Loc[];
-  attachments?: Att[];
+  id: string; title?: string | null; description?: string | null; taskType?: string | null;
+  recordedAt?: string | Date | null; createdAt?: string | Date | null;
+  locations?: Loc[]; attachments?: Att[];
 };
 type Folder = { id: string; title?: string | null; blogTemplate?: string | null };
 type Format = "A4" | "A5";
+type Template = "cover" | "editorial" | "gallery" | "fullbleed" | "text";
+type BookPage = { id: string; template: Template; title: string; meta: string; text: string; photos: string[] };
 
-type Item =
-  | { key: string; aspect: number; kind: "img"; img: Att }
-  | { key: string; aspect: number; kind: "text"; meta: string; title: string; desc: string };
-type Cell = { item: Item; w: number };
-type Row = { h: number; cells: Cell[] };
-type Header = { title: string; meta: string };
-type PhotoBlock = { kind: "photos"; header?: Header; rows: Row[]; caption?: string; h: number };
-type TextBlock = { kind: "text"; title?: string; meta: string; desc: string; h: number };
-type Block = PhotoBlock | TextBlock;
+const TEMPLATES: { id: Template; label: string }[] = [
+  { id: "cover", label: "Obálka" },
+  { id: "editorial", label: "Text + fotky" },
+  { id: "gallery", label: "Galerie" },
+  { id: "fullbleed", label: "Celostránková" },
+  { id: "text", label: "Jen text" },
+];
 
 const SIZES: Record<Format, { w: number; h: number }> = {
   A4: { w: 794, h: 1123 },
@@ -110,174 +106,115 @@ function accentFor(template?: string | null): string {
     default: return "#ea580c";
   }
 }
-
 function fmtDate(p: Post): string {
   const d = p.recordedAt || p.createdAt;
   if (!d) return "";
   return new Date(d).toLocaleDateString("cs-CZ", { day: "numeric", month: "long", year: "numeric" });
 }
-
 const clip = (s: string, n: number) => (s.length > n ? s.slice(0, n).trimEnd() + "…" : s);
+let _uid = 0;
+const uid = () => `p${Date.now().toString(36)}_${(_uid++).toString(36)}`;
 
-function justify(items: Item[], W: number, gap: number, targetRowH: number): Row[] {
+/* justified řádky fotek (crop-free – buňka má přesný poměr fotky) */
+type Cell = { id: string; w: number };
+type Row = { h: number; cells: Cell[] };
+function justifyRows(photos: { id: string; aspect: number }[], W: number, gap: number, targetRowH: number): Row[] {
   const rows: Row[] = [];
-  let cur: Item[] = [];
+  let cur: { id: string; aspect: number }[] = [];
   let arSum = 0;
   const flush = (last: boolean) => {
     if (!cur.length) return;
     let h = (W - gap * (cur.length - 1)) / arSum;
-    if (last) h = Math.min(h, targetRowH * 1.35);
-    rows.push({ h, cells: cur.map((it) => ({ item: it, w: it.aspect * h })) });
-    cur = [];
-    arSum = 0;
+    if (last) h = Math.min(h, targetRowH * 1.4);
+    rows.push({ h, cells: cur.map((it) => ({ id: it.id, w: it.aspect * h })) });
+    cur = []; arSum = 0;
   };
-  for (const it of items) {
-    cur.push(it);
-    arSum += it.aspect;
+  for (const it of photos) {
+    cur.push(it); arSum += it.aspect;
     if ((W - gap * (cur.length - 1)) / arSum <= targetRowH) flush(false);
   }
   flush(true);
   return rows;
 }
 
-const sumH = (rows: Row[], gap: number) => rows.reduce((s, r) => s + r.h, 0) + gap * Math.max(0, rows.length - 1);
-
-/** Poskládá položky do šířky W tak, aby jejich celková výška ~ target (crop-free). */
-function fitToHeight(items: Item[], W: number, gap: number, target: number): Row[] {
-  const sumA = items.reduce((s, it) => s + it.aspect, 0);
-  let rowH = Math.sqrt(Math.max(target, 40) * W / Math.max(sumA, 0.1));
-  let rows = justify(items, W, gap, rowH);
-  const h = sumH(rows, gap);
-  if (h > 0 && Math.abs(h - target) / target > 0.04) {
-    rowH *= target / h;
-    rows = justify(items, W, gap, rowH);
-  }
-  return rows;
-}
-
-function buildPages(
-  posts: Post[],
-  aspects: Record<string, number>,
-  fmt: Format,
-  pageW: number,
-  pageH: number,
-  gap: number,
-  baseRowH: number,
-): Block[] {
-  const HEAD_H = fmt === "A4" ? 64 : 50;
-  const estTextH = (desc: string, width: number, fontPx: number) => {
-    const cpl = Math.max(20, Math.floor(width / (fontPx * 0.5)));
-    return Math.ceil(desc.length / cpl) * (fontPx * 1.62) + 12;
-  };
-  const pages: Block[] = [];
-
+/* ───────────────── auto-nástřel dokumentu z příspěvků ───────────────── */
+function buildAutoDoc(posts: Post[], folderTitle: string): BookPage[] {
+  const pages: BookPage[] = [{ id: uid(), template: "cover", title: folderTitle || "Fotokniha", meta: "", text: "", photos: [] }];
   for (const post of posts) {
-    const imgs = (post.attachments || []).filter((a) => a.type === "image");
-    const title = (post.title || "").trim();
-    const desc = (post.description || "").trim();
     if (post.taskType === "GPS_LOG") continue;
-    if (imgs.length === 0 && !desc) continue;
-    const meta = [fmtDate(post), post.locations?.[0]?.placeName || post.locations?.[0]?.address]
-      .filter(Boolean).join(" · ");
+    const imgs = (post.attachments || []).filter((a) => a.type === "image").map((a) => a.id);
+    const title = clip((post.title || "").trim(), 90);
+    const text = (post.description || "").trim();
+    if (imgs.length === 0 && !text) continue;
+    const meta = [fmtDate(post), post.locations?.[0]?.placeName || post.locations?.[0]?.address].filter(Boolean).join(" · ");
 
     if (imgs.length === 0) {
-      pages.push({ kind: "text", title, meta, desc, h: pageH });
+      pages.push({ id: uid(), template: "text", title, meta, text, photos: [] });
       continue;
     }
-
-    const items: Item[] = imgs.map((a) => ({ key: a.id, aspect: aspects[a.id] || 1.5, kind: "img" as const, img: a }));
-    const shortText = !!desc && desc.length <= 240 && imgs.length <= 5;
-    if (shortText) items.unshift({ key: `t-${post.id}`, aspect: 0.82, kind: "text", meta, title, desc: clip(desc, 200) });
-
-    const header: Header | undefined = !shortText && (title || meta) ? { title, meta } : undefined;
-    const caption: string | undefined = !shortText && desc ? desc : undefined;
-    const headerH = header ? HEAD_H : 0;
-    const captionH = caption ? estTextH(caption, pageW, 13.5) + 8 : 0;
-
-    // 1) přirozené řádky → rozdělení do stránek (velké příspěvky na víc stran)
-    const natRows = justify(items, pageW, gap, pageH / (fmt === "A4" ? 3.4 : 3.0));
-    const perPage: Item[][] = [];
-    let curItems: Item[] = [];
-    let usedH = 0;
-    natRows.forEach((r, ri) => {
-      const avail = pageH - (perPage.length === 0 ? headerH : 0) - (ri === natRows.length - 1 ? captionH : 0);
-      const add = r.h + (curItems.length ? gap : 0);
-      if (usedH + add > avail && curItems.length) {
-        perPage.push(curItems);
-        curItems = [];
-        usedH = 0;
-      }
-      curItems.push(...r.cells.map((c) => c.item));
-      usedH += r.h + gap;
-    });
-    if (curItems.length) perPage.push(curItems);
-
-    // 2) každou stránku vyplň (zvětši fotky crop-free), hlavička jen první, text jen poslední
-    perPage.forEach((pageItems, pi) => {
-      const isFirst = pi === 0;
-      const isLast = pi === perPage.length - 1;
-      const target = pageH - (isFirst ? headerH + (headerH ? gap : 0) : 0) - (isLast ? captionH + (captionH ? gap : 0) : 0);
-      const rows = fitToHeight(pageItems, pageW, gap, target);
-      pages.push({
-        kind: "photos",
-        header: isFirst ? header : undefined,
-        rows,
-        caption: isLast ? caption : undefined,
-        h: pageH,
-      });
-    });
+    // 1. strana s textem (editorial, ~4 fotky), zbytek do galerijních stran po 6.
+    const hasText = !!text;
+    const firstCap = hasText ? 4 : 6;
+    pages.push({ id: uid(), template: hasText ? "editorial" : "gallery", title, meta, text, photos: imgs.slice(0, firstCap) });
+    let rest = imgs.slice(firstCap);
+    while (rest.length) {
+      pages.push({ id: uid(), template: "gallery", title: "", meta: "", text: "", photos: rest.slice(0, 6) });
+      rest = rest.slice(6);
+    }
   }
-
-  return pages; // jedna položka = jedna stránka
+  return pages;
 }
 
+/* ════════════════════════════ komponenta ════════════════════════════ */
 export function PhotoBook({
-  folder,
-  posts: postsProp,
-  format: formatProp = "A4",
-  onClose,
+  folder, posts: postsProp, format: formatProp = "A4", onClose,
 }: {
-  folder: Folder;
-  posts?: Post[];
-  format?: Format;
-  onClose?: () => void;
+  folder: Folder; posts?: Post[]; format?: Format; onClose?: () => void;
 }) {
   const [posts, setPosts] = useState<Post[] | null>(postsProp ?? null);
   const [format, setFormat] = useState<Format>(formatProp);
   const [aspects, setAspects] = useState<Record<string, number>>({});
+  const [doc, setDoc] = useState<BookPage[] | null>(null);
+  const [sel, setSel] = useState(0);
+  const [trayOpen, setTrayOpen] = useState(true);
   const [progress, setProgress] = useState<{ cur: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const exportRef = useRef<HTMLDivElement>(null);
 
+  const accent = accentFor(folder.blogTemplate);
+  const dims = SIZES[format];
+  const PAD = format === "A4" ? 58 : 38;
+  const GAP = 12;
+  const pageW = dims.w - 2 * PAD;
+  const pageH = dims.h - 2 * PAD;
+  const storeKey = `questea:photobook:${folder.id}`;
+
+  /* načtení příspěvků */
   useEffect(() => {
     if (posts !== null) return;
     let live = true;
-    fetch(`/api/tasks/${folder.id}`)
-      .then((r) => r.json())
-      .then((task) => {
-        if (!live) return;
-        const subs: Post[] = (task.subTasks || []).map((s: any) => ({
-          ...s,
-          attachments: (s.attachments || [])
-            .filter((a: any) => a.type === "image")
-            .map((a: any) => ({ id: a.id, type: a.type, url: `/api/images/${a.id}` })),
-        }));
-        setPosts(subs);
-      })
-      .catch(() => live && setError("Načtení fotek selhalo."));
+    fetch(`/api/tasks/${folder.id}`).then((r) => r.json()).then((task: { subTasks?: (Post & { attachments?: Att[] })[] }) => {
+      if (!live) return;
+      const subs: Post[] = (task.subTasks || []).map((s) => ({
+        ...s,
+        attachments: (s.attachments || []).filter((a) => a.type === "image").map((a) => ({ id: a.id, type: a.type, url: `/api/images/${a.id}` })),
+      }));
+      setPosts(subs);
+    }).catch(() => live && setError("Načtení fotek selhalo."));
     return () => { live = false; };
   }, [folder.id, posts]);
 
-  const allImages = useMemo(
-    () => (posts || []).flatMap((p) => (p.attachments || []).filter((a) => a.type === "image")),
-    [posts],
-  );
+  /* mapa id → url (všechny fotky složky, pro tray i render) */
+  const allImages = useMemo(() => (posts || []).flatMap((p) => (p.attachments || []).filter((a) => a.type === "image")), [posts]);
+  const urlOf = useCallback((id: string) => `/api/images/${id}`, []);
+
+  /* poměry stran fotek (pro justify) */
   useEffect(() => {
     if (allImages.length === 0) return;
     let cancelled = false;
     const next: Record<string, number> = {};
     let pending = allImages.length;
-    const done = () => { if (--pending <= 0 && !cancelled) setAspects(next); };
+    const done = () => { if (--pending <= 0 && !cancelled) setAspects((prev) => ({ ...prev, ...next })); };
     allImages.forEach((a) => {
       const im = new window.Image();
       im.onload = () => { next[a.id] = im.naturalWidth / im.naturalHeight || 1.5; done(); };
@@ -287,28 +224,31 @@ export function PhotoBook({
     return () => { cancelled = true; };
   }, [allImages]);
 
-  const accent = accentFor(folder.blogTemplate);
-  const dims = SIZES[format];
-  const PAD = format === "A4" ? 40 : 28;
-  const GAP = 6;
-  const pageW = dims.w - 2 * PAD;
-  const pageH = dims.h - 2 * PAD;
-  const baseRowH = pageH / (format === "A4" ? 3.6 : 3.2);
+  /* inicializace dokumentu: z localStorage, jinak auto-nástřel */
+  useEffect(() => {
+    if (doc || !posts) return;
+    try {
+      const saved = typeof localStorage !== "undefined" ? localStorage.getItem(storeKey) : null;
+      if (saved) {
+        const parsed = JSON.parse(saved) as BookPage[];
+        if (Array.isArray(parsed) && parsed.length) { setDoc(parsed); return; }
+      }
+    } catch { /* ignore */ }
+    setDoc(buildAutoDoc(posts, folder.title || ""));
+  }, [doc, posts, storeKey, folder.title]);
 
-  const aspectsReady = allImages.length === 0 || Object.keys(aspects).length >= allImages.length;
-  const pages = useMemo(
-    () => (posts && aspectsReady ? buildPages(posts, aspects, format, pageW, pageH, GAP, baseRowH) : []),
-    [posts, aspects, aspectsReady, format, pageW, pageH, baseRowH],
-  );
+  /* uložení dokumentu při změně */
+  useEffect(() => {
+    if (!doc) return;
+    try { localStorage.setItem(storeKey, JSON.stringify(doc)); } catch { /* ignore */ }
+  }, [doc, storeKey]);
 
   const dateRange = useMemo(() => {
     if (!posts || posts.length === 0) return "";
-    const a = fmtDate(posts[0]);
-    const b = fmtDate(posts[posts.length - 1]);
+    const a = fmtDate(posts[0]); const b = fmtDate(posts[posts.length - 1]);
     return a && b && a !== b ? `${a} — ${b}` : a || b;
   }, [posts]);
 
-  // Trasa = jeden bod na příspěvek (v pořadí), bez GPS logů → čistá spojnice zastávek.
   const mapPoints = useMemo(() => {
     const pts: { lat: number; lng: number; title: string }[] = [];
     (posts || []).forEach((p) => {
@@ -319,136 +259,336 @@ export function PhotoBook({
     return pts;
   }, [posts]);
 
+  /* ───────── mutace dokumentu ───────── */
+  const mutate = (fn: (pages: BookPage[]) => BookPage[]) => setDoc((d) => (d ? fn(d.map((p) => ({ ...p }))) : d));
+  const patchPage = (i: number, patch: Partial<BookPage>) => mutate((pages) => { pages[i] = { ...pages[i], ...patch }; return pages; });
+  const addPage = () => mutate((pages) => {
+    const np: BookPage = { id: uid(), template: "gallery", title: "", meta: "", text: "", photos: [] };
+    pages.splice(sel + 1, 0, np); return pages;
+  });
+  const deletePage = (i: number) => mutate((pages) => { if (pages.length <= 1) return pages; pages.splice(i, 1); setSel((s) => Math.max(0, Math.min(s, pages.length - 2))); return pages; });
+  const movePage = (i: number, dir: -1 | 1) => mutate((pages) => {
+    const j = i + dir; if (j < 0 || j >= pages.length) return pages;
+    [pages[i], pages[j]] = [pages[j], pages[i]]; setSel(j); return pages;
+  });
+  const addPhoto = (i: number, id: string) => mutate((pages) => { if (!pages[i].photos.includes(id)) pages[i].photos = [...pages[i].photos, id]; return pages; });
+  const removePhoto = (i: number, id: string) => mutate((pages) => { pages[i].photos = pages[i].photos.filter((x) => x !== id); return pages; });
+  const resetDoc = () => { if (posts && confirm("Obnovit knihu z příspěvků? Tvoje úpravy se zahodí.")) setDoc(buildAutoDoc(posts, folder.title || "")); };
+
   async function exportPdf() {
-    if (!containerRef.current) return;
-    setProgress({ cur: 0, total: pages.length + 1 });
+    if (!exportRef.current) return;
+    setProgress({ cur: 0, total: (doc?.length || 0) + 1 });
     try {
-      await generatePhotoBookPdf(containerRef.current, {
-        format,
-        title: folder.title || "fotokniha",
+      const fonts = (document as unknown as { fonts?: { ready?: Promise<unknown> } }).fonts;
+      if (fonts?.ready) await fonts.ready;
+      await generatePhotoBookPdf(exportRef.current, {
+        format, title: folder.title || "fotokniha",
         onProgress: (cur, total) => setProgress({ cur, total }),
       });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Generování PDF selhalo.");
-    }
+    } catch (e) { setError(e instanceof Error ? e.message : "Generování PDF selhalo."); }
     setProgress(null);
   }
 
-  const MetaPill = ({ children, onPhoto }: { children: React.ReactNode; onPhoto?: boolean }) => (
-    <span style={{
-      display: "inline-block", background: accent, color: "#fff", padding: "3px 9px", borderRadius: 5,
-      fontFamily: "Outfit, sans-serif", fontSize: 9.5, fontWeight: 800, letterSpacing: "0.16em", textTransform: "uppercase",
-      boxShadow: onPhoto ? "0 2px 8px rgba(0,0,0,0.35)" : "none",
-    }}>{children}</span>
-  );
-
-  /** Buňka řádku – fotka, nebo textová dlaždice (ve formátu fotky). */
-  const CellView = ({ cell, h }: { cell: Cell; h: number }) => {
-    const common: React.CSSProperties = { width: cell.w, height: h, flexShrink: 0, overflow: "hidden", borderRadius: 4 };
-    if (cell.item.kind === "img") {
-      return (
-        <div style={{ ...common, background: "#ece8e1" }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={cell.item.img.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-        </div>
-      );
-    }
-    return (
-      <div style={{ ...common, background: "#fbf8f3", border: `1px solid #efe9df`, borderTop: `3px solid ${accent}`, display: "flex", flexDirection: "column", justifyContent: "center", padding: "16px 18px" }}>
-        {cell.item.meta && <div style={{ marginBottom: 9 }}><MetaPill>{cell.item.meta}</MetaPill></div>}
-        {cell.item.title && <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 19, fontWeight: 700, fontStyle: "italic", lineHeight: 1.1, color: "#1c1917", marginBottom: 9 }}>{cell.item.title}</div>}
-        <div style={{ fontFamily: "Outfit, sans-serif", fontSize: 11.5, lineHeight: 1.55, color: "#57534e", whiteSpace: "pre-wrap" }}>{cell.item.desc}</div>
-      </div>
-    );
-  };
-  const Rows = ({ rows }: { rows: Row[] }) => (
-    <>{rows.map((row, ri) => (
-      <div key={ri} style={{ display: "flex", gap: GAP, height: row.h, justifyContent: "center", marginTop: ri > 0 ? GAP : 0 }}>
-        {row.cells.map((c, ci) => <CellView key={ci} cell={c} h={row.h} />)}
-      </div>
-    ))}</>
-  );
+  const ready = posts && doc;
+  const curPage = doc && doc[sel];
 
   return (
-    <div className="fixed inset-0 z-[120] flex flex-col bg-stone-950/80 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[120] flex flex-col bg-stone-950/90 backdrop-blur-sm">
+      <style dangerouslySetInnerHTML={{ __html: "@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700;1,900&family=Outfit:wght@300;400;500;700;800&display=swap');" }} />
+
+      {/* horní lišta */}
       <div className="flex items-center justify-between gap-4 border-b border-white/10 bg-stone-950 px-5 py-3 text-white">
         <div className="flex items-center gap-2 text-sm font-bold">
-          <ImageIcon size={16} style={{ color: accent }} />
-          Fotokniha · {folder.title}
+          <ImageIcon size={16} style={{ color: accent }} /> Fotokniha · {folder.title}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          <button onClick={resetDoc} title="Obnovit z příspěvků" className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-1.5 text-xs font-bold text-white/70 hover:bg-white/10">
+            <RotateCcw size={14} /> Obnovit
+          </button>
           <div className="flex overflow-hidden rounded-lg border border-white/15">
             {(["A4", "A5"] as Format[]).map((f) => (
-              <button key={f} onClick={() => setFormat(f)}
-                className={`px-3 py-1.5 text-xs font-bold ${format === f ? "bg-white text-stone-950" : "text-white/70 hover:bg-white/10"}`}>{f}</button>
+              <button key={f} onClick={() => setFormat(f)} className={`px-3 py-1.5 text-xs font-bold ${format === f ? "bg-white text-stone-950" : "text-white/70 hover:bg-white/10"}`}>{f}</button>
             ))}
           </div>
-          <button onClick={exportPdf} disabled={!!progress || !posts || pages.length === 0}
-            className="inline-flex items-center gap-2 rounded-lg px-4 py-1.5 text-sm font-bold text-white hover:opacity-90 disabled:opacity-50"
-            style={{ background: accent }}>
+          <button onClick={exportPdf} disabled={!!progress || !ready} className="inline-flex items-center gap-2 rounded-lg px-4 py-1.5 text-sm font-bold text-white hover:opacity-90 disabled:opacity-50" style={{ background: accent }}>
             {progress ? (<><Loader2 size={16} className="animate-spin" /> {progress.cur}/{progress.total}</>) : (<><Download size={16} /> Stáhnout PDF</>)}
           </button>
           {onClose && <button onClick={onClose} className="rounded-lg p-2 text-white/70 hover:bg-white/10 hover:text-white"><X size={20} /></button>}
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto p-8">
-        {error && <p className="mx-auto mb-4 max-w-md rounded-lg bg-red-950/60 px-4 py-2 text-center text-sm text-red-200">{error}</p>}
-        {!posts || !aspectsReady ? (
-          <p className="py-20 text-center text-sm text-white/50">{!posts ? "Načítám…" : "Připravuji fotky…"}</p>
-        ) : pages.length === 0 ? (
-          <p className="py-20 text-center text-sm text-white/50">Tato složka nemá žádné fotky k vytištění.</p>
-        ) : (
-          <div ref={containerRef} className="mx-auto flex flex-col items-center gap-8" style={{ width: dims.w }}>
-            {/* OBÁLKA */}
-            <div className="print-page relative overflow-hidden"
-              style={{ width: dims.w, height: dims.h, background: "#1a1410", color: "#F5F0E8", display: "flex", flexDirection: "column", justifyContent: "space-between", padding: format === "A4" ? "56px 52px" : "38px 34px" }}>
-              <div style={{ width: "100%" }}>
-                {mapPoints.length >= 1 && (
-                  <>
-                    <div style={{ fontFamily: "Outfit, sans-serif", fontSize: 9, fontWeight: 800, letterSpacing: "0.3em", textTransform: "uppercase", color: "rgba(245,240,232,0.4)", marginBottom: 12 }}>Trasa cesty</div>
-                    <RouteTrace points={mapPoints} accent={accent} height={format === "A4" ? 440 : 300} />
-                  </>
-                )}
-              </div>
-              <div>
-                <div style={{ fontFamily: "Outfit, sans-serif", fontSize: 10, fontWeight: 800, letterSpacing: "0.35em", textTransform: "uppercase", color: accent, marginBottom: 20 }}>Questea · Fotokniha</div>
-                <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: format === "A4" ? 76 : 50, fontWeight: 700, fontStyle: "italic", lineHeight: 0.9, marginBottom: 28 }}>{folder.title}</h1>
-                <div style={{ fontFamily: "Outfit, sans-serif", fontSize: 11, fontWeight: 800, letterSpacing: "0.25em", textTransform: "uppercase", color: "rgba(245,240,232,0.55)" }}>{dateRange}</div>
-              </div>
-            </div>
+      {error && <p className="mx-auto mt-3 max-w-md rounded-lg bg-red-950/60 px-4 py-2 text-center text-sm text-red-200">{error}</p>}
 
-            {/* OBSAH – jedna stránka = jeden příspěvek (velké rozdělené, malé vyplněné) */}
-            {pages.map((b, i) => (
-              <div key={i} className="print-page relative overflow-hidden" style={{ width: dims.w, height: dims.h, background: "#ffffff" }}>
-                <div style={{ position: "absolute", inset: PAD, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-                  {b.kind === "photos" ? (
-                    <>
-                      {b.header && (b.header.title || b.header.meta) && (
-                        <div style={{ marginBottom: GAP, flexShrink: 0 }}>
-                          {b.header.meta && <div style={{ marginBottom: 6 }}><MetaPill>{b.header.meta}</MetaPill></div>}
-                          {b.header.title && <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: format === "A4" ? 30 : 22, fontWeight: 700, fontStyle: "italic", lineHeight: 1.05, margin: 0, color: "#1c1917" }}>{b.header.title}</h2>}
-                        </div>
-                      )}
-                      <Rows rows={b.rows} />
-                      {b.caption && (
-                        <p style={{ fontFamily: "Outfit, sans-serif", fontSize: 13.5, lineHeight: 1.6, color: "#44403c", whiteSpace: "pre-wrap", margin: `${GAP}px 0 0`, paddingLeft: 12, borderLeft: `3px solid ${accent}`, flexShrink: 0 }}>{b.caption}</p>
-                      )}
-                    </>
-                  ) : (
-                    <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", maxWidth: 620, margin: "0 auto" }}>
-                      {b.meta && <div style={{ marginBottom: 14 }}><MetaPill>{b.meta}</MetaPill></div>}
-                      {b.title && <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: format === "A4" ? 44 : 30, fontWeight: 700, fontStyle: "italic", lineHeight: 1.1, marginBottom: 22, color: "#1c1917" }}>{b.title}</h2>}
-                      <p style={{ fontFamily: "Outfit, sans-serif", fontSize: 15, lineHeight: 1.75, color: "#44403c", whiteSpace: "pre-wrap", margin: 0 }}>{b.desc}</p>
-                    </div>
-                  )}
+      {!ready ? (
+        <p className="py-20 text-center text-sm text-white/50">{!posts ? "Načítám…" : "Připravuji knihu…"}</p>
+      ) : (
+        <div className="flex flex-1 overflow-hidden">
+          {/* strip stránek */}
+          <div className="flex w-[150px] shrink-0 flex-col gap-2 overflow-y-auto border-r border-white/10 bg-stone-950/60 p-3">
+            {doc!.map((p, i) => (
+              <button key={p.id} onClick={() => setSel(i)}
+                className={`group relative aspect-[210/297] w-full overflow-hidden rounded-md border text-left transition ${i === sel ? "border-2" : "border-white/15 hover:border-white/40"}`}
+                style={{ borderColor: i === sel ? accent : undefined, background: p.template === "cover" ? "#1a1410" : "#fff" }}>
+                <div className="pointer-events-none absolute inset-0 origin-top-left" style={{ width: dims.w, height: dims.h, transform: `scale(${150 / dims.w})` }}>
+                  <PageView page={p} idx={i} accent={accent} format={format} dims={dims} PAD={PAD} GAP={GAP} pageW={pageW} pageH={pageH} aspects={aspects} urlOf={urlOf} mapPoints={mapPoints} dateRange={dateRange} editable={false} />
                 </div>
-                <div style={{ position: "absolute", bottom: 14, right: 18, fontFamily: "Outfit, sans-serif", fontSize: 10, fontWeight: 700, color: "rgba(0,0,0,0.4)" }}>{i + 1}</div>
-              </div>
+                <span className="absolute bottom-1 right-1.5 rounded bg-black/55 px-1 text-[10px] font-bold text-white/80">{i + 1}</span>
+              </button>
             ))}
+            <button onClick={addPage} className="flex aspect-[210/297] w-full items-center justify-center rounded-md border border-dashed border-white/25 text-white/50 hover:border-white/50 hover:text-white">
+              <Plus size={20} />
+            </button>
           </div>
-        )}
-      </div>
+
+          {/* hlavní plátno */}
+          <div className="flex flex-1 flex-col overflow-hidden">
+            {/* panel stránky */}
+            {curPage && (
+              <div className="flex items-center gap-3 border-b border-white/10 bg-stone-900/70 px-4 py-2 text-white">
+                <LayoutTemplate size={15} style={{ color: accent }} />
+                <select value={curPage.template} onChange={(e) => patchPage(sel, { template: e.target.value as Template })}
+                  className="rounded-md border border-white/15 bg-stone-800 px-2 py-1 text-xs font-bold text-white outline-none">
+                  {TEMPLATES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+                </select>
+                <span className="text-xs text-white/40">stránka {sel + 1}/{doc!.length}</span>
+                <div className="ml-auto flex items-center gap-1">
+                  <button onClick={() => movePage(sel, -1)} disabled={sel === 0} className="rounded p-1.5 text-white/60 hover:bg-white/10 disabled:opacity-30"><ChevronLeft size={16} /></button>
+                  <button onClick={() => movePage(sel, 1)} disabled={sel === doc!.length - 1} className="rounded p-1.5 text-white/60 hover:bg-white/10 disabled:opacity-30"><ChevronRight size={16} /></button>
+                  <button onClick={() => deletePage(sel)} disabled={doc!.length <= 1} className="rounded p-1.5 text-red-300/70 hover:bg-red-500/15 disabled:opacity-30"><Trash2 size={16} /></button>
+                </div>
+              </div>
+            )}
+
+            {/* editovatelná aktuální stránka */}
+            <div className="flex flex-1 items-start justify-center overflow-auto p-8">
+              {curPage && (
+                <div className="shadow-2xl" style={{ width: dims.w, height: dims.h, position: "relative" }}>
+                  <PageView page={curPage} idx={sel} accent={accent} format={format} dims={dims} PAD={PAD} GAP={GAP} pageW={pageW} pageH={pageH} aspects={aspects} urlOf={urlOf} mapPoints={mapPoints} dateRange={dateRange}
+                    editable
+                    onText={(patch) => patchPage(sel, patch)}
+                    onRemovePhoto={(id) => removePhoto(sel, id)}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* zásobník fotek */}
+          <div className={`flex shrink-0 flex-col border-l border-white/10 bg-stone-950/60 transition-all ${trayOpen ? "w-[220px]" : "w-[40px]"}`}>
+            <button onClick={() => setTrayOpen((o) => !o)} className="flex items-center justify-between px-3 py-2 text-xs font-bold text-white/70 hover:bg-white/5">
+              {trayOpen && <span>Fotky ({allImages.length})</span>}
+              {trayOpen ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+            </button>
+            {trayOpen && (
+              <div className="grid grid-cols-2 gap-1.5 overflow-y-auto p-2">
+                {allImages.map((a) => {
+                  const used = !!curPage?.photos.includes(a.id);
+                  const canAdd = curPage && curPage.template !== "cover" && curPage.template !== "text";
+                  return (
+                    <button key={a.id} disabled={!canAdd || used} onClick={() => addPhoto(sel, a.id)}
+                      title={used ? "Už na stránce" : canAdd ? "Přidat na stránku" : "Tato šablona fotky nemá"}
+                      className={`relative aspect-square overflow-hidden rounded border transition ${used ? "border-2 opacity-50" : "border-white/10 hover:border-white/50"} ${!canAdd ? "cursor-not-allowed opacity-30" : ""}`}
+                      style={{ borderColor: used ? accent : undefined }}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={a.url} alt="" className="h-full w-full object-cover" />
+                      {!used && canAdd && <span className="absolute bottom-0.5 right-0.5 rounded-full bg-black/60 p-0.5 text-white"><Plus size={11} /></span>}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* skrytý čistý kontejner pro export (všechny stránky, bez ovládátek) */}
+      {ready && (
+        <div ref={exportRef} aria-hidden style={{ position: "fixed", left: -99999, top: 0, width: dims.w, opacity: 0, pointerEvents: "none" }}>
+          {doc!.map((p, i) => (
+            <div key={p.id} className="print-page" style={{ width: dims.w, height: dims.h, position: "relative", background: p.template === "cover" ? "#1a1410" : "#fff", overflow: "hidden" }}>
+              <PageView page={p} idx={i} accent={accent} format={format} dims={dims} PAD={PAD} GAP={GAP} pageW={pageW} pageH={pageH} aspects={aspects} urlOf={urlOf} mapPoints={mapPoints} dateRange={dateRange} editable={false} />
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
+}
+
+/* ─────────────── hoistnuté pomocné komponenty (mimo render) ─────────────── */
+function PbEditable({ value, onCommit, style, editable }: { value: string; onCommit: (v: string) => void; style: React.CSSProperties; editable: boolean }) {
+  if (!editable) return <div style={style}>{value}</div>;
+  return (
+    <div contentEditable suppressContentEditableWarning onBlur={(e) => onCommit(e.currentTarget.innerText)}
+      style={{ ...style, outline: "none", cursor: "text", minHeight: "1em" }}>{value}</div>
+  );
+}
+
+function PbLabel({ children, light, accent, a4 }: { children: React.ReactNode; light?: boolean; accent: string; a4: boolean }) {
+  return <div style={{ fontFamily: "Outfit, sans-serif", fontSize: a4 ? 11 : 10, fontWeight: 700, letterSpacing: "0.24em", textTransform: "uppercase", color: light ? "rgba(245,240,232,0.55)" : accent }}>{children}</div>;
+}
+
+function PbPhotos({ ids, full, editable, onRemovePhoto, aspects, urlOf, pageW, pageH, gap, a4 }: {
+  ids: string[]; full?: boolean; editable: boolean; onRemovePhoto?: (id: string) => void;
+  aspects: Record<string, number>; urlOf: (id: string) => string; pageW: number; pageH: number; gap: number; a4: boolean;
+}) {
+  if (full) {
+    const id = ids[0];
+    return (
+      <div style={{ position: "absolute", inset: 0, background: "#1a1410" }}>
+        {id ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={urlOf(id)} alt="" crossOrigin="anonymous" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+        ) : <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "rgba(255,255,255,0.4)", fontFamily: "Outfit, sans-serif", fontSize: 13 }}>Přidej fotku ze zásobníku →</div>}
+        {editable && id && onRemovePhoto && <RemoveBtn onClick={() => onRemovePhoto(id)} />}
+      </div>
+    );
+  }
+  const targetRowH = pageH / (a4 ? 3.15 : 2.85);
+  if (ids.length === 0) {
+    return editable ? <div style={{ height: targetRowH, border: "2px dashed #e0d8ca", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", color: "#b8ac99", fontFamily: "Outfit, sans-serif", fontSize: 13 }}>Přidej fotky ze zásobníku →</div> : null;
+  }
+  const rows = justifyRows(ids.map((id) => ({ id, aspect: aspects[id] || 1.5 })), pageW, gap, targetRowH);
+  return (
+    <>{rows.map((row, ri) => (
+      <div key={ri} style={{ display: "flex", gap, height: row.h, justifyContent: "center", marginTop: ri > 0 ? gap : 0 }}>
+        {row.cells.map((c) => (
+          <div key={c.id} style={{ width: c.w, height: row.h, flexShrink: 0, overflow: "hidden", borderRadius: 6, background: "#ece8e1", boxShadow: "0 8px 22px rgba(0,0,0,0.10)", position: "relative" }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={urlOf(c.id)} alt="" crossOrigin="anonymous" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+            {editable && onRemovePhoto && <RemoveBtn onClick={() => onRemovePhoto(c.id)} />}
+          </div>
+        ))}
+      </div>
+    ))}</>
+  );
+}
+
+/* ════════════════════════ render jedné stránky ════════════════════════ */
+function PageView({
+  page, idx, accent, format, dims, PAD, GAP, pageW, pageH, aspects, urlOf, mapPoints, dateRange,
+  editable, onText, onRemovePhoto,
+}: {
+  page: BookPage; idx: number; accent: string; format: Format;
+  dims: { w: number; h: number }; PAD: number; GAP: number; pageW: number; pageH: number;
+  aspects: Record<string, number>; urlOf: (id: string) => string;
+  mapPoints: { lat: number; lng: number; title: string }[]; dateRange: string;
+  editable: boolean; onText?: (patch: Partial<BookPage>) => void; onRemovePhoto?: (id: string) => void;
+}) {
+  const a4 = format === "A4";
+  const commit = (patch: Partial<BookPage>) => onText?.(patch);
+  const photoProps = { editable, onRemovePhoto, aspects, urlOf, pageW, pageH, gap: GAP, a4 };
+  const innerStyle = (center?: boolean): React.CSSProperties => ({ position: "absolute", inset: PAD, overflow: "hidden", display: "flex", flexDirection: "column", justifyContent: center ? "center" : "flex-start" });
+
+  /* ── obálka ── */
+  if (page.template === "cover") {
+    return (
+      <div style={{ width: dims.w, height: dims.h, background: "#1a1410", color: "#F5F0E8", display: "flex", flexDirection: "column", justifyContent: "space-between", padding: a4 ? "56px 52px" : "38px 34px" }}>
+        <div style={{ width: "100%" }}>
+          {mapPoints.length >= 1 && (<>
+            <div style={{ fontFamily: "Outfit, sans-serif", fontSize: 9, fontWeight: 800, letterSpacing: "0.3em", textTransform: "uppercase", color: "rgba(245,240,232,0.4)", marginBottom: 12 }}>Trasa cesty</div>
+            <RouteTrace points={mapPoints} accent={accent} height={a4 ? 440 : 300} />
+          </>)}
+        </div>
+        <div>
+          <div style={{ fontFamily: "Outfit, sans-serif", fontSize: 10, fontWeight: 800, letterSpacing: "0.35em", textTransform: "uppercase", color: accent, marginBottom: 20 }}>Questea · Fotokniha</div>
+          <PbEditable editable={editable} value={page.title} onCommit={(v) => commit({ title: v })}
+            style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: a4 ? 76 : 50, fontWeight: 900, fontStyle: "italic", lineHeight: 0.9, marginBottom: 28, color: "#F5F0E8" }} />
+          <div style={{ fontFamily: "Outfit, sans-serif", fontSize: 11, fontWeight: 800, letterSpacing: "0.25em", textTransform: "uppercase", color: "rgba(245,240,232,0.55)" }}>{dateRange}</div>
+        </div>
+      </div>
+    );
+  }
+
+  /* ── celostránková fotka ── */
+  if (page.template === "fullbleed") {
+    return (
+      <div style={{ width: dims.w, height: dims.h, position: "relative", background: "#1a1410", overflow: "hidden" }}>
+        <PbPhotos ids={page.photos} full {...photoProps} />
+        {(page.title || page.meta) && (
+          <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, padding: a4 ? "120px 52px 44px" : "80px 34px 30px", background: "linear-gradient(to top, rgba(0,0,0,0.72), rgba(0,0,0,0))" }}>
+            {page.meta && <div style={{ marginBottom: 8 }}><PbLabel light accent={accent} a4={a4}>{page.meta}</PbLabel></div>}
+            <PbEditable editable={editable} value={page.title} onCommit={(v) => commit({ title: v })}
+              style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: a4 ? 46 : 32, fontWeight: 900, fontStyle: "italic", lineHeight: 1.02, color: "#fff" }} />
+          </div>
+        )}
+        <PageNum idx={idx} light />
+      </div>
+    );
+  }
+
+  /* ── jen text (vystředěno) ── */
+  if (page.template === "text") {
+    return (
+      <div style={{ width: dims.w, height: dims.h, background: "#fff", position: "relative" }}>
+        <div style={innerStyle(true)}>
+          <div style={{ maxWidth: a4 ? 560 : 420, margin: "0 auto" }}>
+            {page.meta && <div style={{ marginBottom: 12 }}><PbLabel accent={accent} a4={a4}>{page.meta}</PbLabel></div>}
+            <PbEditable editable={editable} value={page.title} onCommit={(v) => commit({ title: v })}
+              style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: a4 ? 48 : 32, fontWeight: 900, fontStyle: "italic", lineHeight: 1.02, color: "#1c1917", margin: 0 }} />
+            <div style={{ width: 54, height: 3, background: accent, borderRadius: 2, margin: "16px 0 22px" }} />
+            <Lead text={page.text} accent={accent} format={format} editable={editable} onCommit={(v) => commit({ text: v })} />
+          </div>
+        </div>
+        <PageNum idx={idx} />
+      </div>
+    );
+  }
+
+  /* ── editorial (text + fotky) a galerie ── */
+  const isEditorial = page.template === "editorial";
+  return (
+    <div style={{ width: dims.w, height: dims.h, background: "#fff", position: "relative" }}>
+      <div style={innerStyle()}>
+        {page.meta && <div style={{ marginBottom: 12 }}><PbLabel accent={accent} a4={a4}>{page.meta}</PbLabel></div>}
+        {(page.title || editable) && (<>
+          <PbEditable editable={editable} value={page.title} onCommit={(v) => commit({ title: v })}
+            style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: a4 ? 50 : 34, fontWeight: 900, fontStyle: "italic", lineHeight: 1.02, color: "#1c1917", margin: 0 }} />
+          <div style={{ width: 54, height: 3, background: accent, borderRadius: 2, margin: "14px 0 0" }} />
+        </>)}
+        {isEditorial && (page.text || editable) && (
+          <div style={{ marginTop: 20 }}>
+            <Lead text={page.text} accent={accent} format={format} editable={editable} onCommit={(v) => commit({ text: v })} />
+          </div>
+        )}
+        <div style={{ marginTop: page.title || (isEditorial && page.text) ? GAP * 2.2 : 0 }}>
+          <PbPhotos ids={page.photos} {...photoProps} />
+        </div>
+      </div>
+      <PageNum idx={idx} />
+    </div>
+  );
+}
+
+function Lead({ text, accent, format, editable, onCommit }: { text: string; accent: string; format: Format; editable: boolean; onCommit: (v: string) => void }) {
+  const leadPx = format === "A4" ? 16.5 : 13.5;
+  const baseStyle: React.CSSProperties = { fontFamily: "'Playfair Display', Georgia, serif", fontSize: leadPx, lineHeight: 1.72, color: "#3f3a35", whiteSpace: "pre-wrap", margin: 0 };
+  if (editable) {
+    // při editaci bez drop-capu (kvůli kurzoru), drop-cap se projeví v náhledu/exportu
+    return (
+      <div contentEditable suppressContentEditableWarning onBlur={(e) => onCommit(e.currentTarget.innerText)}
+        style={{ ...baseStyle, outline: "none", cursor: "text", minHeight: "1em" }}>{text || ""}</div>
+    );
+  }
+  if (!text) return null;
+  const first = text.charAt(0), rest = text.slice(1);
+  return (
+    <p style={baseStyle}>
+      <span style={{ float: "left", fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 900, fontSize: leadPx * 4.1, lineHeight: 0.74, marginRight: 12, marginTop: 6, color: accent }}>{first}</span>
+      {rest}
+    </p>
+  );
+}
+
+function RemoveBtn({ onClick }: { onClick: () => void }) {
+  return (
+    <button onClick={onClick} title="Odebrat fotku"
+      style={{ position: "absolute", top: 6, right: 6, width: 24, height: 24, borderRadius: 999, background: "rgba(0,0,0,0.6)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", border: "none", cursor: "pointer" }}>
+      <X size={14} />
+    </button>
+  );
+}
+
+function PageNum({ idx, light }: { idx: number; light?: boolean }) {
+  return <div style={{ position: "absolute", bottom: 16, right: 20, fontFamily: "Outfit, sans-serif", fontSize: 10, fontWeight: 700, color: light ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.35)" }}>{idx + 1}</div>;
 }

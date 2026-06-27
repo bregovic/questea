@@ -11,7 +11,65 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { X, Download, Loader2, Image as ImageIcon } from "lucide-react";
 import { generatePhotoBookPdf } from "@/lib/generatePdf";
-import { JourneyMap } from "@/components/Blog/BlogClient";
+
+/**
+ * RouteTrace – vektorová (SVG) stopa trasy pro obálku. Žádné dlaždice z cizí
+ * domény → canvas se neušpiní a export do PDF projde (na rozdíl od Leaflet mapy).
+ * Mercator projekce bodů, hladká křivka (Catmull-Rom), číslované zastávky.
+ */
+function RouteTrace({ points, accent, height }: {
+  points: { lat: number; lng: number; title: string }[];
+  accent: string;
+  height: number;
+}) {
+  const W = 700, H = Math.max(160, height);
+  if (!points.length) return null;
+  const merc = (lat: number, lng: number) => ({
+    x: (lng + 180) / 360,
+    y: (1 - Math.log(Math.tan((lat * Math.PI) / 180) + 1 / Math.cos((lat * Math.PI) / 180)) / Math.PI) / 2,
+  });
+  const proj = points.map((p) => merc(p.lat, p.lng));
+  const xs = proj.map((p) => p.x), ys = proj.map((p) => p.y);
+  const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
+  const spanX = maxX - minX || 1e-6, spanY = maxY - minY || 1e-6;
+  const pad = 56;
+  const scale = Math.min((W - 2 * pad) / spanX, (H - 2 * pad) / spanY);
+  const offX = (W - spanX * scale) / 2, offY = (H - spanY * scale) / 2;
+  const pts = proj.map((p) => ({ x: offX + (p.x - minX) * scale, y: offY + (p.y - minY) * scale }));
+  let d = `M ${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+    const c1x = p1.x + (p2.x - p0.x) / 6, c1y = p1.y + (p2.y - p0.y) / 6;
+    const c2x = p2.x - (p3.x - p1.x) / 6, c2y = p2.y - (p3.y - p1.y) / 6;
+    d += ` C ${c1x.toFixed(1)} ${c1y.toFixed(1)}, ${c2x.toFixed(1)} ${c2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
+  }
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="xMidYMid meet"
+      style={{ display: "block", borderRadius: 10, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+      <defs>
+        <pattern id="rt-grid" width="40" height="40" patternUnits="userSpaceOnUse">
+          <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.045)" strokeWidth="1" />
+        </pattern>
+      </defs>
+      <rect x="0" y="0" width={W} height={H} fill="url(#rt-grid)" />
+      {pts.length > 1 && <path d={d} fill="none" stroke={accent} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" strokeDasharray="1 9" opacity={0.95} />}
+      {pts.map((p, i) => {
+        const isStart = i === 0, isEnd = i === pts.length - 1;
+        const col = isStart ? "#16a34a" : isEnd ? "#dc2626" : accent;
+        return (
+          <g key={i}>
+            <circle cx={p.x} cy={p.y} r={isStart || isEnd ? 8 : 6} fill={col} stroke="#1a1410" strokeWidth={2.5} />
+            {points[i].title && (isStart || isEnd || pts.length <= 8) && (
+              <text x={p.x} y={p.y - 13} textAnchor="middle" fontFamily="Outfit, sans-serif" fontSize="12" fontWeight="700" fill="rgba(245,240,232,0.85)">
+                {points[i].title.length > 22 ? points[i].title.slice(0, 22) + "…" : points[i].title}
+              </text>
+            )}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
 
 type Att = { id: string; type: string; url: string };
 type Loc = { address?: string | null; placeName?: string | null; latitude?: number | null; longitude?: number | null };
@@ -349,9 +407,7 @@ export function PhotoBook({
                 {mapPoints.length >= 1 && (
                   <>
                     <div style={{ fontFamily: "Outfit, sans-serif", fontSize: 9, fontWeight: 800, letterSpacing: "0.3em", textTransform: "uppercase", color: "rgba(245,240,232,0.4)", marginBottom: 12 }}>Trasa cesty</div>
-                    <div style={{ width: "100%", height: format === "A4" ? 440 : 300, borderRadius: 10, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)" }}>
-                      <JourneyMap points={mapPoints} id="pb-cover-map" className="w-full h-full" />
-                    </div>
+                    <RouteTrace points={mapPoints} accent={accent} height={format === "A4" ? 440 : 300} />
                   </>
                 )}
               </div>

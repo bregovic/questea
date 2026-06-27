@@ -175,11 +175,15 @@ export function PhotoBook({
   const [format, setFormat] = useState<Format>(formatProp);
   const [aspects, setAspects] = useState<Record<string, number>>({});
   const [doc, setDoc] = useState<BookPage[] | null>(null);
+  const [docLoaded, setDocLoaded] = useState(false); // server-fetch dokumentu dokončen
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [sel, setSel] = useState(0);
   const [trayOpen, setTrayOpen] = useState(true);
   const [progress, setProgress] = useState<{ cur: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const exportRef = useRef<HTMLDivElement>(null);
+  const serverDocRef = useRef<BookPage[] | null>(null); // co přišlo z DB (zdroj pravdy)
+  const lastSavedRef = useRef<string>("");              // poslední uložený JSON (dirty check)
 
   const accent = accentFor(folder.blogTemplate);
   const dims = SIZES[format];
@@ -224,9 +228,29 @@ export function PhotoBook({
     return () => { cancelled = true; };
   }, [allImages]);
 
-  /* inicializace dokumentu: z localStorage, jinak auto-nástřel */
+  /* načtení uloženého rozvržení z DB */
   useEffect(() => {
-    if (doc || !posts) return;
+    let live = true;
+    fetch(`/api/tasks/${folder.id}/photobook`)
+      .then((r) => (r.ok ? r.json() : { doc: null }))
+      .then((d: { doc?: unknown }) => {
+        if (!live) return;
+        serverDocRef.current = Array.isArray(d?.doc) && d.doc.length ? (d.doc as BookPage[]) : null;
+      })
+      .catch(() => { if (live) serverDocRef.current = null; })
+      .finally(() => { if (live) setDocLoaded(true); });
+    return () => { live = false; };
+  }, [folder.id]);
+
+  /* inicializace dokumentu: DB → localStorage → auto-nástřel */
+  useEffect(() => {
+    if (doc || !posts || !docLoaded) return;
+    if (serverDocRef.current) {
+      lastSavedRef.current = JSON.stringify(serverDocRef.current); // shoda → první save se přeskočí
+      setSaveState("saved");
+      setDoc(serverDocRef.current);
+      return;
+    }
     try {
       const saved = typeof localStorage !== "undefined" ? localStorage.getItem(storeKey) : null;
       if (saved) {
@@ -235,13 +259,24 @@ export function PhotoBook({
       }
     } catch { /* ignore */ }
     setDoc(buildAutoDoc(posts, folder.title || ""));
-  }, [doc, posts, storeKey, folder.title]);
+  }, [doc, posts, docLoaded, storeKey, folder.title]);
 
-  /* uložení dokumentu při změně */
+  /* uložení dokumentu při změně: localStorage hned + debounced PUT do DB */
   useEffect(() => {
     if (!doc) return;
-    try { localStorage.setItem(storeKey, JSON.stringify(doc)); } catch { /* ignore */ }
-  }, [doc, storeKey]);
+    const json = JSON.stringify(doc);
+    try { localStorage.setItem(storeKey, json); } catch { /* ignore */ }
+    if (json === lastSavedRef.current) return; // beze změny → neukládej
+    setSaveState("saving");
+    const t = setTimeout(() => {
+      fetch(`/api/tasks/${folder.id}/photobook`, {
+        method: "PUT", headers: { "Content-Type": "application/json" }, body: json.length ? `{"doc":${json}}` : "{}",
+      })
+        .then((r) => { if (!r.ok) throw new Error(); lastSavedRef.current = json; setSaveState("saved"); })
+        .catch(() => setSaveState("error"));
+    }, 700);
+    return () => clearTimeout(t);
+  }, [doc, storeKey, folder.id]);
 
   const dateRange = useMemo(() => {
     if (!posts || posts.length === 0) return "";
@@ -302,6 +337,11 @@ export function PhotoBook({
           <ImageIcon size={16} style={{ color: accent }} /> Fotokniha · {folder.title}
         </div>
         <div className="flex items-center gap-2">
+          {ready && (
+            <span className="mr-1 text-[11px] font-bold" style={{ color: saveState === "error" ? "#fca5a5" : "rgba(255,255,255,0.4)" }}>
+              {saveState === "saving" ? "Ukládám…" : saveState === "saved" ? "Uloženo ✓" : saveState === "error" ? "Uložení selhalo" : ""}
+            </span>
+          )}
           <button onClick={resetDoc} title="Obnovit z příspěvků" className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-1.5 text-xs font-bold text-white/70 hover:bg-white/10">
             <RotateCcw size={14} /> Obnovit
           </button>

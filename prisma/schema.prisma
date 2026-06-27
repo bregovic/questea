@@ -106,6 +106,7 @@ model Task {
   slug        String?  @unique // Custom URL slug for public sharing
   blogTemplate String? @default("MODERN") // Visual style for the public blog
   viewCount   Int      @default(0) // Counter for public blog views
+  photoBookDoc String? @db.Text // JSON rozvržení fotoknihy (editor stránek)
   
   // Základní údaje (Zadání)
   title       String       // Předmět

@@ -193,7 +193,8 @@ const JourneyMapFullscreen = ({ points, id }: { points: { lat: number, lng: numb
       mapRef.current = map;
 
       L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-        maxZoom: 19
+        maxZoom: 19,
+        crossOrigin: true   // CORS dlaždice → canvas se neušpiní → export PDF funguje
       }).addTo(map);
 
       const latlngs = points.map(p => [p.lat, p.lng]);
@@ -290,7 +291,8 @@ export const JourneyMap = ({ points, isMini = false, id = "journey-map", classNa
       mapRef.current = map;
 
       L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-        maxZoom: 19
+        maxZoom: 19,
+        crossOrigin: true   // CORS dlaždice → canvas se neušpiní → export PDF funguje
       }).addTo(map);
 
       const latlngs = points.map(p => [p.lat, p.lng]);

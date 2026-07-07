@@ -6,7 +6,7 @@ import { signOut, useSession } from "next-auth/react";
 import styles from "./layout.module.css";
 import React from "react";
 
-import { ChevronLeft, ChevronRight, CheckCircle, List, Settings, LogOut, Plus, Menu, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, CheckCircle, List, Settings, LogOut, Plus, Menu, X, Zap } from "lucide-react";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -79,6 +79,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <Link href="/dashboard" className={`${styles.navItem} ${pathname === "/dashboard" ? styles.active : ""}`}>
               <CheckCircle className={styles.navIcon} />
               <span>Úkoly</span>
+            </Link>
+
+            <Link href="/dashboard/dnes" className={`${styles.navItem} ${pathname?.includes("/dnes") ? styles.active : ""}`}>
+              <Zap className={styles.navIcon} />
+              <span>Dnes</span>
             </Link>
 
             <Link href="/dashboard/codelists" className={`${styles.navItem} ${pathname?.includes("/codelists") ? styles.active : ""}`}>

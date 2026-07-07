@@ -36,7 +36,7 @@ async function getBlogData(idOrSlug: string, userIp: string) {
     },
     include: {
       subTasks: {
-        where: { isDeleted: false },
+        where: { isDeleted: false, isPrivate: false },
         include: {
           locations: true,
           attachments: {

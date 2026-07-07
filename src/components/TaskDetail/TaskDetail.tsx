@@ -7,7 +7,7 @@ import {
   Plus, Trash2, Mail, Layers, Lock, Unlock, RotateCcw, 
   Wallet, DollarSign, Building, MapPin, Loader2, Navigation, Camera, Mic, Square, Play, Pause,
   ChevronUp, ChevronDown, Search, Clock, Eye, ChevronRight, AlertCircle, FolderOpen,
-  Bug, Lightbulb, CheckSquare, Video, Save, Maximize2
+  Bug, Lightbulb, CheckSquare, Video, Save, Maximize2, EyeOff, Activity
 } from "lucide-react";
 import styles from "./TaskDetail.module.css";
 
@@ -39,6 +39,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
   const [payee, setPayee] = useState(task.payee || "");
   const [recordedAt, setRecordedAt] = useState(task.recordedAt ? new Date(task.recordedAt).toISOString().slice(0, 16) : "");
   const [odometer, setOdometer] = useState(task.odometer || "");
+  const [isPrivate, setIsPrivate] = useState(task.isPrivate || false);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
   const [payees, setPayees] = useState<any[]>([]);
   const isLocationHistory = taskType === "LOCATION_HISTORY";
@@ -96,6 +97,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
     setPayee(task.payee || "");
     setRecordedAt(task.recordedAt ? new Date(task.recordedAt).toISOString().slice(0, 16) : "");
     setOdometer(task.odometer || "");
+    setIsPrivate(task.isPrivate || false);
     setCategoryId(task.categoryId || "");
     setLocHistory(task.locations || []);
     setAttachments(task.attachments || []);
@@ -353,6 +355,12 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
     onUpdate(task.id, { taskType: newType });
   };
 
+  const handlePrivateToggle = () => {
+    const v = !isPrivate;
+    setIsPrivate(v);
+    onUpdate(task.id, { isPrivate: v });
+  };
+
   const handleExpenseUpdate = () => {
     onUpdate(task.id, { 
       amount: amount === "" ? null : parseFloat(amount.toString()), 
@@ -540,14 +548,18 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
                 {taskType === 'LOCATION' && <MapPin size={14} />}
                 {taskType === 'FOLDER' && <FolderOpen size={14} />}
                 {taskType === 'GPS_LOG' && <Navigation size={14} />}
-                {(taskType === 'TASK' || !['BUG','IDEA','EXPENSE','LOCATION_HISTORY','LOCATION','FOLDER','GPS_LOG'].includes(taskType)) && <CheckSquare size={14} />}
+                {taskType === 'EVENT' && <Calendar size={14} />}
+                {taskType === 'WORKOUT' && <Activity size={14} />}
+                {(taskType === 'TASK' || !['BUG','IDEA','EXPENSE','LOCATION_HISTORY','LOCATION','FOLDER','GPS_LOG','EVENT','WORKOUT'].includes(taskType)) && <CheckSquare size={14} />}
               </div>
-              <select 
+              <select
                 value={taskType}
                 onChange={(e) => handleTaskTypeChange(e.target.value)}
                 className={styles.typeSelectMinimal}
               >
                 <option value="TASK">Úkol</option>
+                <option value="EVENT">Událost</option>
+                <option value="WORKOUT">Cvičení</option>
                 <option value="BUG">Bug</option>
                 <option value="IDEA">Nápad</option>
                 <option value="EXPENSE">Náklady</option>
@@ -557,6 +569,18 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
                 <option value="GPS_LOG">Zápis trasy (Map-only)</option>
               </select>
             </div>
+            <button
+              type="button"
+              onClick={handlePrivateToggle}
+              title={isPrivate ? "Soukromé – skryté z veřejného blogu" : "Veřejné – zobrazí se ve blogu"}
+              className="flex items-center gap-1.5 px-2.5 h-7 rounded-md border text-xs font-medium transition-colors"
+              style={isPrivate
+                ? { borderColor: '#f59e0b', color: '#b45309', background: '#fffbeb' }
+                : { borderColor: '#e7e5e4', color: '#78716c', background: '#fff' }}
+            >
+              {isPrivate ? <EyeOff size={13} /> : <Eye size={13} />}
+              {isPrivate ? "Soukromé" : "Veřejné"}
+            </button>
             {taskType !== "LOCATION_HISTORY" && (
               <select 
                 value={priority}

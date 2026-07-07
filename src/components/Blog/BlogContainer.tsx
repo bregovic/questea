@@ -210,6 +210,14 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
                 <div className={`${isMinimal ? 'md:col-span-12' : 'md:col-span-10'}`}>
                   
                   <header className="mb-16">
+                     {/* Datum na časové ose – na mobilu (a u MINIMAL i na desktopu),
+                         kde není postranní metadata sloupec. */}
+                     <div className={`${isMinimal ? '' : 'md:hidden'} mb-5 flex items-center gap-2.5 text-xs font-black uppercase tracking-[0.2em] ${isDark ? 'text-white/50' : 'text-stone-500'}`}>
+                       <Calendar size={14} style={{ color: accentColor }} />
+                       <span>{mounted ? date.toLocaleDateString("cs-CZ") : "--.--.----"}</span>
+                       <span className="opacity-40">·</span>
+                       <span>{mounted ? date.toLocaleTimeString("cs-CZ", { hour: '2-digit', minute: '2-digit' }) : "--:--"}</span>
+                     </div>
                      <Reveal>
                        <h2 className={`text-5xl md:text-8xl font-black leading-[0.85] mb-10 ${isAdventure || isElegant ? 'font-serif italic' : 'tracking-tighter'}`}>
                           {post.title}

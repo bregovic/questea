@@ -87,6 +87,8 @@ enum TaskType {
   LOCATION
   FOLDER
   GPS_LOG
+  EVENT
+  WORKOUT
 }
 
 model Category {
@@ -149,6 +151,7 @@ model Task {
   
   // Systémové
   isDeleted   Boolean  @default(false)
+  isPrivate   Boolean  @default(false) // Tajný příspěvek – skrytý z veřejného blogu
   lockStatus  Boolean  @default(false) // If true, cannot be closed/DONE manually
   orderIndex  Int      @default(0)
   recordedAt  DateTime? // Kdy se to skutečně stalo (pro historii)

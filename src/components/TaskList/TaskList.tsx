@@ -955,6 +955,10 @@ export const TaskList = () => {
                 <div className={styles.inlineIcon} style={{ color: '#737373' }}><FolderOpen size={16} /></div>
                 <span>Složka</span>
               </button>
+              <button onClick={() => { setAddingType('NOTE'); setIsAddingTask(true); }} className={styles.inlineActionBtn}>
+                <div className={styles.inlineIcon} style={{ color: '#8b5cf6' }}><FileText size={16} /></div>
+                <span>Záznam</span>
+              </button>
               <button 
                 onClick={() => {
                   navigator.geolocation.getCurrentPosition(async (pos) => {
@@ -1029,6 +1033,10 @@ export const TaskList = () => {
                 <button onClick={() => setAddingType('FOLDER')} className={styles.typeOption}>
                    <div className={styles.typeIcon} style={{ background: '#737373' }}><FolderOpen size={16} /></div>
                    <span>Podsložka</span>
+                </button>
+                <button onClick={() => setAddingType('NOTE')} className={styles.typeOption}>
+                   <div className={styles.typeIcon} style={{ background: '#8b5cf6' }}><FileText size={16} /></div>
+                   <span>Záznam</span>
                 </button>
                 <button onClick={() => setIsAddingTask(false)} className={styles.closeTypeSelector}>
                    <X size={18} />

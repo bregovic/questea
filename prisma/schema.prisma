@@ -89,6 +89,7 @@ enum TaskType {
   GPS_LOG
   EVENT
   WORKOUT
+  NOTE
 }
 
 model Category {

@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { motion, useMotionValue, useTransform } from "framer-motion";
-import { Check, Clock, ChevronRight, Eye, FolderOpen, AlertCircle, MapPin, Plus, Wallet, Search, Bug, Lightbulb, Navigation, CheckSquare } from "lucide-react";
+import { Check, Clock, ChevronRight, Eye, FolderOpen, AlertCircle, MapPin, Plus, Wallet, Search, Bug, Lightbulb, Navigation, CheckSquare, FileText, Calendar, Activity } from "lucide-react";
 import styles from "./TaskCard.module.css";
 
 interface TaskCardProps {
@@ -141,7 +141,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
                   {task.taskType === 'LOCATION' && <MapPin size={14} />}
                   {task.taskType === 'FOLDER' && <FolderOpen size={14} />}
                   {task.taskType === 'GPS_LOG' && <Navigation size={14} />}
-                  {(task.taskType === 'TASK' || !['BUG','IDEA','EXPENSE','LOCATION_HISTORY','LOCATION','FOLDER','GPS_LOG'].includes(task.taskType)) && <CheckSquare size={14} />}
+                  {task.taskType === 'NOTE' && <FileText size={14} />}
+                  {task.taskType === 'EVENT' && <Calendar size={14} />}
+                  {task.taskType === 'WORKOUT' && <Activity size={14} />}
+                  {(task.taskType === 'TASK' || !['BUG','IDEA','EXPENSE','LOCATION_HISTORY','LOCATION','FOLDER','GPS_LOG','NOTE','EVENT','WORKOUT'].includes(task.taskType)) && <CheckSquare size={14} />}
                 </span>
                 {task.priority === "URGENT" && (
                   <motion.span 

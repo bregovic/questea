@@ -578,7 +578,8 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
                 {taskType === 'GPS_LOG' && <Navigation size={14} />}
                 {taskType === 'EVENT' && <Calendar size={14} />}
                 {taskType === 'WORKOUT' && <Activity size={14} />}
-                {(taskType === 'TASK' || !['BUG','IDEA','EXPENSE','LOCATION_HISTORY','LOCATION','FOLDER','GPS_LOG','EVENT','WORKOUT'].includes(taskType)) && <CheckSquare size={14} />}
+                {taskType === 'NOTE' && <FileText size={14} />}
+                {(taskType === 'TASK' || !['BUG','IDEA','EXPENSE','LOCATION_HISTORY','LOCATION','FOLDER','GPS_LOG','EVENT','WORKOUT','NOTE'].includes(taskType)) && <CheckSquare size={14} />}
               </div>
               <select
                 value={taskType}
@@ -588,6 +589,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
                 <option value="TASK">Úkol</option>
                 <option value="EVENT">Událost</option>
                 <option value="WORKOUT">Cvičení</option>
+                <option value="NOTE">Záznam</option>
                 <option value="BUG">Bug</option>
                 <option value="IDEA">Nápad</option>
                 <option value="EXPENSE">Náklady</option>

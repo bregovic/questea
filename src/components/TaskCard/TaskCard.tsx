@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { motion, useMotionValue, useTransform } from "framer-motion";
 import { Check, Clock, ChevronRight, Eye, FolderOpen, AlertCircle, MapPin, Plus, Wallet, Search, Bug, Lightbulb, Navigation, CheckSquare, FileText, Calendar, Activity } from "lucide-react";
 import styles from "./TaskCard.module.css";
@@ -27,6 +27,38 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
       onUpdate({ status: task.status === "DONE" ? "TODO" : "DONE" });
     } else if (info.offset.x < -80) {
       onUpdate({ priority: "LOW" });
+    }
+  };
+
+  // Dlouhé podržení → otevřít detail (i u složek/cest, kde klik jde dovnitř).
+  const longPressTimer = useRef<any>(null);
+  const pressStart = useRef<{ x: number; y: number } | null>(null);
+  const didLongPress = useRef(false);
+
+  const startPress = (e: React.PointerEvent) => {
+    didLongPress.current = false;
+    pressStart.current = { x: e.clientX, y: e.clientY };
+    longPressTimer.current = setTimeout(() => {
+      didLongPress.current = true;
+      longPressTimer.current = null;
+      if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(15);
+      onOpenDetail?.();
+    }, 500);
+  };
+  const movePress = (e: React.PointerEvent) => {
+    if (!pressStart.current || !longPressTimer.current) return;
+    if (
+      Math.abs(e.clientX - pressStart.current.x) > 10 ||
+      Math.abs(e.clientY - pressStart.current.y) > 10
+    ) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+  const endPress = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
     }
   };
 
@@ -67,7 +99,14 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
         dragConstraints={{ left: 0, right: 0 }}
         style={{ x }}
         onDragEnd={handleDragEnd}
+        onPointerDown={startPress}
+        onPointerMove={movePress}
+        onPointerUp={endPress}
+        onPointerLeave={endPress}
+        onPointerCancel={endPress}
         onClick={() => {
+          // Dlouhé podržení už otevřelo detail → nespouštěj klik (drill-in).
+          if (didLongPress.current) { didLongPress.current = false; return; }
           // 1. Leaf types always open detail
           const isLeafType = ["LOCATION", "EXPENSE", "GPS_LOG", "TASK", "BUG", "IDEA"].includes(task.taskType);
           const hasChildren = (task.subTasks?.length || 0) > 0 || (task._count?.subTasks || 0) > 0;
@@ -182,6 +221,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
                     }}
                   >
                     <Search size={18} />
+                  </button>
+                  <button
+                    className={styles.detailArrowBtn}
+                    title="Otevřít detail"
+                    onClick={(e) => { e.stopPropagation(); onOpenDetail?.(); }}
+                  >
+                    <ChevronRight size={18} />
                   </button>
                 </div>
               ) : task.taskType === "EXPENSE" ? (

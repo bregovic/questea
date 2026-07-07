@@ -128,7 +128,9 @@ model Task {
   // Opakování (recurring). recurrenceType: DAILY | WEEKLY | MONTHLY (null = neopakuje se).
   // recurrenceDay: WEEKLY = den v týdnu (0=Ne … 6=So), MONTHLY = den v měsíci (1–31, -1 = poslední).
   recurrenceType String?
-  recurrenceDay  Int?
+  recurrenceDay  Int?     // MONTHLY: den v měsíci (1–31, -1 = poslední)
+  recurrenceDays String?  // WEEKLY: dny v týdnu CSV (0=Ne … 6=So), např. "3,5"
+  recurrenceTime String?  // čas výskytu "HH:mm" (volitelné)
   recurrenceCount Int      @default(0) // kolikrát už bylo odbaveno (historie)
 
   spentMinutes     Int?    // Skutečně strávený/vykázaný čas v minutách

@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { recalculateTaskDistances } from "@/lib/odometer";
-import { nextOccurrence } from "@/lib/recurrence";
+import { nextOccurrence, parseDays } from "@/lib/recurrence";
 
 export async function GET(
   req: Request,
@@ -65,14 +65,22 @@ export async function PATCH(
     if (body.status === "DONE") {
       const existing = await prisma.task.findFirst({
         where: { id, userId: session.user.id },
-        select: { recurrenceType: true, recurrenceDay: true, dueDate: true, recurrenceCount: true },
+        select: {
+          recurrenceType: true, recurrenceDay: true, recurrenceDays: true,
+          recurrenceTime: true, dueDate: true, recurrenceCount: true,
+        },
       });
       if (existing?.recurrenceType) {
         const base = existing.dueDate ? new Date(existing.dueDate) : new Date();
         updateData = {
           ...updateData,
           status: "TODO",
-          dueDate: nextOccurrence(base, existing.recurrenceType, existing.recurrenceDay),
+          dueDate: nextOccurrence(base, {
+            type: existing.recurrenceType,
+            day: existing.recurrenceDay,
+            days: parseDays(existing.recurrenceDays),
+            time: existing.recurrenceTime,
+          }),
           recurrenceCount: (existing.recurrenceCount ?? 0) + 1,
         };
         isRecurringAdvance = true;

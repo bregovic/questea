@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import styles from "./TaskDetail.module.css";
 import { CollectionPicker } from "./CollectionPicker";
-import { nextOccurrence } from "@/lib/recurrence";
+import { nextOccurrence, parseDays } from "@/lib/recurrence";
 
 interface TaskDetailProps {
   task: any;
@@ -44,6 +44,8 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
   const [isPrivate, setIsPrivate] = useState(task.isPrivate || false);
   const [recurrenceType, setRecurrenceType] = useState<string>(task.recurrenceType || "");
   const [recurrenceDay, setRecurrenceDay] = useState<number | null>(task.recurrenceDay ?? null);
+  const [recurrenceDays, setRecurrenceDays] = useState<number[]>(parseDays(task.recurrenceDays));
+  const [recurrenceTime, setRecurrenceTime] = useState<string>(task.recurrenceTime || "");
   const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
   const [payees, setPayees] = useState<any[]>([]);
   const isLocationHistory = taskType === "LOCATION_HISTORY";
@@ -104,6 +106,8 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
     setIsPrivate(task.isPrivate || false);
     setRecurrenceType(task.recurrenceType || "");
     setRecurrenceDay(task.recurrenceDay ?? null);
+    setRecurrenceDays(parseDays(task.recurrenceDays));
+    setRecurrenceTime(task.recurrenceTime || "");
     setCategoryId(task.categoryId || "");
     setLocHistory(task.locations || []);
     setAttachments(task.attachments || []);
@@ -367,26 +371,58 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
     onUpdate(task.id, { isPrivate: v });
   };
 
-  const applyRecurrence = (type: string, day: number | null) => {
-    setRecurrenceType(type);
-    setRecurrenceDay(day);
+  const pushRecurrence = (
+    type: string,
+    day: number | null,
+    days: number[],
+    time: string,
+  ) => {
     const data: any = {
       recurrenceType: type || null,
-      recurrenceDay: type ? day : null,
+      recurrenceDay: type === "MONTHLY" ? day : null,
+      recurrenceDays: type === "WEEKLY" && days.length ? days.join(",") : null,
+      recurrenceTime: type ? time || null : null,
     };
     // Zapínám opakování a úkol nemá termín → nastav první výskyt ode dneška.
     if (type && !task.dueDate) {
-      data.dueDate = nextOccurrence(new Date(), type, day).toISOString();
+      data.dueDate = nextOccurrence(new Date(), { type, day, days, time }).toISOString();
     }
     onUpdate(task.id, data);
   };
 
   const onRecurrenceTypeChange = (t: string) => {
-    let day: number | null = recurrenceDay;
-    if (t === "WEEKLY") day = day ?? new Date().getDay();
-    else if (t === "MONTHLY") day = day ?? new Date().getDate();
-    else day = null;
-    applyRecurrence(t, day);
+    let day = recurrenceDay;
+    let days = recurrenceDays;
+    if (t === "WEEKLY") {
+      day = null;
+      if (!days.length) days = [new Date().getDay()];
+    } else if (t === "MONTHLY") {
+      day = day ?? new Date().getDate();
+      days = [];
+    } else {
+      day = null;
+      days = [];
+    }
+    setRecurrenceType(t);
+    setRecurrenceDay(day);
+    setRecurrenceDays(days);
+    pushRecurrence(t, day, days, recurrenceTime);
+  };
+
+  const toggleWeekday = (d: number) => {
+    const days = recurrenceDays.includes(d)
+      ? recurrenceDays.filter((x) => x !== d)
+      : [...recurrenceDays, d];
+    setRecurrenceDays(days);
+    pushRecurrence(recurrenceType, recurrenceDay, days, recurrenceTime);
+  };
+  const onMonthDayChange = (d: number) => {
+    setRecurrenceDay(d);
+    pushRecurrence(recurrenceType, d, recurrenceDays, recurrenceTime);
+  };
+  const onRecurrenceTimeChange = (v: string) => {
+    setRecurrenceTime(v);
+    pushRecurrence(recurrenceType, recurrenceDay, recurrenceDays, v);
   };
 
   const handleExpenseUpdate = () => {
@@ -647,24 +683,29 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
                <option value="MONTHLY">Měsíčně</option>
              </select>
              {recurrenceType === "WEEKLY" && (
-               <select
-                 value={recurrenceDay ?? 1}
-                 onChange={(e) => applyRecurrence("WEEKLY", Number(e.target.value))}
-                 className={styles.typeSelectMinimal}
-               >
-                 <option value={1}>v pondělí</option>
-                 <option value={2}>v úterý</option>
-                 <option value={3}>ve středu</option>
-                 <option value={4}>ve čtvrtek</option>
-                 <option value={5}>v pátek</option>
-                 <option value={6}>v sobotu</option>
-                 <option value={0}>v neděli</option>
-               </select>
+               <div className="flex gap-1">
+                 {[1, 2, 3, 4, 5, 6, 0].map((d) => (
+                   <button
+                     key={d}
+                     type="button"
+                     onClick={() => toggleWeekday(d)}
+                     className="flex items-center justify-center rounded-full text-[11px] font-bold"
+                     style={{
+                       width: 26,
+                       height: 26,
+                       background: recurrenceDays.includes(d) ? "#ea580c" : "#f5f5f4",
+                       color: recurrenceDays.includes(d) ? "#fff" : "#78716c",
+                     }}
+                   >
+                     {["Ne", "Po", "Út", "St", "Čt", "Pá", "So"][d]}
+                   </button>
+                 ))}
+               </div>
              )}
              {recurrenceType === "MONTHLY" && (
                <select
                  value={recurrenceDay ?? 1}
-                 onChange={(e) => applyRecurrence("MONTHLY", Number(e.target.value))}
+                 onChange={(e) => onMonthDayChange(Number(e.target.value))}
                  className={styles.typeSelectMinimal}
                >
                  <option value={-1}>poslední den</option>
@@ -672,6 +713,16 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
                    <option key={d} value={d}>{d}.</option>
                  ))}
                </select>
+             )}
+             {recurrenceType && (
+               <input
+                 type="time"
+                 value={recurrenceTime}
+                 onChange={(e) => onRecurrenceTimeChange(e.target.value)}
+                 className={styles.typeSelectMinimal}
+                 style={{ width: "auto" }}
+                 title="Čas výskytu"
+               />
              )}
            </div>
            <CollectionPicker

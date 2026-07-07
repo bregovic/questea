@@ -33,6 +33,8 @@ export default async function DnesPage() {
       taskType: true,
       recurrenceType: true,
       recurrenceDay: true,
+      recurrenceDays: true,
+      recurrenceTime: true,
     },
   });
 

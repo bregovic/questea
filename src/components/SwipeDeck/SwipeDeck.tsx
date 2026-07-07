@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { motion, useMotionValue, useTransform, animate } from "framer-motion";
 import { Check, X, Repeat, Clock, CheckCircle2 } from "lucide-react";
-import { recurrenceLabel } from "@/lib/recurrence";
+import { recurrenceLabel, parseDays } from "@/lib/recurrence";
 
 type SwipeTask = {
   id: string;
@@ -14,6 +14,8 @@ type SwipeTask = {
   taskType?: string;
   recurrenceType?: string | null;
   recurrenceDay?: number | null;
+  recurrenceDays?: string | null;
+  recurrenceTime?: string | null;
 };
 
 function fmtDate(iso?: string | null): string {
@@ -131,7 +133,12 @@ export function SwipeDeck({ initialTasks }: { initialTasks: SwipeTask[] }) {
             {item.recurrenceType && (
               <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">
                 <Repeat size={12} />
-                {recurrenceLabel(item.recurrenceType, item.recurrenceDay ?? null)}
+                {recurrenceLabel({
+                  type: item.recurrenceType ?? null,
+                  day: item.recurrenceDay ?? null,
+                  days: parseDays(item.recurrenceDays),
+                  time: item.recurrenceTime ?? null,
+                })}
               </span>
             )}
             <span

@@ -440,12 +440,16 @@ export const TaskList = () => {
       const res = await fetch("/api/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           title: title,
           status: "TODO",
           priority: "MEDIUM",
           taskType: type,
           parentId: currentParentId,
+          // Záznamové typy dostanou rovnou aktuální datum a čas (jde změnit v detailu).
+          ...(["NOTE", "EVENT", "WORKOUT"].includes(type)
+            ? { recordedAt: new Date().toISOString() }
+            : {}),
         }),
       });
       if (res.ok) {

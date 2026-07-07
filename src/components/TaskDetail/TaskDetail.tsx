@@ -10,6 +10,7 @@ import {
   Bug, Lightbulb, CheckSquare, Video, Save, Maximize2, EyeOff, Activity
 } from "lucide-react";
 import styles from "./TaskDetail.module.css";
+import { CollectionPicker } from "./CollectionPicker";
 
 interface TaskDetailProps {
   task: any;
@@ -597,13 +598,19 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
           </div>
           <div className="flex items-center gap-2 mt-1">
              <Clock size={12} className="opacity-40" />
-              <input 
-                type="datetime-local" 
+              <input
+                type="datetime-local"
                 className={styles.recordedAtInput}
                 value={recordedAt}
                 onChange={(e) => handleRecordedAtChange(e.target.value)}
               />
            </div>
+           <CollectionPicker
+             postId={task.id}
+             candidates={allTasks
+               .filter((t: any) => t.id !== task.id && (t.slug || t.taskType === 'FOLDER' || t.taskType === 'LOCATION_HISTORY'))
+               .map((t: any) => ({ id: t.id, title: t.title }))}
+           />
            {isLocation && (
              <div className="flex items-center gap-2 mt-1">
                 <Navigation size={12} className="opacity-40" />

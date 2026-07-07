@@ -60,12 +60,39 @@ async function getBlogData(idOrSlug: string, userIp: string) {
           }
         },
         orderBy: { recordedAt: "asc" }
+      },
+      // Kolekce: příspěvky přidané do tohoto blogu napříč timeline (bez přesunu v hierarchii).
+      collectionItems: {
+        where: { post: { isDeleted: false, isPrivate: false } },
+        include: {
+          post: {
+            include: {
+              locations: true,
+              attachments: {
+                select: { id: true, name: true, type: true, createdAt: true }
+              },
+              _count: { select: { likes: true, comments: true } },
+              likes: { where: { ipAddress: userIp }, take: 1 }
+            }
+          }
+        }
       }
     }
   });
 
   if (!folder) return null;
-  return folder;
+
+  // Sloučení: pod-úkoly (hierarchie) + příspěvky z kolekce; dedup dle id; řazení dle času.
+  const memberPosts = folder.collectionItems.map((ci) => ci.post);
+  const byId = new Map<string, any>();
+  for (const p of [...folder.subTasks, ...memberPosts]) byId.set(p.id, p);
+  const merged = [...byId.values()].sort((a, b) => {
+    const ta = new Date(a.recordedAt || a.createdAt).getTime();
+    const tb = new Date(b.recordedAt || b.createdAt).getTime();
+    return ta - tb;
+  });
+
+  return { ...folder, subTasks: merged };
 }
 
 function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -87,9 +114,9 @@ export default async function BlogPage({ params }: { params: Promise<{ id: strin
   const folder = await getBlogData(id, userIp);
   if (!folder) notFound();
 
-  const posts = folder.subTasks.map(post => ({
+  const posts = folder.subTasks.map((post: any) => ({
     ...post,
-    attachments: post.attachments.map(att => ({
+    attachments: post.attachments.map((att: any) => ({
       ...att,
       url: att.type === 'image' ? `/api/images/${att.id}` : '#'
     }))

@@ -164,6 +164,25 @@ model Task {
   likes       PostLike[]
   comments    PostComment[]
   printVersions PrintVersion[]
+
+  // Kolekce (samostatný blog, např. výlet): sdružuje příspěvky napříč timeline bez přesunu.
+  collectionItems CollectionItem[] @relation("CollectionItems")   // je-li tohle kolekce: její příspěvky
+  inCollections   CollectionItem[] @relation("PostInCollections") // kolekce, do kterých tento příspěvek patří
+}
+
+// Členství příspěvku (Task) v kolekci (Task) – M:N s pořadím.
+model CollectionItem {
+  id           String   @id @default(cuid())
+  collectionId String
+  collection   Task     @relation("CollectionItems", fields: [collectionId], references: [id], onDelete: Cascade)
+  postId       String
+  post         Task     @relation("PostInCollections", fields: [postId], references: [id], onDelete: Cascade)
+  orderIndex   Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  @@unique([collectionId, postId])
+  @@index([collectionId])
+  @@index([postId])
 }
 
 model Payee {

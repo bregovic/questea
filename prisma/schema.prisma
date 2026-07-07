@@ -123,7 +123,13 @@ model Task {
   // Časování a plánování
   startDate   DateTime?    // Od kdy (začátek plnění)
   dueDate     DateTime?    // Kdy se má odevzdat (splatnost)
-  
+
+  // Opakování (recurring). recurrenceType: DAILY | WEEKLY | MONTHLY (null = neopakuje se).
+  // recurrenceDay: WEEKLY = den v týdnu (0=Ne … 6=So), MONTHLY = den v měsíci (1–31, -1 = poslední).
+  recurrenceType String?
+  recurrenceDay  Int?
+  recurrenceCount Int      @default(0) // kolikrát už bylo odbaveno (historie)
+
   spentMinutes     Int?    // Skutečně strávený/vykázaný čas v minutách
   
   // Vazby (Kdo, Komu, Kam, Čí)

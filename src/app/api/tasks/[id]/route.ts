@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { recalculateTaskDistances } from "@/lib/odometer";
+import { nextOccurrence } from "@/lib/recurrence";
 
 export async function GET(
   req: Request,
@@ -59,6 +60,25 @@ export async function PATCH(
 
     let updateData = { ...rest };
 
+    // Opakovaný úkol: dokončení neuzavře, ale posune na další výskyt (zůstane TODO).
+    let isRecurringAdvance = false;
+    if (body.status === "DONE") {
+      const existing = await prisma.task.findFirst({
+        where: { id, userId: session.user.id },
+        select: { recurrenceType: true, recurrenceDay: true, dueDate: true, recurrenceCount: true },
+      });
+      if (existing?.recurrenceType) {
+        const base = existing.dueDate ? new Date(existing.dueDate) : new Date();
+        updateData = {
+          ...updateData,
+          status: "TODO",
+          dueDate: nextOccurrence(base, existing.recurrenceType, existing.recurrenceDay),
+          recurrenceCount: (existing.recurrenceCount ?? 0) + 1,
+        };
+        isRecurringAdvance = true;
+      }
+    }
+
     if (payee !== undefined) {
       updateData.payee = payee;
       if (payee && payee.trim() !== "") {
@@ -101,7 +121,8 @@ export async function PATCH(
     });
 
     // Recursive logic: If status became DONE, set all children to DONE
-    if (body.status === "DONE") {
+    // (u opakovaného úkolu se ale jen posouvá výskyt – děti nezavírat).
+    if (body.status === "DONE" && !isRecurringAdvance) {
       await prisma.task.updateMany({
         where: { parentId: id },
         data: { status: "DONE" }

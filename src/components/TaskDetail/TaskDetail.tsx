@@ -7,10 +7,11 @@ import {
   Plus, Trash2, Mail, Layers, Lock, Unlock, RotateCcw, 
   Wallet, DollarSign, Building, MapPin, Loader2, Navigation, Camera, Mic, Square, Play, Pause,
   ChevronUp, ChevronDown, Search, Clock, Eye, ChevronRight, AlertCircle, FolderOpen,
-  Bug, Lightbulb, CheckSquare, Video, Save, Maximize2, EyeOff, Activity
+  Bug, Lightbulb, CheckSquare, Video, Save, Maximize2, EyeOff, Activity, Repeat
 } from "lucide-react";
 import styles from "./TaskDetail.module.css";
 import { CollectionPicker } from "./CollectionPicker";
+import { nextOccurrence } from "@/lib/recurrence";
 
 interface TaskDetailProps {
   task: any;
@@ -41,6 +42,8 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
   const [recordedAt, setRecordedAt] = useState(task.recordedAt ? new Date(task.recordedAt).toISOString().slice(0, 16) : "");
   const [odometer, setOdometer] = useState(task.odometer || "");
   const [isPrivate, setIsPrivate] = useState(task.isPrivate || false);
+  const [recurrenceType, setRecurrenceType] = useState<string>(task.recurrenceType || "");
+  const [recurrenceDay, setRecurrenceDay] = useState<number | null>(task.recurrenceDay ?? null);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
   const [payees, setPayees] = useState<any[]>([]);
   const isLocationHistory = taskType === "LOCATION_HISTORY";
@@ -99,6 +102,8 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
     setRecordedAt(task.recordedAt ? new Date(task.recordedAt).toISOString().slice(0, 16) : "");
     setOdometer(task.odometer || "");
     setIsPrivate(task.isPrivate || false);
+    setRecurrenceType(task.recurrenceType || "");
+    setRecurrenceDay(task.recurrenceDay ?? null);
     setCategoryId(task.categoryId || "");
     setLocHistory(task.locations || []);
     setAttachments(task.attachments || []);
@@ -362,6 +367,28 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
     onUpdate(task.id, { isPrivate: v });
   };
 
+  const applyRecurrence = (type: string, day: number | null) => {
+    setRecurrenceType(type);
+    setRecurrenceDay(day);
+    const data: any = {
+      recurrenceType: type || null,
+      recurrenceDay: type ? day : null,
+    };
+    // Zapínám opakování a úkol nemá termín → nastav první výskyt ode dneška.
+    if (type && !task.dueDate) {
+      data.dueDate = nextOccurrence(new Date(), type, day).toISOString();
+    }
+    onUpdate(task.id, data);
+  };
+
+  const onRecurrenceTypeChange = (t: string) => {
+    let day: number | null = recurrenceDay;
+    if (t === "WEEKLY") day = day ?? new Date().getDay();
+    else if (t === "MONTHLY") day = day ?? new Date().getDate();
+    else day = null;
+    applyRecurrence(t, day);
+  };
+
   const handleExpenseUpdate = () => {
     onUpdate(task.id, { 
       amount: amount === "" ? null : parseFloat(amount.toString()), 
@@ -604,6 +631,46 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
                 value={recordedAt}
                 onChange={(e) => handleRecordedAtChange(e.target.value)}
               />
+           </div>
+           <div className="flex items-center gap-2 mt-1 flex-wrap">
+             <Repeat size={12} className="opacity-40" />
+             <select
+               value={recurrenceType}
+               onChange={(e) => onRecurrenceTypeChange(e.target.value)}
+               className={styles.typeSelectMinimal}
+             >
+               <option value="">Neopakovat</option>
+               <option value="DAILY">Denně</option>
+               <option value="WEEKLY">Týdně</option>
+               <option value="MONTHLY">Měsíčně</option>
+             </select>
+             {recurrenceType === "WEEKLY" && (
+               <select
+                 value={recurrenceDay ?? 1}
+                 onChange={(e) => applyRecurrence("WEEKLY", Number(e.target.value))}
+                 className={styles.typeSelectMinimal}
+               >
+                 <option value={1}>v pondělí</option>
+                 <option value={2}>v úterý</option>
+                 <option value={3}>ve středu</option>
+                 <option value={4}>ve čtvrtek</option>
+                 <option value={5}>v pátek</option>
+                 <option value={6}>v sobotu</option>
+                 <option value={0}>v neděli</option>
+               </select>
+             )}
+             {recurrenceType === "MONTHLY" && (
+               <select
+                 value={recurrenceDay ?? 1}
+                 onChange={(e) => applyRecurrence("MONTHLY", Number(e.target.value))}
+                 className={styles.typeSelectMinimal}
+               >
+                 <option value={-1}>poslední den</option>
+                 {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                   <option key={d} value={d}>{d}.</option>
+                 ))}
+               </select>
+             )}
            </div>
            <CollectionPicker
              postId={task.id}

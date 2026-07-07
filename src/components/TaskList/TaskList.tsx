@@ -756,7 +756,7 @@ export const TaskList = () => {
                          } catch (err) {} finally { setIsLoadingDetail(false); }
                        } else alert("Otevřete nejprve složku projektu"); 
                      } },
-                     { id: 'share-blog', name: 'Otevřít blog cesty', icon: Share, action: () => { const shareId = currentFolder?.slug || currentParentId; if (shareId) window.open(`/blog/${shareId}`, "_blank"); else alert("Otevřete složku cesty"); } },
+                     { id: 'share-blog', name: 'Otevřít blog složky', icon: Share, action: () => { const shareId = currentFolder?.slug || currentParentId; if (shareId) window.open(`/blog/${shareId}`, "_blank"); else alert("Nejdřív otevři složku / blog"); } },
                      { id: 'export-xml', name: 'Exportovat data (XML)', icon: FileDown, action: handleExportXml },
                      { id: 'import-xml', name: 'Importovat data (XML)', icon: FileUp, action: () => document.getElementById('global-xml-import')?.click() },
                      { id: 'zen-mode', name: 'Přepnout Zen režim', icon: Maximize2, action: toggleZen },

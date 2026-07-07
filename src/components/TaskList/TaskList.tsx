@@ -8,7 +8,7 @@ import { QuickExpenseModal } from "../QuickExpenseModal/QuickExpenseModal";
 import { LocationSelectionModal } from "../LocationSelectionModal/LocationSelectionModal";
 import { LocationTracker } from "../LocationTracker/LocationTracker";
 import { PhotoBook } from "../PhotoBook/PhotoBook";
-import { Search, Grid, List as ListIcon, Home, ChevronRight, Maximize2, Minimize2, Wallet, Tag, Building, X, Save, MapPin, Share, CheckSquare, FolderOpen, Navigation, Settings as SettingsIcon, FileUp, FileDown, Command, PlusCircle, LayoutGrid, FileText, Printer } from "lucide-react";
+import { Search, Grid, List as ListIcon, Home, ChevronRight, Maximize2, Minimize2, Wallet, Tag, Building, X, Save, MapPin, Share, CheckSquare, FolderOpen, Navigation, Settings as SettingsIcon, FileUp, FileDown, Wand2, PlusCircle, LayoutGrid, FileText, Printer } from "lucide-react";
 import InstallPWA from "../InstallPWA/InstallPWA";
 import styles from "./TaskList.module.css";
 import { motion, AnimatePresence } from "framer-motion";
@@ -242,11 +242,7 @@ export const TaskList = () => {
 
     // Status filter
     if (filterStatus === "ACTIVE") {
-      // If we are inside a folder (currentParentId is set), 
-      // we usually want to see all entries (even DONE ones)
-      if (currentParentId) {
-        return task.status !== "CANCELED";
-      }
+      // „Aktivní" = jen otevřené: skryj hotové i zrušené (i uvnitř složek).
       return task.status !== "DONE" && task.status !== "CANCELED";
     }
     if (filterStatus !== "ALL" && task.status !== filterStatus) return false;
@@ -731,7 +727,7 @@ export const TaskList = () => {
                className="relative w-full max-w-lg bg-white rounded-[32px] shadow-2xl overflow-hidden border border-stone-100"
              >
                 <div className="flex items-center gap-4 p-6 border-b border-stone-50">
-                   <Command size={20} className="text-stone-400" />
+                   <Wand2 size={20} className="text-stone-400" />
                    <input 
                      autoFocus
                      placeholder="Hledejte funkci nebo akci..."
@@ -794,7 +790,7 @@ export const TaskList = () => {
                   </h2>
                   <div className="flex items-center gap-1 ml-2 opacity-20 hover:opacity-100 transition-opacity">
                      <button onClick={() => setIsLookupOpen(true)} title="Vyhledat funkci" className="p-1 hover:text-orange-600">
-                        <Command size={14} />
+                        <Wand2 size={14} />
                      </button>
                      <button onClick={handleExportXml} title="Exportovat XML" className="p-1 hover:text-orange-600">
                         <FileDown size={14} />
@@ -825,7 +821,7 @@ export const TaskList = () => {
                     onClick={() => setIsLookupOpen(true)}
                     className="ml-auto p-2 text-stone-300 hover:text-stone-950 transition-colors"
                   >
-                    <Command size={20} />
+                    <Wand2 size={20} />
                   </button>
                   <button 
                     onClick={() => setIsSettingsOpen(true)}

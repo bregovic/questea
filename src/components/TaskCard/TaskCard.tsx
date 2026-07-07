@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { motion, useMotionValue, useTransform } from "framer-motion";
-import { Check, Clock, ChevronRight, Eye, FolderOpen, AlertCircle, MapPin, Plus, Wallet, Search, Bug, Lightbulb, Navigation, CheckSquare } from "lucide-react";
+import { Check, Clock, Eye, FolderOpen, AlertCircle, MapPin, Plus, Wallet, Search, Bug, Lightbulb, Navigation, CheckSquare } from "lucide-react";
 import styles from "./TaskCard.module.css";
 
 interface TaskCardProps {
@@ -39,10 +39,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
     }
   };
 
-  // Circular progress calculation
-  const radius = 18;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (task.progress / 100) * circumference;
 
   let isLogRecord = isEvidence && task.taskType !== "TASK";
   if (!isEvidence) {
@@ -204,52 +200,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
                     <Plus size={18} />
                   )}
                 </button>
-              ) : (
-                <div className="flex items-center gap-3">
-                  {((task.subTasks?.length || 0) > 0 || (task._count?.subTasks || 0) > 0) && (
-                    <button 
-                      className={styles.cardActionBtn}
-                      style={{ background: '#f5f5f4', borderColor: '#e5e5e4', color: '#737373' }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        (window as any).dispatchEvent(new CustomEvent("addTask", { detail: { parentId: task.id } }));
-                      }}
-                    >
-                      <Plus size={16} />
-                    </button>
-                  )}
-                  {((task.subTasks?.length || 0) > 0 || (task._count?.subTasks || 0) > 0) && (
-                    <div className={styles.gaugeWrapper}>
-                      <svg width="44" height="44" className={styles.gauge}>
-                        <circle cx="22" cy="22" r={radius} stroke="#f5f5f4" strokeWidth="3" fill="none" />
-                        <motion.circle 
-                          cx="22" cy="22" r={radius} 
-                          stroke={task.status === "DONE" ? "#059669" : "#ea580c"} 
-                          strokeWidth="3" 
-                          fill="none"
-                          strokeDasharray={circumference}
-                          initial={{ strokeDashoffset: circumference }}
-                          animate={{ strokeDashoffset: offset }}
-                          transition={{ duration: 1, ease: "easeOut" }}
-                          strokeLinecap="round"
-                          transform="rotate(-90 22 22)"
-                        />
-                      </svg>
-                      <span className={styles.gaugeText}>{task.progress}%</span>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <button 
-                className={styles.detailArrowBtn}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onOpenDetail?.();
-                }}
-              >
-                <ChevronRight size={18} />
-              </button>
+              ) : null}
             </div>
           </>
         ) : (
@@ -286,6 +237,17 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
               </div>
             </div>
           </div>
+        )}
+
+        {/* Stav jako tenká spodní linka (šířka = % hotovo) místo velkého kolečka. */}
+        {(task.progress > 0 || task.status === "DONE") && task.taskType !== "GPS_LOG" && (
+          <div
+            className={styles.progressUnderline}
+            style={{
+              width: `${task.status === "DONE" ? 100 : task.progress || 0}%`,
+              background: task.status === "DONE" ? "#059669" : "#ea580c",
+            }}
+          />
         )}
       </motion.div>
     </div>

@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { motion, useMotionValue, useTransform } from "framer-motion";
-import { Check, Clock, Eye, FolderOpen, AlertCircle, MapPin, Plus, Wallet, Search, Bug, Lightbulb, Navigation, CheckSquare } from "lucide-react";
+import { Check, Clock, ChevronRight, Eye, FolderOpen, AlertCircle, MapPin, Plus, Wallet, Search, Bug, Lightbulb, Navigation, CheckSquare } from "lucide-react";
 import styles from "./TaskCard.module.css";
 
 interface TaskCardProps {
@@ -199,6 +199,17 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onDelete, on
                   ) : (
                     <Plus size={18} />
                   )}
+                </button>
+              ) : task.taskType === "FOLDER" ? (
+                <button
+                  className={styles.detailArrowBtn}
+                  title="Otevřít detail složky"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenDetail?.();
+                  }}
+                >
+                  <ChevronRight size={18} />
                 </button>
               ) : null}
             </div>

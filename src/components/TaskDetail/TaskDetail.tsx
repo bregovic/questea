@@ -371,6 +371,28 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
     onUpdate(task.id, { isPrivate: v });
   };
 
+  // Vygeneruje unikátní adresu (slug) blogu z názvu složky (server ošetří duplicity).
+  const generateSlug = async () => {
+    try {
+      const res = await fetch(`/api/tasks/${task.id}/slug`, { method: "POST" });
+      if (res.ok) {
+        const d = await res.json();
+        if (d.slug) setSlug(d.slug);
+      }
+    } catch {
+      /* ignore */
+    }
+  };
+
+  // Automaticky: složka/blog bez adresy dostane slug z názvu při otevření detailu.
+  React.useEffect(() => {
+    const container =
+      (task.taskType === "LOCATION_HISTORY" && !task.parentId) ||
+      task.taskType === "FOLDER";
+    if (container && !task.slug) generateSlug();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [task.id]);
+
   const pushRecurrence = (
     type: string,
     day: number | null,
@@ -784,8 +806,8 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
           )}
         </div>
 
-        {/* Custom Slug Section (Public Link) - ONLY for the main trip folder */}
-        {isLocationHistory && !task.parentId && (
+        {/* Nastavení veřejného blogu – pro složky i (top-level) cesty. */}
+        {((isLocationHistory && !task.parentId) || taskType === "FOLDER") && (
           <section className={styles.section}>
             <div className={styles.sectionHeader}>
               <LinkIcon size={18} />
@@ -794,14 +816,22 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
             <div className="space-y-4 mt-2">
               <div className="flex items-center gap-2">
                 <span className="text-xs opacity-40 w-12 text-right">Adresa:</span>
-                <input 
+                <input
                   type="text"
                   value={slug}
                   onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''))}
                   onBlur={() => onUpdate(task.id, { slug })}
                   className="flex-1 p-2 bg-stone-100 border border-stone-200 rounded-xl text-sm font-bold"
-                  placeholder="moje-cesta-2024..."
+                  placeholder="nazev-slozky..."
                 />
+                <button
+                  type="button"
+                  onClick={generateSlug}
+                  title="Vygenerovat z názvu složky"
+                  className="shrink-0 px-3 py-2 rounded-xl bg-stone-800 text-white text-xs font-bold hover:bg-stone-900"
+                >
+                  Z názvu
+                </button>
               </div>
               <div className="flex flex-col gap-3">
                 <span className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Vyberte styl deníku</span>

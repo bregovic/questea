@@ -387,8 +387,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
   // Automaticky: složka/blog bez adresy dostane slug z názvu při otevření detailu.
   React.useEffect(() => {
     const container =
-      (task.taskType === "LOCATION_HISTORY" && !task.parentId) ||
-      task.taskType === "FOLDER";
+      task.taskType === "LOCATION_HISTORY" || task.taskType === "FOLDER";
     if (container && !task.slug) generateSlug();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [task.id]);
@@ -806,8 +805,8 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
           )}
         </div>
 
-        {/* Nastavení veřejného blogu – pro složky i (top-level) cesty. */}
-        {((isLocationHistory && !task.parentId) || taskType === "FOLDER") && (
+        {/* Nastavení veřejného blogu – pro složky i cesty (i vnořené). */}
+        {(isLocationHistory || taskType === "FOLDER") && (
           <section className={styles.section}>
             <div className={styles.sectionHeader}>
               <LinkIcon size={18} />

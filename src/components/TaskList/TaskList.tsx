@@ -242,8 +242,14 @@ export const TaskList = () => {
 
     // Status filter
     if (filterStatus === "ACTIVE") {
-      // „Aktivní" = jen otevřené: skryj hotové i zrušené (i uvnitř složek).
-      return task.status !== "DONE" && task.status !== "CANCELED";
+      // „Aktivní" = jen otevřené ÚKOLY. Skrýváme hotové/zrušené jen u skutečných
+      // úkolů (TASK/BUG/IDEA); záznamy (lokace, GPS, poznámky, události, výdaje…)
+      // a složky/cesty ukazujeme vždy – ty „hotovo" ve smyslu úkolu nemají
+      // (jinak zmizí např. GPS body ve složce blogu).
+      if (["TASK", "BUG", "IDEA"].includes(task.taskType)) {
+        return task.status !== "DONE" && task.status !== "CANCELED";
+      }
+      return true;
     }
     if (filterStatus !== "ALL" && task.status !== filterStatus) return false;
     

@@ -47,7 +47,20 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { payee, ...rest } = body;
+    // Nedovol klientovi přepsat vlastníka/id a podstrčit cizí parentId (mass-assignment).
+    const { payee, id: _ignoreId, userId: _ignoreUserId, parentId, ...rest } = body;
+
+    // parentId musí patřit přihlášenému uživateli – jinak by záznam spadl pod cizí složku/blog.
+    let safeParentId: string | null = null;
+    if (parentId) {
+      const parent = await prisma.task.findFirst({
+        where: { id: parentId, userId: session.user.id },
+        select: { id: true },
+      });
+      if (!parent)
+        return NextResponse.json({ error: "Neplatná nadřazená složka." }, { status: 400 });
+      safeParentId = parent.id;
+    }
 
     // Pokud je zadán příjemce, přidáme ho do číselníku
     if (payee && payee.trim() !== "") {
@@ -70,6 +83,7 @@ export async function POST(req: Request) {
       data: {
         ...rest,
         payee: payee,
+        parentId: safeParentId,
         userId: session.user.id,
       },
     });

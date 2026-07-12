@@ -56,7 +56,8 @@ export async function PATCH(
 
   try {
     const body = await req.json();
-    const { ownerEmail, payee, ...rest } = body;
+    // Vlastníka mění jen ownerEmail; id/userId z těla ignoruj (mass-assignment).
+    const { ownerEmail, payee, id: _ignoreId, userId: _ignoreUserId, ...rest } = body;
 
     let updateData = { ...rest };
 
@@ -114,6 +115,20 @@ export async function PATCH(
         updateData.userId = targetUser.id;
       } else {
         return NextResponse.json({ error: "User not found" }, { status: 404 });
+      }
+    }
+
+    // Přesun pod složku: nová nadřazená složka musí patřit vlastníkovi záznamu
+    // (jinak by záznam „přeskočil" do cizího blogu).
+    if ("parentId" in updateData) {
+      if (updateData.parentId) {
+        const ownerId = updateData.userId ?? session.user.id;
+        const parent = await prisma.task.findFirst({
+          where: { id: updateData.parentId, userId: ownerId },
+          select: { id: true },
+        });
+        if (!parent)
+          return NextResponse.json({ error: "Neplatná nadřazená složka." }, { status: 400 });
       }
     }
 

@@ -82,10 +82,16 @@ async function getBlogData(idOrSlug: string, userIp: string) {
 
   if (!folder) return null;
 
+  // Blog patří jednomu vlastníkovi – ukazuj jen jeho příspěvky (obrana proti tomu,
+  // aby se do blogu přimíchal záznam s cizím parentId/z cizí kolekce).
+  const ownerId = folder.userId;
   // Sloučení: pod-úkoly (hierarchie) + příspěvky z kolekce; dedup dle id; řazení dle času.
   const memberPosts = folder.collectionItems.map((ci) => ci.post);
   const byId = new Map<string, any>();
-  for (const p of [...folder.subTasks, ...memberPosts]) byId.set(p.id, p);
+  for (const p of [...folder.subTasks, ...memberPosts]) {
+    if (p.userId !== ownerId) continue; // cizí příspěvky do blogu nepatří
+    byId.set(p.id, p);
+  }
   const merged = [...byId.values()].sort((a, b) => {
     const ta = new Date(a.recordedAt || a.createdAt).getTime();
     const tb = new Date(b.recordedAt || b.createdAt).getTime();

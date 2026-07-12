@@ -176,6 +176,19 @@ export const TaskList = () => {
     }
   }, [currentParentId]);
 
+  // Jsme "uvnitř" složky, kterou aktuální uživatel nevlastní? (např. zbytek z
+  // jiného účtu na tomtéž zařízení – localStorage není per-uživatel.) → zpět na kořen.
+  useEffect(() => {
+    if (loading) return;
+    if (currentParentId && !tasks.some((t) => t.id === currentParentId)) {
+      localStorage.removeItem("questea_last_parent");
+      const params = new URLSearchParams(searchParams);
+      params.delete("parentId");
+      router.replace(`${pathname}?${params.toString()}`);
+      setCurrentParentId(null);
+    }
+  }, [loading, tasks, currentParentId, searchParams, pathname, router]);
+
   const handleUndo = async () => {
     if (!lastDeletedTask) return;
     try {

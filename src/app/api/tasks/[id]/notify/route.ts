@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { sendMail } from "@/lib/email";
+import { sendMail, isConnectionError } from "@/lib/email";
 import { renderPostEmail } from "@/lib/postEmail";
 
 /**
@@ -61,9 +61,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     .map((a) => a.url as string);
 
   let sent = 0;
+  let aborted: string | null = null;
   const failures: { email: string; error: string }[] = [];
 
   for (const sub of targets) {
+    if (aborted) break; // SMTP je nedostupné – nemá smysl čekat na každou adresu zvlášť
     const mail = renderPostEmail({
       title: post.title,
       description: post.description,
@@ -84,7 +86,22 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       const error = String(e?.message || e).slice(0, 300);
       await prisma.postEmailLog.create({ data: { postId: post.id, email: sub.email, ok: false, error } });
       failures.push({ email: sub.email, error });
+      if (isConnectionError(e)) aborted = error;
     }
+  }
+
+  if (aborted) {
+    return NextResponse.json(
+      {
+        ok: false,
+        sent,
+        failed: failures.length,
+        error:
+          "Server se nedovolal na SMTP (" + aborted + "). Railway blokuje odchozí SMTP – " +
+          "e-maily je potřeba posílat přes HTTP API poskytovatele.",
+      },
+      { status: 502 }
+    );
   }
 
   return NextResponse.json({

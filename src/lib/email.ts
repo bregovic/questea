@@ -13,7 +13,23 @@ function transport() {
       pass: process.env.SMTP_PASS || "dyaangpuyukbkbgb",
     },
     tls: { rejectUnauthorized: false },
+    /* Bez těchhle limitů čeká nodemailer na spojení dvě minuty. Railway
+       odchozí SMTP blokuje, takže se na ně čeká vždycky – radši ať to
+       selže rychle a s jasnou hláškou. */
+    connectionTimeout: 10000,
+    greetingTimeout: 8000,
+    socketTimeout: 15000,
   });
+}
+
+/** Chyba spojení = SMTP je nedostupné, nemá smysl zkoušet další adresy. */
+export function isConnectionError(e: any): boolean {
+  const s = String(e?.message || e).toLowerCase();
+  return (
+    ["etimedoutgs", "etimedout", "econnrefused", "econnreset", "ehostunreach", "enetunreach", "esocket"].some((c) =>
+      String(e?.code || "").toLowerCase().includes(c)
+    ) || /connection timeout|greeting never received|timed out|socket close/.test(s)
+  );
 }
 
 export function mailFrom() {

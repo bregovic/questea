@@ -112,7 +112,9 @@ async function viaOsrm(from: LatLng, to: LatLng, mode: string): Promise<RouteRes
   if (!p) return null;
   const url =
     `https://routing.openstreetmap.de/${p.host}/route/v1/${p.profile}/` +
-    `${from.lng},${from.lat};${to.lng},${to.lat}?overview=simplified&geometries=geojson`;
+    // overview=full: simplified dává na 100 km jen ~30 bodů a po přiblížení
+    // řeže zatáčky. Hustotu si pak stejně srazí decimate() na rozumných 400.
+    `${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson`;
   const json = await fetchJson(url);
   const line = json?.routes?.[0]?.geometry?.coordinates;
   if (!Array.isArray(line) || line.length < 2) return null;
@@ -351,9 +353,13 @@ async function routeRiver(from: LatLng, to: LatLng): Promise<RouteResult | null>
 
 /* ──────────────────────────────── veřejné API ───────────────────────────── */
 
+/* Verze se počítá do otisku: když se změní způsob výpočtu (hustota geometrie,
+   jiný provider…), přestanou staré otisky sedět a trasy se samy přepočítají. */
+const ROUTE_ALGO_VERSION = "v2";
+
 export function routeStampOf(from: LatLng, to: LatLng, mode: string): string {
   const r = (n: number) => n.toFixed(5);
-  return `${r(from.lat)},${r(from.lng)}>${r(to.lat)},${r(to.lng)}:${mode}`;
+  return `${ROUTE_ALGO_VERSION}:${r(from.lat)},${r(from.lng)}>${r(to.lat)},${r(to.lng)}:${mode}`;
 }
 
 /** Vrátí linku úseku, nebo null když se routovat nedá (volající pak spojí rovně). */

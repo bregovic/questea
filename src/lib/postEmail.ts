@@ -17,6 +17,64 @@ const esc = (s: string) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string)
   );
 
+/**
+ * Rozdělení popisu na bloky, mezi které se dají vložit fotky.
+ * Primárně podle prázdných řádků; když je text jeden souvislý blok, seká se
+ * po dvojicích vět, aby se fotky měly kam vklínit (stejná logika jako na blogu).
+ */
+function splitIntoBlocks(text: string): string[] {
+  const byBlank = text.split(/\n{2,}/).map((t) => t.trim()).filter(Boolean);
+  if (byBlank.length > 1) return byBlank;
+  if (!byBlank.length) return [];
+
+  const sentences = byBlank[0].split(/(?<=[.!?])\s+(?=[A-ZÀ-ſ0-9])/).filter((s) => s.trim());
+  if (sentences.length < 4) return byBlank; // krátký text nemá smysl trhat
+
+  const out: string[] = [];
+  for (let i = 0; i < sentences.length; i += 2) out.push(sentences.slice(i, i + 2).join(" ").trim());
+  return out;
+}
+
+function textRow(text: string, lead: boolean): string {
+  return `
+      <tr><td style="padding:0 0 20px 0;font-size:${lead ? 17 : 16}px;line-height:1.75;color:${lead ? INK : "#3f3a36"};">
+        ${esc(text).replace(/\n/g, "<br />")}
+      </td></tr>`;
+}
+
+function img(url: string, width: number): string {
+  return `<img src="${esc(url)}" alt="" width="${width}"
+             style="display:block;width:100%;max-width:${width}px;height:auto;border:0;border-radius:10px;" />`;
+}
+
+/**
+ * Fotky ve skupině: jedna přes celou šířku, další se skládají po dvou vedle
+ * sebe. Dvousloupec je udělaný tabulkou – v Outlooku je to jediné, co drží.
+ */
+function photoBlock(urls: string[]): string {
+  if (!urls.length) return "";
+
+  const pair = (a: string, b: string) =>
+    `<tr><td style="padding:0 0 12px 0;">
+       <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+         <td width="294" style="padding:0 6px 0 0;">${img(a, 294)}</td>
+         <td width="294" style="padding:0 0 0 6px;">${img(b, 294)}</td>
+       </tr></table>
+     </td></tr>`;
+
+  // dvě fotky patří vedle sebe; jinak dostane první plnou šířku jako „hlavní"
+  if (urls.length === 2) return pair(urls[0], urls[1]);
+
+  const rows: string[] = [`<tr><td style="padding:0 0 12px 0;">${img(urls[0], 600)}</td></tr>`];
+  const rest = urls.slice(1);
+  for (let i = 0; i < rest.length; i += 2) {
+    const a = rest[i];
+    const b = rest[i + 1];
+    rows.push(b ? pair(a, b) : `<tr><td style="padding:0 0 12px 0;">${img(a, 600)}</td></tr>`);
+  }
+  return rows.join("");
+}
+
 export type PostEmailInput = {
   title: string;
   description?: string | null;
@@ -35,30 +93,22 @@ export function renderPostEmail(p: PostEmailInput): { subject: string; html: str
     day: "numeric", month: "long", year: "numeric",
   });
 
-  const paragraphs = (p.description || "")
-    .split(/\n{2,}/)
-    .map((t) => t.trim())
-    .filter(Boolean);
+  const paragraphs = splitIntoBlocks(p.description || "");
+  const photos = p.photos.slice(0, 12); // víc fotek dělá z mailu neposlatelný kus dat
 
-  const photoRows = p.photos
-    .slice(0, 12) // víc fotek dělá z mailu neposlatelný kus dat
-    .map(
-      (url) => `
-      <tr><td style="padding:0 0 12px 0;">
-        <img src="${esc(url)}" alt="" width="600"
-             style="display:block;width:100%;max-width:600px;height:auto;border:0;border-radius:10px;" />
-      </td></tr>`
-    )
-    .join("");
+  /* Text a fotky se prokládají stejně jako na blogu: fotky se rovnoměrně
+     rozdělí mezi odstavce, ať e-mail není „zeď textu a pod ní hromada fotek". */
+  const perBlock = paragraphs.length ? Math.ceil(photos.length / paragraphs.length) : photos.length;
 
-  const textBlocks = paragraphs
-    .map(
-      (t) => `
-      <tr><td style="padding:0 0 18px 0;font-size:16px;line-height:1.7;color:${INK};">
-        ${esc(t).replace(/\n/g, "<br />")}
-      </td></tr>`
-    )
-    .join("");
+  const body = paragraphs.length
+    ? paragraphs
+        .map((text, i) => {
+          const lead = i === 0;
+          const group = photos.slice(i * perBlock, (i + 1) * perBlock);
+          return textRow(text, lead) + photoBlock(group);
+        })
+        .join("")
+    : photoBlock(photos);
 
   const html = `<!doctype html>
 <html lang="cs"><head><meta charset="utf-8" />
@@ -86,8 +136,7 @@ export function renderPostEmail(p: PostEmailInput): { subject: string; html: str
 
         <tr><td style="padding:0 32px;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-            ${textBlocks}
-            ${photoRows}
+            ${body}
           </table>
         </td></tr>
 

@@ -79,7 +79,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     });
 
     try {
-      await sendMail({ to: sub.email, subject: mail.subject, html: mail.html, text: mail.text });
+      await sendMail({
+        to: sub.email,
+        subject: mail.subject,
+        html: mail.html,
+        text: mail.text,
+        // odpověď míří na autora blogu, ne do prázdna – Gmail to čte jako
+        // zprávu od člověka, ne z rozesílacího stroje
+        replyTo: session.user.email || undefined,
+        headers: {
+          "List-Unsubscribe": `<${base}/api/unsubscribe?token=${sub.token}>`,
+          "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+        },
+      });
       await prisma.postEmailLog.create({ data: { postId: post.id, email: sub.email, ok: true } });
       sent++;
     } catch (e: any) {

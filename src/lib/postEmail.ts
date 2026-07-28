@@ -140,17 +140,16 @@ export function renderPostEmail(p: PostEmailInput): { subject: string; html: str
           </table>
         </td></tr>
 
-        <tr><td align="center" style="padding:12px 32px 32px 32px;">
-          <a href="${esc(p.blogUrl)}"
-             style="display:inline-block;background:${ACCENT};color:#ffffff;text-decoration:none;
-                    font-weight:bold;font-size:14px;padding:13px 26px;border-radius:10px;">
-            Otevřít celý blog
+        <!-- Textový odkaz místo velkého barevného tlačítka: Gmail řadí
+             mail s výrazným CTA spíš do Promoakcí. -->
+        <tr><td style="padding:6px 32px 30px 32px;font-size:15px;">
+          <a href="${esc(p.blogUrl)}" style="color:${ACCENT};font-weight:bold;text-decoration:underline;">
+            Pokračovat na blog &rarr;
           </a>
         </td></tr>
 
-        <tr><td style="padding:20px 32px;background:${PAPER};font-size:12px;line-height:1.6;color:${MUTED};text-align:center;">
-          Tenhle e-mail ti přišel, protože odebíráš blog ${esc(p.blogTitle)}.<br />
-          <a href="${esc(p.unsubscribeUrl)}" style="color:${MUTED};">Odhlásit odběr</a>
+        <tr><td style="padding:18px 32px;border-top:1px solid #f0ebe1;font-size:12px;line-height:1.6;color:${MUTED};">
+          Odebíráš ${esc(p.blogTitle)}. <a href="${esc(p.unsubscribeUrl)}" style="color:${MUTED};">Odhlásit</a>
         </td></tr>
 
       </table>
@@ -163,5 +162,6 @@ export function renderPostEmail(p: PostEmailInput): { subject: string; html: str
     paragraphs.join("\n\n") +
     `\n\nCelý blog: ${p.blogUrl}\nOdhlásit odběr: ${p.unsubscribeUrl}\n`;
 
-  return { subject: `${p.blogTitle}: ${p.title}`, html, text };
+  // Předmět bez dvojtečkového prefixu „Blog: …" – ten vypadá jako newsletter.
+  return { subject: p.title, html, text };
 }

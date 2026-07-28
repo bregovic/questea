@@ -42,7 +42,15 @@ export function mailFrom() {
  * Railway blokuje odchozí SMTP, takže na produkci se posílá přes Resend (HTTPS,
  * to blokované není). SMTP zůstává jako záloha pro lokální vývoj, kde funguje.
  */
-export async function sendMail(opts: { to: string; subject: string; html: string; text?: string }) {
+export async function sendMail(opts: {
+  to: string;
+  subject: string;
+  html: string;
+  text?: string;
+  replyTo?: string;
+  /** Např. List-Unsubscribe – ať pošta pozná legitimní hromadnou zprávu. */
+  headers?: Record<string, string>;
+}) {
   const key = process.env.RESEND_API_KEY;
 
   if (key) {
@@ -53,12 +61,22 @@ export async function sendMail(opts: { to: string; subject: string; html: string
       subject: opts.subject,
       html: opts.html,
       text: opts.text,
+      replyTo: opts.replyTo,
+      headers: opts.headers,
     });
     if (error) throw new Error(error.message || String(error));
     return data;
   }
 
-  const result = await transport().sendMail({ ...opts, from: mailFrom() });
+  const result = await transport().sendMail({
+    to: opts.to,
+    subject: opts.subject,
+    html: opts.html,
+    text: opts.text,
+    replyTo: opts.replyTo,
+    headers: opts.headers,
+    from: mailFrom(),
+  });
   const failed = result.rejected.concat(result.pending).filter(Boolean);
   if (failed.length) throw new Error(`Nedoručeno: ${failed.join(", ")}`);
   return result;

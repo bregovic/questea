@@ -65,7 +65,7 @@ export async function sendMail(opts: {
       headers: opts.headers,
     });
     if (error) throw new Error(error.message || String(error));
-    return data;
+    return { id: data?.id || null };
   }
 
   const result = await transport().sendMail({
@@ -79,7 +79,27 @@ export async function sendMail(opts: {
   });
   const failed = result.rejected.concat(result.pending).filter(Boolean);
   if (failed.length) throw new Error(`Nedoručeno: ${failed.join(", ")}`);
-  return result;
+  return { id: result.messageId || null };
+}
+
+/**
+ * Skutečný stav doručení u Resendu (delivered, bounced, complained…).
+ * Vrací null, když se stav zjistit nedá – je to doplňková informace.
+ */
+export async function deliveryStatus(providerId: string): Promise<string | null> {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) return null;
+  try {
+    const res = await fetch(`https://api.resend.com/emails/${providerId}`, {
+      headers: { Authorization: `Bearer ${key}` },
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const d = await res.json();
+    return d?.last_event || d?.status || null;
+  } catch {
+    return null;
+  }
 }
 
 export async function sendVerificationRequest(params: {

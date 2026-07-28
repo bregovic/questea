@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { sendMail, isConnectionError } from "@/lib/email";
+import { sendMail, isConnectionError, deliveryStatus } from "@/lib/email";
 import { renderPostEmail } from "@/lib/postEmail";
 
 /**
@@ -79,7 +79,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     });
 
     try {
-      await sendMail({
+      const res = await sendMail({
         to: sub.email,
         subject: mail.subject,
         html: mail.html,
@@ -92,7 +92,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
         },
       });
-      await prisma.postEmailLog.create({ data: { postId: post.id, email: sub.email, ok: true } });
+      await prisma.postEmailLog.create({
+        data: { postId: post.id, email: sub.email, ok: true, providerId: res?.id || null },
+      });
       sent++;
     } catch (e: any) {
       const error = String(e?.message || e).slice(0, 300);
@@ -145,10 +147,29 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       : 0,
   ]);
 
+  /* U posledních odeslání dotáhneme skutečný stav od Resendu. Omezeno na 20,
+     ať otevření detailu nečeká na desítky dotazů. */
+  const withStatus = await Promise.all(
+    logs.slice(0, 20).map(async (l) => ({
+      email: l.email,
+      ok: l.ok,
+      sentAt: l.sentAt,
+      error: l.error,
+      status: l.ok && l.providerId ? await deliveryStatus(l.providerId) : null,
+    }))
+  );
+  const rest = logs.slice(20).map((l) => ({
+    email: l.email, ok: l.ok, sentAt: l.sentAt, error: l.error, status: null as string | null,
+  }));
+  const all = [...withStatus, ...rest];
+
+  const bad = ["bounced", "complained", "failed"];
   return NextResponse.json({
     subscribers,
     sentOk: logs.filter((l) => l.ok).length,
+    delivered: all.filter((l) => l.status === "delivered").length,
+    problems: all.filter((l) => !l.ok || (l.status && bad.includes(l.status))).length,
     lastSentAt: logs.find((l) => l.ok)?.sentAt || null,
-    logs: logs.map((l) => ({ email: l.email, ok: l.ok, sentAt: l.sentAt, error: l.error })),
+    logs: all,
   });
 }

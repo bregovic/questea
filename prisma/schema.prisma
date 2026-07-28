@@ -221,6 +221,9 @@ model PostEmailLog {
   sentAt DateTime @default(now())
   ok     Boolean  @default(true)
   error  String?
+  // Id zprávy u poskytovatele (Resend). Díky němu jde dotáhnout skutečný stav
+  // doručení – „přijali jsme to k odeslání" totiž není totéž co „doručeno".
+  providerId String?
 
   @@index([postId])
 }

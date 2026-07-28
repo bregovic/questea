@@ -813,8 +813,23 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
               </button>
               {notify.info?.sentOk > 0 && (
                 <span className="text-xs" style={{ color: '#78716c' }}>
-                  Odesláno {notify.info.sentOk}× · naposledy{" "}
+                  Odesláno {notify.info.sentOk}×
+                  {notify.info.delivered > 0 && ` · doručeno ${notify.info.delivered}`}
+                  {" · naposledy "}
                   {new Date(notify.info.lastSentAt).toLocaleString("cs-CZ", { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+              {/* Nedoručené adresy je potřeba vidět – „odesláno" není „doručeno". */}
+              {notify.info?.problems > 0 && (
+                <span
+                  className="text-xs font-bold"
+                  style={{ color: '#b91c1c' }}
+                  title={notify.info.logs
+                    .filter((l: any) => !l.ok || ['bounced', 'complained', 'failed'].includes(l.status))
+                    .map((l: any) => `${l.email}: ${l.error || l.status}`)
+                    .join('\n')}
+                >
+                  {notify.info.problems}× nedoručeno
                 </span>
               )}
               {notify.msg && <span className="text-xs" style={{ color: '#78716c' }}>{notify.msg}</span>}

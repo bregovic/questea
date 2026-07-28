@@ -184,8 +184,8 @@ export default async function BlogPage({ params }: { params: Promise<{ id: strin
 
       {/* Hero Section */}
       {!isMinimal ? (
-        {/* min-h, ne pevná výška: obsah hlavičky (počasí, poloha) se u delších
-            cest nevejde do 90vh a při overflow-hidden se ořezával nadpis. */}
+        /* min-h, ne pevná výška: obsah hlavičky (počasí, poloha) se u delších
+           cest nevejde do 90vh a při overflow-hidden se ořezával nadpis. */
         <header className={`relative min-h-[90vh] py-24 flex items-center justify-center overflow-hidden ${isDark ? 'bg-black' : isAdventure ? 'bg-[#2d241e]' : isElegant ? 'bg-[#1a1a1a]' : 'bg-[#0c0a09]'}`}>
           <div className={`absolute inset-0 z-10 bg-gradient-to-b from-transparent via-transparent ${isDark ? 'to-[#0a0a0a]' : 'to-current/20 opacity-40'}`} />
           

@@ -47,12 +47,22 @@ export const BlogStyles = () => {
   );
 };
 
-export const Reveal = ({ children, delay = 0 }: { children: ReactNode, delay?: number }) => {
+/**
+ * `immediate` = animuj hned po načtení, ne až při vstupu do výřezu.
+ *
+ * Obsah hlavičky je nad ohybem, takže scrollem se nikdy „neodemkne" – a když
+ * se pozorovatel s margin -100px netrefí, zůstane text navždy na opacity 0
+ * (přesně tak zmizel nadpis blogu). Pro obsah níž na stránce zůstává
+ * whileInView, tam dává smysl.
+ */
+export const Reveal = ({ children, delay = 0, immediate = false }: { children: ReactNode, delay?: number, immediate?: boolean }) => {
+  const shown = { opacity: 1, y: 0 };
   return (
     <motion.div
       initial={{ opacity: 0, y: 30 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-100px" }}
+      {...(immediate
+        ? { animate: shown }
+        : { whileInView: shown, viewport: { once: true, margin: "-100px" } })}
       transition={{ duration: 0.8, delay, ease: [0.21, 0.47, 0.32, 0.98] }}
     >
       {children}

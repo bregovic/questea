@@ -194,7 +194,7 @@ export default async function BlogPage({ params }: { params: Promise<{ id: strin
           </FloatingHeader>
           
           <div className="relative z-20 text-center px-6 max-w-5xl">
-            <Reveal delay={0.4}>
+            <Reveal delay={0.4} immediate>
               {/* pt-4: při leading-[0.75] přesahují horní dotažnice řádek,
                   bez odsazení se u velkého písma ořezávaly */}
               <h1 className={`text-6xl md:text-[140px] font-black text-white pt-4 mb-12 tracking-tighter leading-[0.75] drop-shadow-2xl ${isAdventure || isElegant ? 'font-serif italic' : ''}`}>
@@ -203,7 +203,7 @@ export default async function BlogPage({ params }: { params: Promise<{ id: strin
             </Reveal>
 
             {(baseWeather || lastWeather) && (
-              <Reveal delay={0.5}>
+              <Reveal delay={0.5} immediate>
                 <div className="flex flex-wrap items-center justify-center gap-3 mb-10">
                   {baseWeather && basePost && (
                     <WeatherBadge
@@ -223,7 +223,7 @@ export default async function BlogPage({ params }: { params: Promise<{ id: strin
               </Reveal>
             )}
 
-            <Reveal delay={0.6}>
+            <Reveal delay={0.6} immediate>
               <div className="flex flex-col items-center gap-10">
                 {posts.length > 0 && (
                   <div className="flex flex-col items-center gap-4">
@@ -275,7 +275,7 @@ export default async function BlogPage({ params }: { params: Promise<{ id: strin
         </header>
       ) : (
         <header className="max-w-4xl mx-auto px-6 pt-40 pb-24 text-center">
-           <Reveal>
+           <Reveal immediate>
              <h1 className="text-8xl md:text-9xl font-light tracking-tighter mb-12">{folder.title}</h1>
              <div className="flex justify-center gap-16 text-stone-400 text-xs font-black tracking-widest uppercase">
                <span>{startDate} — {endDate}</span>

@@ -204,14 +204,14 @@ export default async function BlogPage({ params }: { params: Promise<{ id: strin
                   {baseWeather && basePost && (
                     <WeatherBadge
                       weather={baseWeather}
-                      place={basePost.locations[0].placeName || basePost.title}
+                      place={basePost.title || basePost.locations[0].placeName}
                       caption="Základna"
                     />
                   )}
                   {lastWeather && lastPost && (
                     <WeatherBadge
                       weather={lastWeather}
-                      place={lastPost.locations[0].placeName || lastPost.title}
+                      place={lastPost.title || lastPost.locations[0].placeName}
                       caption="Aktuální poloha"
                     />
                   )}

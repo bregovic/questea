@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { MapPin, Clock, Navigation, Calendar, ChevronDown, Camera, X } from "lucide-react";
+import { MapPin, Clock, Navigation, Calendar, ChevronDown, Camera, X, Maximize2 } from "lucide-react";
 import { Reveal, RevealImage, FloatingHeader, Lightbox, JourneyMap } from "./BlogClient";
 import { AnimatePresence, motion } from "framer-motion";
 import { BlogSocial } from "./BlogSocial";
@@ -135,11 +135,15 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
                   {isAdventure && idx % 3 === 0 && (
                     <div className="absolute top-[-15px] left-1/2 -translate-x-1/2 w-20 h-8 washi-tape z-20 rotate-[-3deg] pointer-events-none opacity-60" />
                   )}
-                  <img 
-                    src={att.url} 
-                    alt={att.name} 
-                    className="w-full h-auto object-contain transition-transform duration-1000 group-hover:scale-105" 
+                  <img
+                    src={att.url}
+                    alt={att.name}
+                    className="w-full h-auto object-contain transition-transform duration-1000 group-hover:scale-105"
                   />
+                  {/* Na dotykových zařízeních není hover – jemně naznač, že fotka jde otevřít. */}
+                  <div className="pointer-events-none absolute bottom-3 right-3 z-20 hidden rounded-full bg-black/30 p-1.5 text-white/80 backdrop-blur-sm [@media(hover:none)]:block">
+                    <Maximize2 size={13} />
+                  </div>
                 </div>
               </RevealImage>
             </div>

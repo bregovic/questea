@@ -88,66 +88,232 @@ export const FloatingHeader = ({ children }: { children: ReactNode }) => {
   );
 };
 
+const MAX_ZOOM = 4;
+const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
+const dist = (a: { x: number, y: number }, b: { x: number, y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
+
 export const Lightbox = ({ images, initialIndex, onClose }: { images: string[], initialIndex: number, onClose: () => void }) => {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  const [zoomed, setZoomed] = useState(false);
+
+  const stageRef = useRef<HTMLDivElement>(null);
+  const zoomRef = useRef<HTMLDivElement>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
+
+  /* Transformace fotky žije v refu, ne ve state – gesto tak nepřekresluje React
+     na každý pohyb prstu a zůstává plynulé i na slabším mobilu. */
+  const tr = useRef({ scale: 1, x: 0, y: 0 });
+  const g = useRef({
+    pointers: new Map<number, { x: number, y: number }>(),
+    startDist: 0, startScale: 1, startX: 0, startY: 0,
+    downX: 0, downY: 0, pinchCx: 0, pinchCy: 0,
+    dx: 0, dy: 0, moved: false, lastTap: 0,
+  });
+
+  const apply = (animate: boolean) => {
+    const el = zoomRef.current;
+    if (!el) return;
+    el.style.transition = animate ? "transform 260ms cubic-bezier(0.16,1,0.3,1)" : "none";
+    el.style.transform = `translate3d(${tr.current.x}px, ${tr.current.y}px, 0) scale(${tr.current.scale})`;
+  };
+
+  /* Meze posunu: fotku nejde vytáhnout mimo vlastní plochu. */
+  const setTransform = (scale: number, x: number, y: number, animate = false) => {
+    tr.current.scale = clamp(scale, 1, MAX_ZOOM);
+    const stage = stageRef.current, img = imgRef.current;
+    const maxX = stage && img ? Math.max(0, (img.offsetWidth * tr.current.scale - stage.clientWidth) / 2) : 0;
+    const maxY = stage && img ? Math.max(0, (img.offsetHeight * tr.current.scale - stage.clientHeight) / 2) : 0;
+    tr.current.x = clamp(x, -maxX, maxX);
+    tr.current.y = clamp(y, -maxY, maxY);
+    apply(animate);
+    setZoomed(tr.current.scale > 1.01);
+  };
+
+  const reset = (animate = false) => setTransform(1, 0, 0, animate);
+  const go = (dir: number) => setCurrentIndex((prev) => (prev + dir + images.length) % images.length);
+
+  /* Dvojtap / dvojklik přiblíží na místo, kam uživatel ťukl. */
+  const toggleZoomAt = (clientX: number, clientY: number) => {
+    if (tr.current.scale > 1.01) return reset(true);
+    const rect = stageRef.current?.getBoundingClientRect();
+    const cx = rect ? clientX - (rect.left + rect.width / 2) : 0;
+    const cy = rect ? clientY - (rect.top + rect.height / 2) : 0;
+    setTransform(2.5, -cx * 1.5, -cy * 1.5, true);
+  };
+
+  useEffect(() => { reset(false); }, [currentIndex]);
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
-      if (e.key === "ArrowRight") setCurrentIndex((prev) => (prev + 1) % images.length);
-      if (e.key === "ArrowLeft") setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
+      if (e.key === "ArrowRight") go(1);
+      if (e.key === "ArrowLeft") go(-1);
     };
     window.addEventListener("keydown", handleKey);
+    const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       window.removeEventListener("keydown", handleKey);
-      document.body.style.overflow = "auto";
+      document.body.style.overflow = prevOverflow;
     };
   }, [images.length, onClose]);
 
+  const onPointerDown = (e: React.PointerEvent) => {
+    const s = g.current;
+    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+    s.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    s.moved = false; s.dx = 0; s.dy = 0;
+    s.startScale = tr.current.scale; s.startX = tr.current.x; s.startY = tr.current.y;
+    s.downX = e.clientX; s.downY = e.clientY;
+    if (s.pointers.size === 2) {
+      const [p1, p2] = [...s.pointers.values()];
+      const rect = stageRef.current?.getBoundingClientRect();
+      s.startDist = dist(p1, p2);
+      s.pinchCx = (p1.x + p2.x) / 2 - (rect ? rect.left + rect.width / 2 : 0);
+      s.pinchCy = (p1.y + p2.y) / 2 - (rect ? rect.top + rect.height / 2 : 0);
+    }
+  };
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    const s = g.current;
+    if (!s.pointers.has(e.pointerId)) return;
+    s.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (s.pointers.size >= 2) {
+      if (!s.startDist) return;
+      const [p1, p2] = [...s.pointers.values()];
+      const rect = stageRef.current?.getBoundingClientRect();
+      const scale = clamp(s.startScale * (dist(p1, p2) / s.startDist), 1, MAX_ZOOM);
+      const k = scale / s.startScale;
+      // bod mezi prsty zůstává na místě + dvěma prsty jde zároveň posouvat
+      const cx = (p1.x + p2.x) / 2 - (rect ? rect.left + rect.width / 2 : 0);
+      const cy = (p1.y + p2.y) / 2 - (rect ? rect.top + rect.height / 2 : 0);
+      setTransform(
+        scale,
+        s.pinchCx - k * (s.pinchCx - s.startX) + (cx - s.pinchCx),
+        s.pinchCy - k * (s.pinchCy - s.startY) + (cy - s.pinchCy),
+      );
+      s.moved = true;
+      return;
+    }
+
+    const dx = e.clientX - s.downX, dy = e.clientY - s.downY;
+    if (Math.abs(dx) > 6 || Math.abs(dy) > 6) s.moved = true;
+
+    if (tr.current.scale > 1.01) {
+      setTransform(tr.current.scale, s.startX + dx, s.startY + dy);
+    } else {
+      // nepřiblížená fotka: tažení = přepnutí fotky / zavření, s náznakem pohybu
+      s.dx = dx; s.dy = dy;
+      const el = zoomRef.current;
+      if (el) {
+        el.style.transition = "none";
+        el.style.transform = `translate3d(${dx * 0.6}px, ${Math.max(0, dy) * 0.6}px, 0) scale(1)`;
+      }
+    }
+  };
+
+  const onPointerUp = (e: React.PointerEvent) => {
+    const s = g.current;
+    s.pointers.delete(e.pointerId);
+
+    if (s.pointers.size >= 1) {
+      // zvedl se jeden ze dvou prstů – přepni referenci, ať fotka neposkočí
+      const [p] = [...s.pointers.values()];
+      s.downX = p.x; s.downY = p.y;
+      s.startX = tr.current.x; s.startY = tr.current.y;
+      s.startScale = tr.current.scale; s.startDist = 0;
+      return;
+    }
+
+    if (tr.current.scale <= 1.01) {
+      const { dx, dy } = s;
+      if (images.length > 1 && Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)) {
+        go(dx < 0 ? 1 : -1);
+      } else if (dy > 110 && Math.abs(dy) > Math.abs(dx)) {
+        onClose();
+        return;
+      }
+      reset(true);
+    } else {
+      setTransform(tr.current.scale, tr.current.x, tr.current.y, true);
+    }
+
+    if (!s.moved) {
+      const now = performance.now();
+      if (now - s.lastTap < 300) { s.lastTap = 0; toggleZoomAt(e.clientX, e.clientY); }
+      else s.lastTap = now;
+    }
+    s.dx = 0; s.dy = 0;
+  };
+
+  const onPointerCancel = (e: React.PointerEvent) => {
+    const s = g.current;
+    s.pointers.delete(e.pointerId);
+    if (s.pointers.size === 0) setTransform(tr.current.scale, tr.current.x, tr.current.y, true);
+  };
+
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-[9999] bg-black/95 backdrop-blur-xl flex items-center justify-center p-4 md:p-12"
       onClick={onClose}
     >
-      <div className="relative w-full h-full flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
-        <motion.img
-          key={currentIndex}
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.4, ease: "easeOut" }}
-          src={images[currentIndex]}
-          className="max-w-full max-h-full object-contain shadow-2xl rounded-sm"
-        />
-        
+      <div
+        ref={stageRef}
+        className="relative w-full h-full flex items-center justify-center overflow-hidden select-none"
+        style={{ touchAction: "none" }}
+        onClick={(e) => e.stopPropagation()}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerCancel}
+      >
+        <div
+          ref={zoomRef}
+          className="w-full h-full flex items-center justify-center"
+          style={{ willChange: "transform", cursor: zoomed ? "grab" : "zoom-in" }}
+        >
+          <motion.img
+            ref={imgRef}
+            key={currentIndex}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
+            src={images[currentIndex]}
+            draggable={false}
+            className="max-w-full max-h-full object-contain shadow-2xl rounded-sm"
+          />
+        </div>
+
         {images.length > 1 && (
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/40 font-mono text-sm tracking-widest bg-black/20 px-4 py-2 rounded-full backdrop-blur-md">
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/40 font-mono text-sm tracking-widest bg-black/20 px-4 py-2 rounded-full backdrop-blur-md pointer-events-none">
             {currentIndex + 1} / {images.length}
           </div>
         )}
       </div>
 
-      <button 
-        className="absolute top-8 right-8 text-white/50 hover:text-white transition-colors p-3 bg-white/10 hover:bg-white/20 rounded-full z-[100] backdrop-blur-md border border-white/10"
+      <button
+        className="absolute text-white/50 hover:text-white transition-colors p-3 bg-white/10 hover:bg-white/20 rounded-full z-[100] backdrop-blur-md border border-white/10"
+        style={{ top: "calc(env(safe-area-inset-top, 0px) + 16px)", right: "16px" }}
         onClick={(e) => { e.stopPropagation(); onClose(); }}
       >
-        <X size={32} />
+        <X size={28} />
       </button>
 
       {images.length > 1 && (
         <>
-          <button 
+          <button
             className="absolute left-8 top-1/2 -translate-y-1/2 text-white/30 hover:text-white transition-colors p-4 z-[100] hidden md:block"
-            onClick={(e) => { e.stopPropagation(); setCurrentIndex((prev) => (prev - 1 + images.length) % images.length); }}
+            onClick={(e) => { e.stopPropagation(); go(-1); }}
           >
             <ChevronLeft size={48} />
           </button>
-          <button 
+          <button
             className="absolute right-8 top-1/2 -translate-y-1/2 text-white/30 hover:text-white transition-colors p-4 z-[100] hidden md:block"
-            onClick={(e) => { e.stopPropagation(); setCurrentIndex((prev) => (prev + 1) % images.length); }}
+            onClick={(e) => { e.stopPropagation(); go(1); }}
           >
             <ChevronRight size={48} />
           </button>

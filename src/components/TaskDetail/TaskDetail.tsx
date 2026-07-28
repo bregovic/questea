@@ -42,6 +42,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
   const [recordedAt, setRecordedAt] = useState(task.recordedAt ? new Date(task.recordedAt).toISOString().slice(0, 16) : "");
   const [odometer, setOdometer] = useState(task.odometer || "");
   const [travelMode, setTravelMode] = useState<string>(task.travelMode || "");
+  const [isWeatherBase, setIsWeatherBase] = useState<boolean>(task.isWeatherBase || false);
   const [routeState, setRouteState] = useState<{ busy: boolean; msg: string | null }>({ busy: false, msg: null });
   const [isPrivate, setIsPrivate] = useState(task.isPrivate || false);
   const [recurrenceType, setRecurrenceType] = useState<string>(task.recurrenceType || "");
@@ -790,6 +791,14 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
                {routeState.msg && (
                  <span className="text-xs" style={{ color: '#78716c' }}>{routeState.msg}</span>
                )}
+               <label className="flex items-center gap-1.5 text-xs font-medium cursor-pointer" style={{ color: '#78716c' }}>
+                 <input
+                   type="checkbox"
+                   checked={isWeatherBase}
+                   onChange={(e) => { setIsWeatherBase(e.target.checked); onUpdate(task.id, { isWeatherBase: e.target.checked }); }}
+                 />
+                 Základna pro počasí
+               </label>
              </div>
            )}
            <div className="flex items-center gap-2 mt-1 flex-wrap">

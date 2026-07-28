@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { MapPin, Clock, Navigation, Calendar, ChevronDown, Camera } from "lucide-react";
 import { Reveal, RevealImage, FloatingHeader, BlogStyles, ViewCounter } from "@/components/Blog/BlogClient";
 import { BlogContainer } from "@/components/Blog/BlogContainer";
+import { WeatherBadge } from "@/components/Blog/WeatherBadge";
+import { getWeather } from "@/lib/weather";
 import { headers } from "next/headers";
 
 import { Metadata } from "next";
@@ -129,6 +131,19 @@ export default async function BlogPage({ params }: { params: Promise<{ id: strin
   }));
   const template = folder.blogTemplate || "MODERN";
 
+  /* Počasí v hlavičce: vždy aktuální. Základna je místo označené jako stálé,
+     „aktuální poloha" je poslední bod se souřadnicemi. Když se nepodaří načíst,
+     badge se prostě nevykreslí. */
+  const withCoords = posts.filter((p: any) => p.locations?.[0]?.latitude && p.locations?.[0]?.longitude);
+  const basePost = [...withCoords].reverse().find((p: any) => p.isWeatherBase);
+  const lastPost = withCoords[withCoords.length - 1];
+  const isSamePlace = basePost && lastPost && basePost.id === lastPost.id;
+
+  const [baseWeather, lastWeather] = await Promise.all([
+    basePost ? getWeather(basePost.locations[0].latitude, basePost.locations[0].longitude) : null,
+    lastPost && !isSamePlace ? getWeather(lastPost.locations[0].latitude, lastPost.locations[0].longitude) : null,
+  ]);
+
   // Calculate Total KM using DB values where possible
   let totalKm = 0;
   posts.forEach((p, i) => {
@@ -180,6 +195,27 @@ export default async function BlogPage({ params }: { params: Promise<{ id: strin
                 {folder.title}
               </h1>
             </Reveal>
+
+            {(baseWeather || lastWeather) && (
+              <Reveal delay={0.5}>
+                <div className="flex flex-wrap items-center justify-center gap-3 mb-10">
+                  {baseWeather && basePost && (
+                    <WeatherBadge
+                      weather={baseWeather}
+                      place={basePost.locations[0].placeName || basePost.title}
+                      caption="Základna"
+                    />
+                  )}
+                  {lastWeather && lastPost && (
+                    <WeatherBadge
+                      weather={lastWeather}
+                      place={lastPost.locations[0].placeName || lastPost.title}
+                      caption="Aktuální poloha"
+                    />
+                  )}
+                </div>
+              </Reveal>
+            )}
 
             <Reveal delay={0.6}>
               <div className="flex flex-col items-center gap-10">

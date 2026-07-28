@@ -170,6 +170,9 @@ model Task {
   // Vykreslení trasy na mapě: jak jsme se do TOHOTO bodu dostali z předchozího.
   // CAR | WALK | BIKE | BOAT | DIRECT (null = rovná čára jako dosud).
   travelMode    String?
+  // Místo typu „počasí – stálá základna": v hlavičce blogu se u něj pořád
+  // ukazuje aktuální počasí, nezávisle na tom, kde se zrovna je.
+  isWeatherBase Boolean  @default(false)
   routeGeometry String?  @db.Text // nacachovaná linka úseku: JSON [[lat,lng], …]
   routeStamp    String?  // otisk vstupů (odkud→kam+mód); jiný otisk = přepočítat
   routeDistance Float?   // délka spočítané trasy v km (ne vzdušná čára)

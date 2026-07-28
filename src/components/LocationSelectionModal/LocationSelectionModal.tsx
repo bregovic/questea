@@ -25,6 +25,46 @@ export const LocationSelectionModal: React.FC<LocationSelectionModalProps> = ({
   const [selectedPlace, setSelectedPlace] = useState<any>(null);
   const [note, setNote] = useState("");
 
+  /* Sjednocené zadání místa: k souřadnicím se dá dojít třemi cestami a k místu
+     se rovnou nastaví, jak se má chovat (blog/mapa, počasí, čím se tam jelo). */
+  const [coordInput, setCoordInput] = useState("");
+  const [placeName, setPlaceName] = useState("");
+  const [mapOnly, setMapOnly] = useState(false);
+  const [isWeatherBase, setIsWeatherBase] = useState(false);
+  const [travelMode, setTravelMode] = useState("");
+
+  const derivePlaceName = (p: any) =>
+    p?.address?.amenity || p?.address?.shop || p?.address?.tourism ||
+    p?.address?.building || p?.address?.road || p?.name || "Místo";
+
+  /* Přijme „48.6243, 14.3051" i „48.6243 14.3051" (a desetinnou čárku). */
+  const useManualCoords = async () => {
+    const nums = coordInput.replace(/,(\s)/g, "$1").replace(",", ".").match(/-?\d+(\.\d+)?/g);
+    if (!nums || nums.length < 2) {
+      setError("Zadej souřadnice ve tvaru 48.6243, 14.3051");
+      return;
+    }
+    const lat = parseFloat(nums[0]);
+    const lon = parseFloat(nums[1]);
+    if (Math.abs(lat) > 90 || Math.abs(lon) > 180) {
+      setError("Souřadnice jsou mimo rozsah.");
+      return;
+    }
+    setError(null);
+    setLoading(true);
+    let place: any = { lat, lon, display_name: `${lat.toFixed(5)}, ${lon.toFixed(5)}`, name: "Místo" };
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1`,
+        { headers: { "Accept-Language": "cs" } }
+      );
+      const rev = await res.json();
+      if (rev && !rev.error) place = { ...rev, lat, lon };
+    } catch { /* bez adresy to jde taky */ }
+    setLoading(false);
+    handlePlaceClick(place);
+  };
+
   const searchPlaces = async (query: string) => {
     if (!query || query.length < 3) return;
     setLoading(true);
@@ -106,22 +146,25 @@ export const LocationSelectionModal: React.FC<LocationSelectionModalProps> = ({
 
   const handlePlaceClick = (place: any) => {
     setSelectedPlace(place);
+    setPlaceName(derivePlaceName(place)); // předvyplní, uživatel může přepsat
   };
 
   const handleConfirm = () => {
     if (!selectedPlace) return;
-    
+
     const lat = selectedPlace.lat ? parseFloat(selectedPlace.lat) : selectedPlace.latitude;
     const lon = selectedPlace.lon ? parseFloat(selectedPlace.lon) : selectedPlace.longitude;
     const addr = selectedPlace.display_name || selectedPlace.address;
-    const name = selectedPlace.address?.amenity || selectedPlace.address?.shop || selectedPlace.address?.tourism || selectedPlace.address?.building || selectedPlace.address?.road || selectedPlace.name || "Místo";
 
     onSelect({
       latitude: lat,
       longitude: lon,
       address: addr,
-      placeName: name,
-      note: note
+      placeName: placeName.trim() || derivePlaceName(selectedPlace),
+      note,
+      isGpsLog: mapOnly,
+      isWeatherBase,
+      travelMode: travelMode || null,
     });
   };
 
@@ -204,6 +247,19 @@ export const LocationSelectionModal: React.FC<LocationSelectionModalProps> = ({
                       <span>Jen zapsat GPS</span>
                     </button>
                   </div>
+
+                  {/* třetí cesta k souřadnicím: opsat je ručně */}
+                  <div className={styles.inputGroup}>
+                    <MapPin className={styles.searchIcon} size={18} />
+                    <input
+                      type="text"
+                      placeholder="…nebo GPS souřadnice: 48.6243, 14.3051"
+                      value={coordInput}
+                      onChange={e => setCoordInput(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && useManualCoords()}
+                    />
+                    <button onClick={useManualCoords} className={styles.searchBtn}>Použít</button>
+                  </div>
                 </div>
 
                 {error && <div className={styles.error}>{error}</div>}
@@ -250,22 +306,64 @@ export const LocationSelectionModal: React.FC<LocationSelectionModalProps> = ({
               >
                 <div className={styles.selectedPlaceInfo}>
                   <MapPin className="text-coral" size={24} />
-                  <div>
-                    <h4 className="font-bold text-lg">
-                      {selectedPlace.address?.amenity || selectedPlace.address?.shop || selectedPlace.address?.tourism || selectedPlace.address?.building || selectedPlace.address?.road || selectedPlace.name || "Místo"}
-                    </h4>
-                    <p className="text-sm opacity-60 leading-tight mt-1">{selectedPlace.display_name}</p>
+                  <div className="min-w-0">
+                    <p className="text-sm opacity-60 leading-tight">{selectedPlace.display_name}</p>
                   </div>
                 </div>
 
-                <div className="mt-8">
+                <div className="mt-6">
+                   <label className="text-xs font-black uppercase tracking-widest opacity-40 block mb-2">Název místa</label>
+                   <input
+                     type="text"
+                     className={styles.noteInput}
+                     style={{ minHeight: 0, height: 44 }}
+                     value={placeName}
+                     onChange={e => setPlaceName(e.target.value)}
+                     placeholder="Jak se to místo jmenuje?"
+                   />
+                </div>
+
+                {/* Parametry místa – co s ním dál. */}
+                <div className="mt-6 flex flex-col gap-3">
+                  <label className="text-xs font-black uppercase tracking-widest opacity-40">Kde se má objevit</label>
+                  <div className="flex gap-2 flex-wrap">
+                    <button type="button" onClick={() => setMapOnly(false)}
+                      className={`px-3 py-2 rounded-xl border text-sm font-bold transition-colors ${!mapOnly ? 'border-orange-500 text-orange-600 bg-orange-50' : 'border-stone-200 text-stone-500'}`}>
+                      V blogu i na mapě
+                    </button>
+                    <button type="button" onClick={() => setMapOnly(true)}
+                      className={`px-3 py-2 rounded-xl border text-sm font-bold transition-colors ${mapOnly ? 'border-orange-500 text-orange-600 bg-orange-50' : 'border-stone-200 text-stone-500'}`}>
+                      Jen do mapy
+                    </button>
+                  </div>
+
+                  <label className="flex items-center gap-2.5 mt-1 cursor-pointer">
+                    <input type="checkbox" checked={isWeatherBase} onChange={e => setIsWeatherBase(e.target.checked)} />
+                    <span className="text-sm font-bold">Stálá základna pro počasí</span>
+                    <span className="text-xs opacity-50">– v hlavičce blogu se u ní pořád ukazuje aktuální počasí</span>
+                  </label>
+
+                  <label className="text-xs font-black uppercase tracking-widest opacity-40 mt-2">Jak jsme se sem dostali</label>
+                  <select
+                    value={travelMode}
+                    onChange={e => setTravelMode(e.target.value)}
+                    className="px-3 py-2 rounded-xl border border-stone-200 text-sm font-bold bg-white"
+                  >
+                    <option value="">Rovnou čarou (nekreslit trasu)</option>
+                    <option value="CAR">Autem – po silnici</option>
+                    <option value="WALK">Pěšky</option>
+                    <option value="BIKE">Na kole</option>
+                    <option value="BOAT">Lodí – po řece</option>
+                  </select>
+                </div>
+
+                <div className="mt-6">
                    <label className="text-xs font-black uppercase tracking-widest opacity-40 block mb-2">Poznámka / Deníček</label>
-                   <textarea 
+                   <textarea
                      className={styles.noteInput}
                      placeholder="Co se tady dělo? Přidejte detail..."
                      value={note}
                      onChange={e => setNote(e.target.value)}
-                     autoFocus
                    />
                 </div>
 

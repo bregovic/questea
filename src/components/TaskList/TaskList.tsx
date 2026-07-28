@@ -531,7 +531,9 @@ export const TaskList = () => {
           priority: "LOW",
           taskType: loc.isGpsLog ? "GPS_LOG" : "LOCATION",
           parentId: targetId,
-          recordedAt: new Date().toISOString()
+          recordedAt: new Date().toISOString(),
+          travelMode: loc.travelMode || null,
+          isWeatherBase: !!loc.isWeatherBase,
         })
       });
       
@@ -554,6 +556,11 @@ export const TaskList = () => {
       setTasks([newSubtask, ...tasks]);
       setIsSelectingLocation(false);
       setLocationTargetFolderId(null);
+
+      // se zvoleným způsobem dopravy rovnou dopočítáme vykreslení trasy
+      if (loc.travelMode) {
+        fetch(`/api/journey/${targetId}`, { method: "POST" }).catch(() => {});
+      }
     } catch (error: any) {
       console.error("Failed to add location subtask", error);
       setIsSelectingLocation(false);

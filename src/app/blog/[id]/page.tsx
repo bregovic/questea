@@ -4,6 +4,7 @@ import { MapPin, Clock, Navigation, Calendar, ChevronDown, Camera } from "lucide
 import { Reveal, RevealImage, FloatingHeader, BlogStyles, ViewCounter } from "@/components/Blog/BlogClient";
 import { BlogContainer } from "@/components/Blog/BlogContainer";
 import { WeatherBadge } from "@/components/Blog/WeatherBadge";
+import { SubscribeButton } from "@/components/Blog/SubscribeButton";
 import { getWeather } from "@/lib/weather";
 import { headers } from "next/headers";
 
@@ -38,7 +39,7 @@ async function getBlogData(idOrSlug: string, userIp: string) {
     },
     include: {
       subTasks: {
-        where: { isDeleted: false, isPrivate: false },
+        where: { isDeleted: false, isPrivate: false, publishState: "PUBLISHED" },
         include: {
           locations: { orderBy: { createdAt: "desc" } },
           attachments: {
@@ -65,7 +66,7 @@ async function getBlogData(idOrSlug: string, userIp: string) {
       },
       // Kolekce: příspěvky přidané do tohoto blogu napříč timeline (bez přesunu v hierarchii).
       collectionItems: {
-        where: { post: { isDeleted: false, isPrivate: false } },
+        where: { post: { isDeleted: false, isPrivate: false, publishState: "PUBLISHED" } },
         include: {
           post: {
             include: {
@@ -200,6 +201,12 @@ export default async function BlogPage({ params }: { params: Promise<{ id: strin
               <h1 className={`text-6xl md:text-[140px] font-black text-white pt-4 mb-6 md:mb-12 tracking-tighter leading-[0.75] drop-shadow-2xl ${isAdventure || isElegant ? 'font-serif italic' : ''}`}>
                 {folder.title}
               </h1>
+            </Reveal>
+
+            <Reveal delay={0.45} immediate>
+              <div className="flex justify-center mb-6 md:mb-10">
+                <SubscribeButton folderId={folder.id} blogTitle={folder.title} />
+              </div>
             </Reveal>
 
             {(baseWeather || lastWeather) && (

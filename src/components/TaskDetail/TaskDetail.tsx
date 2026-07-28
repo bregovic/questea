@@ -43,6 +43,8 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
   const [odometer, setOdometer] = useState(task.odometer || "");
   const [travelMode, setTravelMode] = useState<string>(task.travelMode || "");
   const [isWeatherBase, setIsWeatherBase] = useState<boolean>(task.isWeatherBase || false);
+  const [publishState, setPublishState] = useState<string>(task.publishState || "PUBLISHED");
+  const [notify, setNotify] = useState<{ busy: boolean; info: any; msg: string | null }>({ busy: false, info: null, msg: null });
   const [routeState, setRouteState] = useState<{ busy: boolean; msg: string | null }>({ busy: false, msg: null });
   const [isPrivate, setIsPrivate] = useState(task.isPrivate || false);
   const [recurrenceType, setRecurrenceType] = useState<string>(task.recurrenceType || "");
@@ -334,6 +336,39 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
   const handleSaveTitle = () => {
     if (title !== task.title) {
       onUpdate(task.id, { title });
+    }
+  };
+
+  /* Zveřejnění a rozeslání. Rozesílá se ručně, aby se mail neodpálil při
+     rozepsaném příspěvku – a server sám přeskočí adresy, kterým už odešel. */
+  const handlePublishChange = (v: string) => {
+    setPublishState(v);
+    onUpdate(task.id, { publishState: v });
+  };
+
+  const loadNotifyInfo = async () => {
+    try {
+      const res = await fetch(`/api/tasks/${task.id}/notify`);
+      if (!res.ok) return;
+      const info = await res.json();
+      setNotify((n) => ({ ...n, info }));
+    } catch { /* stav rozeslání je jen doplněk */ }
+  };
+
+  useEffect(() => { loadNotifyInfo(); }, [task.id]);
+
+  const sendToSubscribers = async () => {
+    const count = notify.info?.subscribers ?? 0;
+    if (!confirm(`Odeslat „${title}" odběratelům (${count})?`)) return;
+    setNotify((n) => ({ ...n, busy: true, msg: null }));
+    try {
+      const res = await fetch(`/api/tasks/${task.id}/notify`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Odeslání selhalo.");
+      setNotify((n) => ({ ...n, busy: false, msg: data.message }));
+      loadNotifyInfo();
+    } catch (e: any) {
+      setNotify((n) => ({ ...n, busy: false, msg: e?.message || "Odeslání selhalo." }));
     }
   };
 
@@ -738,8 +773,18 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
               {isPrivate ? <EyeOff size={13} /> : <Eye size={13} />}
               {isPrivate ? "Soukromé" : "Veřejné"}
             </button>
+            <select
+              value={publishState}
+              onChange={(e) => handlePublishChange(e.target.value)}
+              className={styles.typeSelectMinimal}
+              title="Rozepsané příspěvky se na blogu nezobrazují a neposílají odběratelům"
+              style={{ color: publishState === "DRAFT" ? "#b45309" : undefined }}
+            >
+              <option value="PUBLISHED">Zveřejněno</option>
+              <option value="DRAFT">Rozepsané</option>
+            </select>
             {taskType !== "LOCATION_HISTORY" && (
-              <select 
+              <select
                 value={priority}
                 onChange={(e) => handlePriorityChange(e.target.value)}
                 className={styles.prioritySelect}
@@ -752,6 +797,30 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
               </select>
             )}
           </div>
+          {/* Rozeslání odběratelům – jen u zveřejněného příspěvku ve složce blogu. */}
+          {task.parentId && !isPrivate && (
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+              <Mail size={12} className="opacity-40" />
+              <button
+                type="button"
+                onClick={sendToSubscribers}
+                disabled={notify.busy || publishState !== "PUBLISHED" || !(notify.info?.subscribers > 0)}
+                title={publishState !== "PUBLISHED" ? "Nejdřív příspěvek zveřejni" : "Odeslat odběratelům blogu"}
+                className="px-2.5 h-7 rounded-md border text-xs font-medium transition-colors disabled:opacity-40"
+                style={{ borderColor: '#e7e5e4', color: '#78716c', background: '#fff' }}
+              >
+                {notify.busy ? "Odesílám…" : `Odeslat odběratelům (${notify.info?.subscribers ?? 0})`}
+              </button>
+              {notify.info?.sentOk > 0 && (
+                <span className="text-xs" style={{ color: '#78716c' }}>
+                  Odesláno {notify.info.sentOk}× · naposledy{" "}
+                  {new Date(notify.info.lastSentAt).toLocaleString("cs-CZ", { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+              {notify.msg && <span className="text-xs" style={{ color: '#78716c' }}>{notify.msg}</span>}
+            </div>
+          )}
+
           <div className="flex items-center gap-2 mt-1">
              <Clock size={12} className="opacity-40" />
               <input

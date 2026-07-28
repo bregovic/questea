@@ -1,5 +1,33 @@
 import nodemailer from "nodemailer";
 
+/* POZOR: fallbacky níž jsou leaknuté přihlašovací údaje z gitu. V Railway
+   nejsou SMTP_* proměnné nastavené, takže produkce jede právě na nich –
+   proto je tu zatím nechávám, aby se odesílání nerozbilo. Až budou proměnné
+   nastavené a heslo přerotované, fallbacky odsud i z auth.ts pryč. */
+function transport() {
+  return nodemailer.createTransport({
+    host: process.env.SMTP_HOST || "smtp.gmail.com",
+    port: parseInt(process.env.SMTP_PORT || "587"),
+    auth: {
+      user: process.env.SMTP_USER || "ja.nepalalate@gmail.com",
+      pass: process.env.SMTP_PASS || "dyaangpuyukbkbgb",
+    },
+    tls: { rejectUnauthorized: false },
+  });
+}
+
+export function mailFrom() {
+  return `"Questea" <${process.env.SMTP_FROM || process.env.SMTP_USER || "ja.nepalalate@gmail.com"}>`;
+}
+
+/** Obecné odeslání. Vyhodí výjimku, volající si ji zaloguje ke konkrétní adrese. */
+export async function sendMail(opts: { to: string; subject: string; html: string; text?: string }) {
+  const result = await transport().sendMail({ ...opts, from: mailFrom() });
+  const failed = result.rejected.concat(result.pending).filter(Boolean);
+  if (failed.length) throw new Error(`Nedoručeno: ${failed.join(", ")}`);
+  return result;
+}
+
 export async function sendVerificationRequest(params: {
   identifier: string;
   url: string;

@@ -160,7 +160,10 @@ model Task {
   
   // Systémové
   isDeleted   Boolean  @default(false)
-  isPrivate   Boolean  @default(false) // Tajný příspěvek – skrytý z veřejného blogu
+  isPrivate   Boolean  @default(false) // Tajný příspěvek – skrytý z veřejného blogu natrvalo
+  // Stav zveřejnění: DRAFT = rozepsané, na blogu není a odběratelům se neposílá.
+  // Výchozí PUBLISHED, aby se existující příspěvky nikam neztratily.
+  publishState String  @default("PUBLISHED")
   lockStatus  Boolean  @default(false) // If true, cannot be closed/DONE manually
   orderIndex  Int      @default(0)
   recordedAt  DateTime? // Kdy se to skutečně stalo (pro historii)
@@ -187,6 +190,39 @@ model Task {
   // Kolekce (samostatný blog, např. výlet): sdružuje příspěvky napříč timeline bez přesunu.
   collectionItems CollectionItem[] @relation("CollectionItems")   // je-li tohle kolekce: její příspěvky
   inCollections   CollectionItem[] @relation("PostInCollections") // kolekce, do kterých tento příspěvek patří
+
+  subscribers  BlogSubscriber[] @relation("BlogSubscribers") // je-li tohle blog: jeho odběratelé
+  emailLogs    PostEmailLog[]   @relation("PostEmails")      // komu už tenhle příspěvek odešel
+}
+
+// Odběratel konkrétního blogu (složky). Bez potvrzování – adresa se přihlásí rovnou.
+model BlogSubscriber {
+  id      String @id @default(cuid())
+  blogId  String
+  blog    Task   @relation("BlogSubscribers", fields: [blogId], references: [id], onDelete: Cascade)
+  email   String
+  // Náhodný token do odhlašovacího odkazu v e-mailu – aby odhlášení nešlo
+  // uhodnout z adresy a nikdo tak neodhlásil cizího odběratele.
+  token   String @unique @default(cuid())
+
+  createdAt      DateTime  @default(now())
+  unsubscribedAt DateTime? // vyplněno = odhlášen (historie zůstává)
+
+  @@unique([blogId, email])
+  @@index([blogId])
+}
+
+// Kdy a komu byl který příspěvek rozeslán – podklad pro „už odesláno" a kontrolu.
+model PostEmailLog {
+  id     String @id @default(cuid())
+  postId String
+  post   Task   @relation("PostEmails", fields: [postId], references: [id], onDelete: Cascade)
+  email  String
+  sentAt DateTime @default(now())
+  ok     Boolean  @default(true)
+  error  String?
+
+  @@index([postId])
 }
 
 // Členství příspěvku (Task) v kolekci (Task) – M:N s pořadím.

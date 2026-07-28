@@ -37,15 +37,26 @@ export const LocationSelectionModal: React.FC<LocationSelectionModalProps> = ({
     p?.address?.amenity || p?.address?.shop || p?.address?.tourism ||
     p?.address?.building || p?.address?.road || p?.name || "Místo";
 
-  /* Přijme „48.6243, 14.3051" i „48.6243 14.3051" (a desetinnou čárku). */
+  /* Přijme „48.6243, 14.3051", „48.6243 14.3051" i český zápis s desetinnou
+     čárkou „48,6243 14,3051".
+     Klíč je rozlišit, co je oddělovač: když je v zápisu mezera, dělí čísla ona
+     a všechny čárky jsou desetinné; bez mezery odděluje jediná čárka. */
+  const parseCoords = (raw: string): [number, number] | null => {
+    const s = raw.trim();
+    const parts = /\s/.test(s)
+      ? s.replace(/,/g, ".").split(/\s+/)
+      : s.split(",");
+    const nums = parts.map((p) => parseFloat(p.replace(",", "."))).filter((n) => !isNaN(n));
+    return nums.length >= 2 ? [nums[0], nums[1]] : null;
+  };
+
   const useManualCoords = async () => {
-    const nums = coordInput.replace(/,(\s)/g, "$1").replace(",", ".").match(/-?\d+(\.\d+)?/g);
-    if (!nums || nums.length < 2) {
+    const parsed = parseCoords(coordInput);
+    if (!parsed) {
       setError("Zadej souřadnice ve tvaru 48.6243, 14.3051");
       return;
     }
-    const lat = parseFloat(nums[0]);
-    const lon = parseFloat(nums[1]);
+    const [lat, lon] = parsed;
     if (Math.abs(lat) > 90 || Math.abs(lon) > 180) {
       setError("Souřadnice jsou mimo rozsah.");
       return;

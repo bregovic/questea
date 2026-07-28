@@ -361,7 +361,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
       const res = await fetch(`/api/journey/${task.parentId}`, { method: "POST" });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Přepočet trasy selhal.");
-      const mine = data.segments?.find((s: any) => s.title === task.title);
+      const mine = data.segments?.find((s: any) => s.id === task.id);
       if (mine?.status === "fallback" && (mode || travelMode) && (mode || travelMode) !== "DIRECT") {
         setRouteState({ busy: false, msg: `Trasu se nepodařilo najít – spojeno rovně (${mine.km} km vzdušnou čarou).` });
       } else if (mine?.status === "ok") {

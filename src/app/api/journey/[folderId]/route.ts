@@ -106,6 +106,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ folderI
     });
 
     results.push({
+      id: cur.id, // volající páruje podle id – názvy se opakují
       title: cur.title,
       mode,
       status: seg ? "ok" : "fallback",

@@ -11,7 +11,7 @@ async function getPrintData(folderId: string) {
       subTasks: {
         where: { isDeleted: false, taskType: { not: "GPS_LOG" } },
         include: {
-          locations: true,
+          locations: { orderBy: { createdAt: "desc" } },
           attachments: {
             where: { type: "image" },
             select: { id: true, name: true, type: true, createdAt: true },

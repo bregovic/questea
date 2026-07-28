@@ -40,7 +40,7 @@ async function getBlogData(idOrSlug: string, userIp: string) {
       subTasks: {
         where: { isDeleted: false, isPrivate: false },
         include: {
-          locations: true,
+          locations: { orderBy: { createdAt: "desc" } },
           attachments: {
             select: {
               id: true,
@@ -69,7 +69,7 @@ async function getBlogData(idOrSlug: string, userIp: string) {
         include: {
           post: {
             include: {
-              locations: true,
+              locations: { orderBy: { createdAt: "desc" } },
               attachments: {
                 select: { id: true, name: true, type: true, createdAt: true }
               },
@@ -186,7 +186,7 @@ export default async function BlogPage({ params }: { params: Promise<{ id: strin
       {!isMinimal ? (
         /* min-h, ne pevná výška: obsah hlavičky (počasí, poloha) se u delších
            cest nevejde do 90vh a při overflow-hidden se ořezával nadpis. */
-        <header className={`relative min-h-[90vh] py-24 flex items-center justify-center overflow-hidden ${isDark ? 'bg-black' : isAdventure ? 'bg-[#2d241e]' : isElegant ? 'bg-[#1a1a1a]' : 'bg-[#0c0a09]'}`}>
+        <header className={`relative min-h-[90vh] py-12 md:py-24 flex items-center justify-center overflow-hidden ${isDark ? 'bg-black' : isAdventure ? 'bg-[#2d241e]' : isElegant ? 'bg-[#1a1a1a]' : 'bg-[#0c0a09]'}`}>
           <div className={`absolute inset-0 z-10 bg-gradient-to-b from-transparent via-transparent ${isDark ? 'to-[#0a0a0a]' : 'to-current/20 opacity-40'}`} />
           
           <FloatingHeader>
@@ -197,14 +197,14 @@ export default async function BlogPage({ params }: { params: Promise<{ id: strin
             <Reveal delay={0.4} immediate>
               {/* pt-4: při leading-[0.75] přesahují horní dotažnice řádek,
                   bez odsazení se u velkého písma ořezávaly */}
-              <h1 className={`text-6xl md:text-[140px] font-black text-white pt-4 mb-12 tracking-tighter leading-[0.75] drop-shadow-2xl ${isAdventure || isElegant ? 'font-serif italic' : ''}`}>
+              <h1 className={`text-6xl md:text-[140px] font-black text-white pt-4 mb-6 md:mb-12 tracking-tighter leading-[0.75] drop-shadow-2xl ${isAdventure || isElegant ? 'font-serif italic' : ''}`}>
                 {folder.title}
               </h1>
             </Reveal>
 
             {(baseWeather || lastWeather) && (
               <Reveal delay={0.5} immediate>
-                <div className="flex flex-wrap items-center justify-center gap-3 mb-10">
+                <div className="flex flex-wrap items-center justify-center gap-3 mb-6 md:mb-10">
                   {baseWeather && basePost && (
                     <WeatherBadge
                       weather={baseWeather}
@@ -224,7 +224,7 @@ export default async function BlogPage({ params }: { params: Promise<{ id: strin
             )}
 
             <Reveal delay={0.6} immediate>
-              <div className="flex flex-col items-center gap-10">
+              <div className="flex flex-col items-center gap-6 md:gap-10">
                 {posts.length > 0 && (
                   <div className="flex flex-col items-center gap-4">
                     <div className={`flex items-center gap-3 px-6 py-2.5 rounded-full border border-white/10 backdrop-blur-md bg-white/5 text-white/90 text-[10px] font-black uppercase tracking-[0.2em] shadow-2xl`}>

@@ -184,7 +184,9 @@ export default async function BlogPage({ params }: { params: Promise<{ id: strin
 
       {/* Hero Section */}
       {!isMinimal ? (
-        <header className={`relative h-[90vh] flex items-center justify-center overflow-hidden ${isDark ? 'bg-black' : isAdventure ? 'bg-[#2d241e]' : isElegant ? 'bg-[#1a1a1a]' : 'bg-[#0c0a09]'}`}>
+        {/* min-h, ne pevná výška: obsah hlavičky (počasí, poloha) se u delších
+            cest nevejde do 90vh a při overflow-hidden se ořezával nadpis. */}
+        <header className={`relative min-h-[90vh] py-24 flex items-center justify-center overflow-hidden ${isDark ? 'bg-black' : isAdventure ? 'bg-[#2d241e]' : isElegant ? 'bg-[#1a1a1a]' : 'bg-[#0c0a09]'}`}>
           <div className={`absolute inset-0 z-10 bg-gradient-to-b from-transparent via-transparent ${isDark ? 'to-[#0a0a0a]' : 'to-current/20 opacity-40'}`} />
           
           <FloatingHeader>
@@ -193,7 +195,9 @@ export default async function BlogPage({ params }: { params: Promise<{ id: strin
           
           <div className="relative z-20 text-center px-6 max-w-5xl">
             <Reveal delay={0.4}>
-              <h1 className={`text-6xl md:text-[140px] font-black text-white mb-12 tracking-tighter leading-[0.75] drop-shadow-2xl ${isAdventure || isElegant ? 'font-serif italic' : ''}`}>
+              {/* pt-4: při leading-[0.75] přesahují horní dotažnice řádek,
+                  bez odsazení se u velkého písma ořezávaly */}
+              <h1 className={`text-6xl md:text-[140px] font-black text-white pt-4 mb-12 tracking-tighter leading-[0.75] drop-shadow-2xl ${isAdventure || isElegant ? 'font-serif italic' : ''}`}>
                 {folder.title}
               </h1>
             </Reveal>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { TaskCard } from "../TaskCard/TaskCard";
 import { TaskDetail } from "../TaskDetail/TaskDetail";
@@ -570,15 +570,44 @@ export const TaskList = () => {
 
   // Mobile swipe support (simple)
   const [touchStart, setTouchStart] = useState<number | null>(null);
-  const handleTouchStart = (e: React.TouchEvent) => setTouchStart(e.targetTouches[0].clientX);
+  /* Gesto „ven o úroveň" nesmí ukrást vodorovné posouvání uvnitř seznamů
+     (pruh typů záznamů, drobečky, filtry) – tam swipe doprava dřív skončil
+     jako skok o složku zpátky. Když gesto začne v něčem, co se dá posouvat
+     do stran, necháme to plavat. */
+  const isInsideHorizontalScroller = (target: EventTarget | null) => {
+    let el = target as HTMLElement | null;
+    while (el && el !== document.body) {
+      if (el.scrollWidth > el.clientWidth + 2) {
+        const ox = getComputedStyle(el).overflowX;
+        if (ox === "auto" || ox === "scroll") return true;
+      }
+      el = el.parentElement;
+    }
+    return false;
+  };
+
+  const swipe = useRef<{ x: number; y: number; ignore: boolean } | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const t = e.targetTouches[0];
+    const ignore =
+      isInsideHorizontalScroller(e.target) ||
+      !!selectedTask || isAddingTask || isSelectingLocation || isLookupOpen;
+    swipe.current = { x: t.clientX, y: t.clientY, ignore };
+    setTouchStart(t.clientX);
+  };
+
   const handleTouchEnd = (e: React.TouchEvent) => {
-    if (touchStart === null) return;
-    const touchEnd = e.changedTouches[0].clientX;
-    const distance = touchEnd - touchStart;
-    if (distance > 100) goUp(); // Swipe right to go up? OR Swipe left?
-    // User asked: "při svajp doleva mimo úkol taky vyskočit o úroveň ven" (swipe left outside task)
-    if (distance < -100) goUp();
+    const s = swipe.current;
+    swipe.current = null;
     setTouchStart(null);
+    if (!s || s.ignore) return;
+
+    const dx = e.changedTouches[0].clientX - s.x;
+    const dy = e.changedTouches[0].clientY - s.y;
+    // jen výrazně vodorovné tažení, ať to nespouští běžné rolování prstem
+    if (Math.abs(dx) < 100 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    goUp();
   };
 
   const handleExportXml = () => {

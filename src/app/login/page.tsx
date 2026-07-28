@@ -33,7 +33,9 @@ export default function LoginPage() {
         setErrorMessage("Neplatné heslo nebo email.");
       } else if (res?.ok) {
         setStatus("success");
-        window.location.href = "/dashboard";
+        // replace, ne href: jinak zůstane /login v historii a tlačítko zpět
+        // z dashboardu se vrátí na přihlašovací obrazovku (vypadá to jako odhlášení)
+        window.location.replace("/dashboard");
       }
     } catch (error) {
       setStatus("error");

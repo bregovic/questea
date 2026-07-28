@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { 
   X, User, FileText, Link as LinkIcon, Calendar, 
   Plus, Trash2, Mail, Layers, Lock, Unlock, RotateCcw, 
   Wallet, DollarSign, Building, MapPin, Loader2, Navigation, Camera, Mic, Square, Play, Pause,
-  ChevronUp, ChevronDown, Search, Clock, Eye, ChevronRight, AlertCircle, FolderOpen,
+  ChevronUp, ChevronDown, Search, Clock, Eye, ChevronLeft, ChevronRight, AlertCircle, FolderOpen,
   Bug, Lightbulb, CheckSquare, Video, Save, Maximize2, EyeOff, Activity, Repeat
 } from "lucide-react";
 import styles from "./TaskDetail.module.css";
@@ -617,6 +617,32 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
 
   const [isNotesFullScreen, setIsNotesFullScreen] = useState(false);
 
+  /* Uloží rozepsaný text a zavře. Titulek i popis se jinak ukládají až při
+     opuštění pole (onBlur), což na mobilu při zavření hardwarovým tlačítkem
+     nemusí stihnout proběhnout. */
+  const handleSaveAndClose = () => {
+    if (title !== task.title) onUpdate(task.id, { title });
+    if (description !== task.description) onUpdate(task.id, { description });
+    onClose();
+  };
+
+  /* Hardwarové „zpět" na mobilu dosud odešlo z /dashboard na přihlašovací
+     stránku, což vypadalo jako odhlášení. Detail si proto přidá vlastní
+     záznam do historie a zpět jen zavře panel. */
+  const closeRef = useRef(handleSaveAndClose);
+  closeRef.current = handleSaveAndClose;
+
+  useEffect(() => {
+    window.history.pushState({ questeaDetail: true }, "");
+    const onPop = () => closeRef.current();
+    window.addEventListener("popstate", onPop);
+    return () => {
+      window.removeEventListener("popstate", onPop);
+      // zavřeno jinak než tlačítkem zpět → uklidíme svůj záznam z historie
+      if (window.history.state?.questeaDetail) window.history.back();
+    };
+  }, []);
+
   return (
     <motion.div 
       initial={{ x: "100%" }}
@@ -650,6 +676,15 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
       )}
 
       <header className={styles.header}>
+        {/* Na dotyku není zavírací křížek čitelný jako „zpět" – přidáme šipku. */}
+        <button
+          onClick={handleSaveAndClose}
+          className="mr-2 mt-1 h-9 w-9 shrink-0 items-center justify-center rounded-[10px] hidden [@media(hover:none)]:flex"
+          style={{ background: '#f5f5f4', color: '#78716c' }}
+          title="Zpět na seznam"
+        >
+          <ChevronLeft size={22} />
+        </button>
         <div className={styles.titleSection}>
           <input 
             className={styles.titleInput}
@@ -833,9 +868,21 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
              </div>
            )}
         </div>
-        <button onClick={onClose} className={styles.closeBtn}>
-          <X size={24} />
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Uložit rozepsaný text a zavřít – na mobilu se jinak spoléhá na onBlur */}
+          <button
+            onClick={handleSaveAndClose}
+            className="flex items-center gap-1.5 px-3 h-9 rounded-[10px] text-xs font-bold transition-colors"
+            style={{ background: '#ea580c', color: '#fff' }}
+            title="Uložit a zavřít"
+          >
+            <Save size={15} />
+            Uložit
+          </button>
+          <button onClick={handleSaveAndClose} className={styles.closeBtn} title="Zavřít">
+            <X size={24} />
+          </button>
+        </div>
       </header>
 
       <div className={styles.content}>

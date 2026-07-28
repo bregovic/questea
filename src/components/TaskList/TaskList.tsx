@@ -35,6 +35,7 @@ export const TaskList = () => {
 
   const [lastDeletedTask, setLastDeletedTask] = useState<any | null>(null);
   const [showUndo, setShowUndo] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isZen, setIsZen] = useState(false);
   const [quickActionTask, setQuickActionTask] = useState<any | null>(null);
   const [isSelectingLocation, setIsSelectingLocation] = useState(false);
@@ -239,6 +240,11 @@ export const TaskList = () => {
     return R * c;
   };
 
+  /* Záznamové typy = to, co se „stalo", ne to, co se má udělat. */
+  const RECORD_TYPES = ["NOTE", "LOCATION", "GPS_LOG", "EVENT", "WORKOUT", "EXPENSE"];
+  const isRecordType = (t: any) => RECORD_TYPES.includes(t.taskType);
+  const recordTime = (t: any) => new Date(t.recordedAt || t.createdAt).getTime();
+
   const filteredTasks = tasks.filter(task => {
     // Trash view
     if (filterStatus === "TRASH") return task.isDeleted;
@@ -269,8 +275,16 @@ export const TaskList = () => {
     return true;
   }).sort((a, b) => {
     if (sortBy === "PRIORITY") {
+      // Záznamy (deníkové zápisy, polohy, výdaje…) prioritu fakticky nemají – řadit
+      // je podle ní jen mate: polohy se zakládají jako LOW, takže se propadaly pod
+      // všechny zápisy ve složce. Řadíme je chronologicky od nejnovějšího, úkoly
+      // zůstávají podle priority a drží se nahoře.
+      const ra = isRecordType(a), rb = isRecordType(b);
+      if (ra && rb) return recordTime(b) - recordTime(a);
+      if (ra !== rb) return ra ? 1 : -1;
+      // pozor na ?? – URGENT je 0, s || by spadl na MEDIUM
       const pMap: any = { URGENT: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
-      return (pMap[a.priority] || 2) - (pMap[b.priority] || 2);
+      return (pMap[a.priority] ?? 2) - (pMap[b.priority] ?? 2);
     }
     return (b.progress || 0) - (a.progress || 0);
   });
@@ -450,6 +464,18 @@ export const TaskList = () => {
     }
   };
 
+  /* Chyby z API se dřív polykaly (console.error / prázdný else) – uložení tiše
+     selhalo a vypadalo to, že položka zmizela. Teď to uživatel uvidí. */
+  const showError = (msg: string) => {
+    setErrorMsg(msg);
+    setTimeout(() => setErrorMsg(null), 5000);
+  };
+
+  const apiError = async (res: Response, fallback: string) => {
+    const body = await res.json().catch(() => ({} as any));
+    return body?.error || fallback;
+  };
+
   const handleAddTask = async (titleOverride?: string, typeOverride?: string) => {
     const title = titleOverride || newTaskTitle;
     const type = typeOverride || addingType || "TASK";
@@ -477,15 +503,22 @@ export const TaskList = () => {
         setNewTaskTitle("");
         setIsAddingTask(false);
         setAddingType(null);
+      } else {
+        showError(await apiError(res, "Položku se nepodařilo uložit."));
       }
     } catch (error) {
       console.error("Failed to add task", error);
+      showError("Položku se nepodařilo uložit – zkontroluj připojení.");
     }
   };
 
   const handleLocationSelect = async (loc: any) => {
     const targetId = locationTargetFolderId || currentParentId;
-    if (!targetId) return;
+    if (!targetId) {
+      setIsSelectingLocation(false);
+      showError("Polohu nelze uložit do kořene – nejdřív otevři složku.");
+      return;
+    }
 
     try {
       const taskRes = await fetch("/api/tasks", {
@@ -502,7 +535,7 @@ export const TaskList = () => {
         })
       });
       
-      if (!taskRes.ok) throw new Error("Failed to create subtask");
+      if (!taskRes.ok) throw new Error(await apiError(taskRes, "Polohu se nepodařilo uložit."));
       const newSubtask = await taskRes.json();
 
       await fetch("/api/locations", {
@@ -521,8 +554,11 @@ export const TaskList = () => {
       setTasks([newSubtask, ...tasks]);
       setIsSelectingLocation(false);
       setLocationTargetFolderId(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to add location subtask", error);
+      setIsSelectingLocation(false);
+      setLocationTargetFolderId(null);
+      showError(error?.message || "Polohu se nepodařilo uložit.");
     }
   };
 
@@ -1146,6 +1182,16 @@ export const TaskList = () => {
           <motion.div initial={{ y: 50 }} animate={{ y: 0 }} exit={{ y: 50 }} className={styles.undoToast}>
             <span>Smazáno</span>
             <button onClick={() => { handleUndo(); setShowUndo(false); }} className={styles.undoBtn}>UNDO</button>
+          </motion.div>
+        )}
+        {errorMsg && (
+          <motion.div
+            initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 50, opacity: 0 }}
+            className={styles.undoToast}
+            style={{ background: "#b91c1c", color: "#fff" }}
+            onClick={() => setErrorMsg(null)}
+          >
+            <span>{errorMsg}</span>
           </motion.div>
         )}
       </AnimatePresence>

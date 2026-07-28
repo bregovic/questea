@@ -166,6 +166,13 @@ model Task {
   recordedAt  DateTime? // Kdy se to skutečně stalo (pro historii)
   odometer    Float?      // Manual odometer reading (km)
   calculatedDistance Float?   // Vypočtená vzdálenost od předchozího bodu (km)
+
+  // Vykreslení trasy na mapě: jak jsme se do TOHOTO bodu dostali z předchozího.
+  // CAR | WALK | BIKE | BOAT | DIRECT (null = rovná čára jako dosud).
+  travelMode    String?
+  routeGeometry String?  @db.Text // nacachovaná linka úseku: JSON [[lat,lng], …]
+  routeStamp    String?  // otisk vstupů (odkud→kam+mód); jiný otisk = přepočítat
+  routeDistance Float?   // délka spočítané trasy v km (ne vzdušná čára)
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

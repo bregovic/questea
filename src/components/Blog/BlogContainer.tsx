@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import { MapPin, Clock, Navigation, Calendar, ChevronDown, Camera, X, Maximize2 } from "lucide-react";
-import { Reveal, RevealImage, FloatingHeader, Lightbox, JourneyMap } from "./BlogClient";
+import { Reveal, RevealImage, FloatingHeader, Lightbox, JourneyMap, JourneyPoint } from "./BlogClient";
 import { AnimatePresence, motion } from "framer-motion";
 import { BlogSocial } from "./BlogSocial";
 
@@ -41,15 +41,18 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
         const loc = p.locations?.[0];
         if (loc && loc.latitude && loc.longitude) {
           const time = new Date(p.recordedAt || p.createdAt).toLocaleTimeString("cs-CZ", { hour: '2-digit', minute: '2-digit' });
-          return { 
-            lat: loc.latitude, 
-            lng: loc.longitude, 
-            title: p.taskType === "GPS_LOG" ? `📍 Poloha (${time})` : p.title 
+          return {
+            lat: loc.latitude,
+            lng: loc.longitude,
+            title: p.taskType === "GPS_LOG" ? `📍 Poloha (${time})` : p.title,
+            // jak jsme se do tohoto bodu dostali z předchozího + nacachovaná linka
+            travelMode: p.travelMode,
+            routeGeometry: p.routeGeometry,
           };
         }
         return null;
       })
-      .filter(Boolean) as { lat: number, lng: number, title: string }[];
+      .filter(Boolean) as JourneyPoint[];
   }, [posts, mounted]);
 
   const visiblePosts = useMemo(() => posts.filter(p => p.taskType !== "GPS_LOG"), [posts]);

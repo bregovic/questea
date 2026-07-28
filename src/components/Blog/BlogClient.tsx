@@ -322,7 +322,73 @@ export const Lightbox = ({ images, initialIndex, onClose }: { images: string[], 
     </motion.div>
   );
 };
-const JourneyMapFullscreen = ({ points, id }: { points: { lat: number, lng: number, title: string }[], id: string }) => {
+/* ───────────────────── trasa mezi body na mapě ─────────────────────
+   Každý bod si nese, JAK se k němu došlo z předchozího (travelMode) a
+   nacachovanou linku (routeGeometry). Když linka chybí, spojí se rovně –
+   mapa tak funguje i pro staré záznamy, kde se nic neroutovalo. */
+
+export type JourneyPoint = {
+  lat: number; lng: number; title: string;
+  travelMode?: string | null;
+  routeGeometry?: string | null;
+};
+
+type Segment = { mode: string; coords: [number, number][]; routed: boolean };
+
+const MODE_STYLE: Record<string, { color: string; dash?: string; label: string }> = {
+  CAR:    { color: "#ea580c", label: "autem" },
+  BIKE:   { color: "#ea580c", dash: "10 7", label: "na kole" },
+  WALK:   { color: "#16a34a", dash: "1 7", label: "pěšky" },
+  BOAT:   { color: "#0284c7", label: "po vodě" },
+  DIRECT: { color: "#a8a29e", dash: "6 8", label: "přímo" },
+};
+
+const styleOf = (mode: string) => MODE_STYLE[mode] || MODE_STYLE.DIRECT;
+
+function buildSegments(points: JourneyPoint[]): Segment[] {
+  const segs: Segment[] = [];
+  for (let i = 1; i < points.length; i++) {
+    const prev = points[i - 1], cur = points[i];
+    let coords: [number, number][] | null = null;
+    if (cur.routeGeometry) {
+      try {
+        const parsed = JSON.parse(cur.routeGeometry);
+        if (Array.isArray(parsed) && parsed.length > 1) coords = parsed;
+      } catch { /* rozbitý JSON → spojíme rovně */ }
+    }
+    segs.push({
+      mode: coords ? (cur.travelMode || "DIRECT") : "DIRECT",
+      coords: coords || [[prev.lat, prev.lng], [cur.lat, cur.lng]],
+      routed: !!coords,
+    });
+  }
+  return segs;
+}
+
+/* Vykreslí úseky a vrátí všechny souřadnice pro dopočet výřezu. */
+function drawSegments(L: any, map: any, points: JourneyPoint[], isMini: boolean): [number, number][] {
+  const segs = buildSegments(points);
+  const all: [number, number][] = points.map((p) => [p.lat, p.lng]);
+
+  for (const seg of segs) {
+    const st = styleOf(seg.mode);
+    if (!isMini) {
+      // tmavý podklad, ať je linka čitelná i nad hustou mapou
+      L.polyline(seg.coords, { color: "#431407", weight: 5, opacity: 0.35 }).addTo(map);
+    }
+    L.polyline(seg.coords, {
+      color: st.color,
+      weight: isMini ? 2 : 3,
+      opacity: isMini ? 0.8 : 1,
+      dashArray: st.dash,
+      lineCap: st.dash === "1 7" ? "round" : "butt",
+    }).addTo(map);
+    all.push(...seg.coords);
+  }
+  return all;
+}
+
+const JourneyMapFullscreen = ({ points, id }: { points: JourneyPoint[], id: string }) => {
   const mapRef = useRef<any>(null);
 
   useEffect(() => {
@@ -363,25 +429,12 @@ const JourneyMapFullscreen = ({ points, id }: { points: { lat: number, lng: numb
         crossOrigin: true   // CORS dlaždice → canvas se neušpiní → export PDF funguje
       }).addTo(map);
 
-      const latlngs = points.map(p => [p.lat, p.lng]);
-      
-      if (latlngs.length > 1) {
-        L.polyline(latlngs, {
-          color: '#431407',
-          weight: 5,
-          opacity: 0.4
-        }).addTo(map);
-        L.polyline(latlngs, {
-          color: '#f97316',
-          weight: 3,
-          opacity: 1.0
-        }).addTo(map);
-      }
+      const latlngs = points.length > 1 ? drawSegments(L, map, points, false) : points.map(p => [p.lat, p.lng] as [number, number]);
 
       points.forEach((p, i) => {
         const isLast = i === points.length - 1;
         const color = isLast ? '#22c55e' : '#ea580c';
-        
+
         const icon = L.divIcon({
           className: 'custom-div-icon',
           html: `
@@ -418,7 +471,7 @@ const JourneyMapFullscreen = ({ points, id }: { points: { lat: number, lng: numb
   return <div id={id} className="w-full h-full" />;
 };
 
-export const JourneyMap = ({ points, isMini = false, id = "journey-map", className = "" }: { points: { lat: number, lng: number, title: string }[], isMini?: boolean, id?: string, className?: string }) => {
+export const JourneyMap = ({ points, isMini = false, id = "journey-map", className = "" }: { points: JourneyPoint[], isMini?: boolean, id?: string, className?: string }) => {
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const mapRef = useRef<any>(null);
@@ -461,28 +514,7 @@ export const JourneyMap = ({ points, isMini = false, id = "journey-map", classNa
         crossOrigin: true   // CORS dlaždice → canvas se neušpiní → export PDF funguje
       }).addTo(map);
 
-      const latlngs = points.map(p => [p.lat, p.lng]);
-      
-      if (latlngs.length > 1) {
-        if (isMini) {
-          L.polyline(latlngs, {
-            color: '#ea580c',
-            weight: 2,
-            opacity: 0.8
-          }).addTo(map);
-        } else {
-          L.polyline(latlngs, {
-            color: '#431407',
-            weight: 5,
-            opacity: 0.4
-          }).addTo(map);
-          L.polyline(latlngs, {
-            color: '#ea580c',
-            weight: 3,
-            opacity: 1.0
-          }).addTo(map);
-        }
-      }
+      const latlngs = points.length > 1 ? drawSegments(L, map, points, isMini) : points.map(p => [p.lat, p.lng] as [number, number]);
 
       points.forEach((p, i) => {
         const isLast = i === points.length - 1;

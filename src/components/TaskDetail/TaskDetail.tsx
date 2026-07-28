@@ -41,6 +41,8 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
   const [payee, setPayee] = useState(task.payee || "");
   const [recordedAt, setRecordedAt] = useState(task.recordedAt ? new Date(task.recordedAt).toISOString().slice(0, 16) : "");
   const [odometer, setOdometer] = useState(task.odometer || "");
+  const [travelMode, setTravelMode] = useState<string>(task.travelMode || "");
+  const [routeState, setRouteState] = useState<{ busy: boolean; msg: string | null }>({ busy: false, msg: null });
   const [isPrivate, setIsPrivate] = useState(task.isPrivate || false);
   const [recurrenceType, setRecurrenceType] = useState<string>(task.recurrenceType || "");
   const [recurrenceDay, setRecurrenceDay] = useState<number | null>(task.recurrenceDay ?? null);
@@ -337,6 +339,38 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
   const handlePriorityChange = (newPriority: string) => {
     setPriority(newPriority);
     onUpdate(task.id, { priority: newPriority });
+  };
+
+  /* Způsob dopravy se vztahuje k úseku OD PŘEDCHOZÍHO bodu k tomuto.
+     Po změně se rovnou přepočítá trasa celé cesty (přepočítá se jen to,
+     čemu nesedí otisk, takže je to levné). */
+  const handleTravelModeChange = async (mode: string) => {
+    setTravelMode(mode);
+    onUpdate(task.id, { travelMode: mode || null });
+    await recalcRoute(mode);
+  };
+
+  const recalcRoute = async (mode?: string) => {
+    if (!task.parentId) {
+      setRouteState({ busy: false, msg: "Bod není ve složce cesty." });
+      return;
+    }
+    setRouteState({ busy: true, msg: null });
+    try {
+      const res = await fetch(`/api/journey/${task.parentId}`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Přepočet trasy selhal.");
+      const mine = data.segments?.find((s: any) => s.title === task.title);
+      if (mine?.status === "fallback" && (mode || travelMode) && (mode || travelMode) !== "DIRECT") {
+        setRouteState({ busy: false, msg: `Trasu se nepodařilo najít – spojeno rovně (${mine.km} km vzdušnou čarou).` });
+      } else if (mine?.status === "ok") {
+        setRouteState({ busy: false, msg: `Trasa vykreslena: ${mine.km} km (${mine.provider}).` });
+      } else {
+        setRouteState({ busy: false, msg: `Přepočítáno ${data.computed} úseků.` });
+      }
+    } catch (e: any) {
+      setRouteState({ busy: false, msg: e?.message || "Přepočet trasy selhal." });
+    }
   };
 
   const handleParentChange = (newParentId: string) => {
@@ -691,6 +725,38 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({
                 onChange={(e) => handleRecordedAtChange(e.target.value)}
               />
            </div>
+
+           {/* Jak jsme se do tohoto bodu dostali z předchozího – řídí vykreslení
+               trasy na mapě blogu (silnice / chodník / řeka místo rovné čáry). */}
+           {(taskType === "LOCATION" || taskType === "GPS_LOG") && (
+             <div className="flex items-center gap-2 mt-1 flex-wrap">
+               <Navigation size={12} className="opacity-40" />
+               <select
+                 value={travelMode}
+                 onChange={(e) => handleTravelModeChange(e.target.value)}
+                 className={styles.typeSelectMinimal}
+                 title="Jak jsme se sem dostali z předchozího bodu"
+               >
+                 <option value="">Rovnou čarou</option>
+                 <option value="CAR">Autem (po silnici)</option>
+                 <option value="WALK">Pěšky</option>
+                 <option value="BIKE">Na kole</option>
+                 <option value="BOAT">Lodí (po řece)</option>
+               </select>
+               <button
+                 type="button"
+                 onClick={() => recalcRoute()}
+                 disabled={routeState.busy}
+                 className="px-2.5 h-7 rounded-md border text-xs font-medium transition-colors disabled:opacity-50"
+                 style={{ borderColor: '#e7e5e4', color: '#78716c', background: '#fff' }}
+               >
+                 {routeState.busy ? "Počítám…" : "Přepočítat trasu"}
+               </button>
+               {routeState.msg && (
+                 <span className="text-xs" style={{ color: '#78716c' }}>{routeState.msg}</span>
+               )}
+             </div>
+           )}
            <div className="flex items-center gap-2 mt-1 flex-wrap">
              <Repeat size={12} className="opacity-40" />
              <select

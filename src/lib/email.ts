@@ -36,8 +36,28 @@ export function mailFrom() {
   return `"Questea" <${process.env.SMTP_FROM || process.env.SMTP_USER || "ja.nepalalate@gmail.com"}>`;
 }
 
-/** Obecné odeslání. Vyhodí výjimku, volající si ji zaloguje ke konkrétní adrese. */
+/**
+ * Obecné odeslání. Vyhodí výjimku, volající si ji zaloguje ke konkrétní adrese.
+ *
+ * Railway blokuje odchozí SMTP, takže na produkci se posílá přes Resend (HTTPS,
+ * to blokované není). SMTP zůstává jako záloha pro lokální vývoj, kde funguje.
+ */
 export async function sendMail(opts: { to: string; subject: string; html: string; text?: string }) {
+  const key = process.env.RESEND_API_KEY;
+
+  if (key) {
+    const { Resend } = await import("resend");
+    const { data, error } = await new Resend(key).emails.send({
+      from: process.env.EMAIL_FROM || "Questea <blog@hollyhop.cz>",
+      to: opts.to,
+      subject: opts.subject,
+      html: opts.html,
+      text: opts.text,
+    });
+    if (error) throw new Error(error.message || String(error));
+    return data;
+  }
+
   const result = await transport().sendMail({ ...opts, from: mailFrom() });
   const failed = result.rejected.concat(result.pending).filter(Boolean);
   if (failed.length) throw new Error(`Nedoručeno: ${failed.join(", ")}`);
@@ -51,18 +71,6 @@ export async function sendVerificationRequest(params: {
 }) {
   const { identifier, url, provider } = params;
   const { host } = new URL(url);
-
-  const transport = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || "smtp.gmail.com",
-    port: parseInt(process.env.SMTP_PORT || "587"),
-    auth: {
-      user: process.env.SMTP_USER || "ja.nepalalate@gmail.com",
-      pass: process.env.SMTP_PASS || "dyaangpuyukbkbgb",
-    },
-    tls: {
-      rejectUnauthorized: false
-    }
-  });
 
   const HTML = `
 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #0f0d1a; color: #e5e1f0; padding: 40px; border-radius: 16px;">
@@ -84,16 +92,12 @@ export async function sendVerificationRequest(params: {
 </div>
   `.replace(/\${url}/g, url);
 
-  const result = await transport.sendMail({
+  // přes stejnou cestu jako zbytek pošty – na Railway tedy přes Resend,
+  // jinak by přihlašovací odkaz nedorazil (SMTP je odtud nedostupné)
+  await sendMail({
     to: identifier,
-    from: `"Questea" <${process.env.SMTP_FROM || process.env.SMTP_USER || "ja.nepalalate@gmail.com"}>`,
     subject: `Přihlášení do aplikace Questea`,
     text: `Přihlaste se do aplikace Questea zkopírováním tohoto odkazu: ${url}`,
     html: HTML,
   });
-
-  const failed = result.rejected.concat(result.pending).filter(Boolean);
-  if (failed.length) {
-    throw new Error(`Email(s) (${failed.join(", ")}) could not be sent`);
-  }
 }

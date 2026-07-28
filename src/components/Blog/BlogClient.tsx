@@ -331,6 +331,7 @@ export type JourneyPoint = {
   lat: number; lng: number; title: string;
   travelMode?: string | null;
   routeGeometry?: string | null;
+  isBase?: boolean; // stálá základna – stojí mimo cestu, nespojuje se čarou
 };
 
 type Segment = { mode: string; coords: [number, number][]; routed: boolean };
@@ -345,7 +346,9 @@ const MODE_STYLE: Record<string, { color: string; dash?: string; label: string }
 
 const styleOf = (mode: string) => MODE_STYLE[mode] || MODE_STYLE.DIRECT;
 
-function buildSegments(points: JourneyPoint[]): Segment[] {
+function buildSegments(allPoints: JourneyPoint[]): Segment[] {
+  // základna není zastávka na cestě – z řetězu úseků vypadne
+  const points = allPoints.filter((p) => !p.isBase);
   const segs: Segment[] = [];
   for (let i = 1; i < points.length; i++) {
     const prev = points[i - 1], cur = points[i];
@@ -431,14 +434,18 @@ const JourneyMapFullscreen = ({ points, id }: { points: JourneyPoint[], id: stri
 
       const latlngs = points.length > 1 ? drawSegments(L, map, points, false) : points.map(p => [p.lat, p.lng] as [number, number]);
 
-      points.forEach((p, i) => {
-        const isLast = i === points.length - 1;
-        const color = isLast ? '#22c55e' : '#ea580c';
+      const journeyPts = points.filter(p => !p.isBase);
+      const lastJourneyPt = journeyPts[journeyPts.length - 1];
+
+      points.forEach((p) => {
+        const isBase = !!p.isBase;
+        const isLast = !isBase && p === lastJourneyPt;
+        const color = isBase ? '#0284c7' : isLast ? '#22c55e' : '#ea580c';
 
         const icon = L.divIcon({
           className: 'custom-div-icon',
           html: `
-            <div style="position: relative; background-color: ${color}; width: 14px; height: 14px; border: 2.5px solid white; border-radius: 50%; box-shadow: 0 0 12px rgba(0,0,0,0.4);">
+            <div style="position: relative; background-color: ${color}; width: 14px; height: 14px; border: 2.5px solid white; border-radius: ${isBase ? '4px' : '50%'}; box-shadow: 0 0 12px rgba(0,0,0,0.4);">
               ${isLast ? `<div style="position: absolute; inset: -8px; border-radius: 50%; background: ${color}; opacity: 0.3; animation: pulse 2s infinite;"></div>` : ''}
             </div>
           `,
@@ -516,14 +523,18 @@ export const JourneyMap = ({ points, isMini = false, id = "journey-map", classNa
 
       const latlngs = points.length > 1 ? drawSegments(L, map, points, isMini) : points.map(p => [p.lat, p.lng] as [number, number]);
 
-      points.forEach((p, i) => {
-        const isLast = i === points.length - 1;
-        const color = isLast ? '#22c55e' : '#ea580c';
-        
+      const journeyPts = points.filter(p => !p.isBase);
+      const lastJourneyPt = journeyPts[journeyPts.length - 1];
+
+      points.forEach((p) => {
+        const isBase = !!p.isBase;
+        const isLast = !isBase && p === lastJourneyPt;
+        const color = isBase ? '#0284c7' : isLast ? '#22c55e' : '#ea580c';
+
         const icon = L.divIcon({
           className: 'custom-div-icon',
           html: `
-            <div style="position: relative; background-color: ${color}; width: ${isMini ? '12px' : '12px'}; height: ${isMini ? '12px' : '12px'}; border: 2px solid white; border-radius: 50%; box-shadow: 0 0 10px rgba(0,0,0,0.3);">
+            <div style="position: relative; background-color: ${color}; width: ${isMini ? '12px' : '12px'}; height: ${isMini ? '12px' : '12px'}; border: 2px solid white; border-radius: ${isBase ? '3px' : '50%'}; box-shadow: 0 0 10px rgba(0,0,0,0.3);">
               ${isLast ? `<div style="position: absolute; inset: -8px; border-radius: 50%; background: ${color}; opacity: 0.3; animation: pulse 2s infinite;"></div>` : ''}
             </div>
           `,

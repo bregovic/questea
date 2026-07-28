@@ -48,7 +48,21 @@ export async function POST(req: Request, { params }: { params: Promise<{ folderI
   const byId = new Map<string, any>();
   for (const t of [...subTasks, ...collected.map((c) => c.post)]) byId.set(t.id, t);
 
-  const points = [...byId.values()].filter(isPoint).sort((a, b) => timeOf(a) - timeOf(b));
+  /* Stálá základna pro počasí není zastávka na cestě – z řetězu vypadne,
+     jinak by se k ní od poslední polohy dopočítávala trasa. Případnou starou
+     linku u ní rovnou uklidíme. */
+  const all = [...byId.values()].filter(isPoint).sort((a, b) => timeOf(a) - timeOf(b));
+  const bases = all.filter((t) => t.isWeatherBase);
+  const points = all.filter((t) => !t.isWeatherBase);
+
+  for (const b of bases) {
+    if (b.routeGeometry || b.routeStamp) {
+      await prisma.task.update({
+        where: { id: b.id },
+        data: { routeGeometry: null, routeStamp: null, routeDistance: null },
+      });
+    }
+  }
 
   if (points.length < 2) {
     return NextResponse.json({ ok: true, points: points.length, computed: 0, message: "Málo bodů na trasu." });

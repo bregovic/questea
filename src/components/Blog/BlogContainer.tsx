@@ -48,6 +48,7 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
             // jak jsme se do tohoto bodu dostali z předchozího + nacachovaná linka
             travelMode: p.travelMode,
             routeGeometry: p.routeGeometry,
+            isBase: !!p.isWeatherBase,
           };
         }
         return null;

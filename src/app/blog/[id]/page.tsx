@@ -136,7 +136,9 @@ export default async function BlogPage({ params }: { params: Promise<{ id: strin
      badge se prostě nevykreslí. */
   const withCoords = posts.filter((p: any) => p.locations?.[0]?.latitude && p.locations?.[0]?.longitude);
   const basePost = [...withCoords].reverse().find((p: any) => p.isWeatherBase);
-  const lastPost = withCoords[withCoords.length - 1];
+  // základna stojí mimo cestu – nesmí se tvářit jako „kde jsme teď"
+  const journeyPoints = withCoords.filter((p: any) => !p.isWeatherBase);
+  const lastPost = journeyPoints[journeyPoints.length - 1];
   const isSamePlace = basePost && lastPost && basePost.id === lastPost.id;
 
   const [baseWeather, lastWeather] = await Promise.all([
@@ -226,22 +228,22 @@ export default async function BlogPage({ params }: { params: Promise<{ id: strin
                       Aktuální poloha
                     </div>
                     
-                    {posts[posts.length - 1].locations?.[0] && (
+                    {lastPost && (
                       <div className="flex flex-col items-center gap-4 group">
                          <div className="h-32 w-48 rounded-3xl overflow-hidden border-4 border-white/10 shadow-2xl relative">
-                            <BlogContainer 
-                               posts={posts} 
-                               folder={folder} 
-                               template={template} 
-                               onlyMap={posts[posts.length - 1]} 
+                            <BlogContainer
+                               posts={posts}
+                               folder={folder}
+                               template={template}
+                               onlyMap={lastPost}
                             />
                          </div>
                          <div className="text-center">
                              <div className="text-white font-black text-sm mb-1 uppercase tracking-wider">
-                                {posts[posts.length - 1].title || "Na cestě"}
+                                {lastPost.title || "Na cestě"}
                              </div>
                             <div className="text-white/40 text-[10px] font-bold uppercase tracking-[0.2em]">
-                               {new Date(posts[posts.length - 1].recordedAt || posts[posts.length - 1].createdAt).toLocaleString("cs-CZ", { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                               {new Date(lastPost.recordedAt || lastPost.createdAt).toLocaleString("cs-CZ", { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                             </div>
                          </div>
                       </div>

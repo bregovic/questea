@@ -15,8 +15,8 @@ async function blogOf(folderId: string) {
   return prisma.task.findFirst({ where: { id: folderId }, select: { id: true, title: true } });
 }
 
-export async function POST(req: Request, { params }: { params: Promise<{ folderId: string }> }) {
-  const { folderId } = await params;
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id: folderId } = await params;
   const body = await req.json().catch(() => ({} as any));
   const email = String(body?.email || "").trim().toLowerCase();
   const action = body?.action === "unsubscribe" ? "unsubscribe" : "subscribe";

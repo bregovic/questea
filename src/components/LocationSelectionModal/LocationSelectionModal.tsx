@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, MapPin, Search, Navigation, Loader2, Map as MapIcon, Check, ChevronRight } from "lucide-react";
 import styles from "./LocationSelectionModal.module.css";
+import { useScrollLock } from "@/lib/useScrollLock";
 
 interface LocationSelectionModalProps {
   onClose: () => void;
@@ -155,25 +156,7 @@ export const LocationSelectionModal: React.FC<LocationSelectionModalProps> = ({
     }
   }, []);
 
-  /* Zamknout stránku pod dialogem. Bez toho se na mobilu při rolování
-     v dialogu posouvalo pozadí (a po zavření zůstala stránka jinde, než
-     kde uživatel byl). position:fixed je jediné, co drží i na iOS. */
-  useEffect(() => {
-    const y = window.scrollY;
-    const { body } = document;
-    const prev = { position: body.style.position, top: body.style.top, width: body.style.width };
-
-    body.style.position = "fixed";
-    body.style.top = `-${y}px`;
-    body.style.width = "100%";
-
-    return () => {
-      body.style.position = prev.position;
-      body.style.top = prev.top;
-      body.style.width = prev.width;
-      window.scrollTo(0, y); // vrátit na místo, odkud se dialog otevřel
-    };
-  }, []);
+  useScrollLock(); // ať se pod dialogem neposouvá stránka
 
   const handlePlaceClick = (place: any) => {
     setSelectedPlace(place);

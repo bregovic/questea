@@ -12,6 +12,7 @@ import { Search, Grid, List as ListIcon, Home, ChevronRight, Maximize2, Minimize
 import InstallPWA from "../InstallPWA/InstallPWA";
 import styles from "./TaskList.module.css";
 import { motion, AnimatePresence } from "framer-motion";
+import { useScrollLock } from "@/lib/useScrollLock";
 
 export const TaskList = () => {
   const [tasks, setTasks] = useState<any[]>([]);
@@ -47,6 +48,9 @@ export const TaskList = () => {
   const [isPrintEditorOpen, setIsPrintEditorOpen] = useState(false);
   const [printFolder, setPrintFolder] = useState<any | null>(null);
   const [lookupQuery, setLookupQuery] = useState("");
+
+  // dialogy nad seznamem – pod nimi se nemá posouvat stránka
+  useScrollLock(isSettingsOpen || isLookupOpen);
 
   const toggleZen = () => {
     const nextZen = !isZen;
@@ -98,7 +102,6 @@ export const TaskList = () => {
   };
 
   useEffect(() => {
-    console.log("TaskList: Fetching tasks...");
     fetchTasks();
     fetchCategories();
   }, []);
@@ -106,7 +109,6 @@ export const TaskList = () => {
   // Sync state if URL changes (back button support)
   const pIdFromUrl = searchParams.get("parentId");
   if (pIdFromUrl !== currentParentId) {
-    console.log("TaskList: Syncing parentId from URL", pIdFromUrl);
     setCurrentParentId(pIdFromUrl);
   }
 
@@ -131,6 +133,7 @@ export const TaskList = () => {
       if (e.key === "Escape") {
         if (selectedTask) setSelectedTask(null);
         else if (quickActionTask) setQuickActionTask(null);
+        else if (isSelectingLocation) setIsSelectingLocation(false);
         else if (isAddingTask) setIsAddingTask(false);
         else if (isLookupOpen) setIsLookupOpen(false);
         else goUp();
@@ -158,7 +161,10 @@ export const TaskList = () => {
       window.removeEventListener("quickAction", handleQuickActionEvent as any);
       window.removeEventListener("keydown", handleGlobalKeyDown);
     };
-  }, [goUp, selectedTask, isAddingTask]);
+    // POZOR: všechno, co handler čte, musí být v závislostech. Dřív tu chyběly
+    // quickActionTask a isLookupOpen, takže posluchač držel jejich staré
+    // hodnoty a Escape nad otevřeným dialogem místo zavření skočil o složku ven.
+  }, [goUp, selectedTask, isAddingTask, quickActionTask, isLookupOpen, isSelectingLocation]);
 
   // Restore last parent on mount
   useEffect(() => {
@@ -777,7 +783,7 @@ export const TaskList = () => {
                     <X size={20} className="text-stone-400" />
                   </button>
                </div>
-               <div className="p-8 space-y-8 max-h-[70vh] overflow-y-auto no-scrollbar">
+               <div className="p-8 space-y-8 max-h-[70dvh] overflow-y-auto overscroll-contain no-scrollbar">
                   <section className="space-y-4">
                     <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400 ml-1">Mobilní aplikace</h4>
                     <InstallPWA />
@@ -831,7 +837,7 @@ export const TaskList = () => {
                      onChange={(e) => setLookupQuery(e.target.value)}
                    />
                 </div>
-                <div className="max-h-[60vh] overflow-y-auto p-4 space-y-2">
+                <div className="max-h-[60dvh] overflow-y-auto overscroll-contain p-4 space-y-2">
                    {[
                      { id: 'add-folder', name: 'Nová složka / Projekt', icon: FolderOpen, action: () => { setAddingType('FOLDER'); setIsAddingTask(true); } },
                      { id: 'add-location', name: 'Zaznamenat polohu / Zastávku', icon: MapPin, action: () => setIsSelectingLocation(true) },

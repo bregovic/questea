@@ -18,7 +18,13 @@
   width: 100%;
   max-width: 450px;
   border-radius: 32px;
-  overflow: hidden;
+  /* Rolování musí fungovat v každé velikosti okna, ne až pod 480 px –
+     v nízkém okně se formulář jinak uřízne i na desktopu. */
+  max-height: 85vh;
+  max-height: 85dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
@@ -219,12 +225,13 @@
     max-width: none;
     height: auto;
     max-height: 90vh;
-    overflow-y: auto;
+    max-height: 90dvh;
   }
-  
+
   .form {
     padding: 1.5rem;
-    padding-bottom: 3rem;
+    /* místo pro gesto/lištu telefonu, ať poslední pole nekončí pod hranou */
+    padding-bottom: calc(3rem + env(safe-area-inset-bottom, 0px));
     gap: 1.25rem;
   }
 }

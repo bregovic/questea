@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Mail, X, Loader2 } from "lucide-react";
+import { useScrollLock } from "@/lib/useScrollLock";
 
 /**
  * Decentní ikona odběru v hlavičce blogu + dialog na zadání adresy.
@@ -13,6 +14,8 @@ export function SubscribeButton({ folderId, blogTitle }: { folderId: string; blo
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  useScrollLock(open); // blog je dlouhý – pod dialogem se nemá rolovat
 
   const submit = async (action: "subscribe" | "unsubscribe") => {
     setBusy(true);
@@ -57,7 +60,7 @@ export function SubscribeButton({ folderId, blogTitle }: { folderId: string; blo
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 16 }}
               onClick={(e) => e.stopPropagation()}
-              className="relative w-full max-w-md rounded-3xl bg-white p-8 text-left shadow-2xl"
+              className="relative w-full max-w-md max-h-[85dvh] overflow-y-auto overscroll-contain rounded-3xl bg-white p-8 text-left shadow-2xl"
             >
               <button
                 onClick={() => setOpen(false)}

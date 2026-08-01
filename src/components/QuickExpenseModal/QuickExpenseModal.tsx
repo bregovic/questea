@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { X, Save, Wallet, Tag, Building, CreditCard } from "lucide-react";
 import styles from "./QuickExpenseModal.module.css";
+import { useScrollLock } from "@/lib/useScrollLock";
 
 interface QuickExpenseModalProps {
   task: any;
@@ -20,6 +21,8 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({ task, cate
   const [showCatSuggestions, setShowCatSuggestions] = useState(false);
   const [payee, setPayee] = useState(task.payee || "");
   const [title, setTitle] = useState(task.title || "");
+
+  useScrollLock(); // ať se pod dialogem neposouvá stránka
 
   useEffect(() => {
     // Load last used currency

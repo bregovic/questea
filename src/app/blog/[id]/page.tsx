@@ -140,7 +140,18 @@ export default async function BlogPage({ params }: { params: Promise<{ id: strin
   // základna stojí mimo cestu – nesmí se tvářit jako „kde jsme teď"
   const journeyPoints = withCoords.filter((p: any) => !p.isWeatherBase);
   const lastPost = journeyPoints[journeyPoints.length - 1];
-  const isSamePlace = basePost && lastPost && basePost.id === lastPost.id;
+
+  /* Když jsme pořád u základny, nemá smysl ukazovat dvakrát skoro totéž.
+     Rozhoduje vzdálenost, ne shoda záznamu – počasí se na pár kilometrech
+     neliší a dvě stejné teploty vedle sebe jsou jen šum. */
+  const SAME_PLACE_KM = 15;
+  const isSamePlace =
+    !!basePost && !!lastPost &&
+    (basePost.id === lastPost.id ||
+      calculateDistance(
+        basePost.locations[0].latitude, basePost.locations[0].longitude,
+        lastPost.locations[0].latitude, lastPost.locations[0].longitude
+      ) < SAME_PLACE_KM);
 
   const [baseWeather, lastWeather] = await Promise.all([
     basePost ? getWeather(basePost.locations[0].latitude, basePost.locations[0].longitude) : null,

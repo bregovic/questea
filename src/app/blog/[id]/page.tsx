@@ -247,7 +247,7 @@ export default async function BlogPage({ params }: { params: Promise<{ id: strin
                   <div className="flex flex-col items-center gap-4">
                     <div className={`flex items-center gap-3 px-6 py-2.5 rounded-full border border-white/10 backdrop-blur-md bg-white/5 text-white/90 text-[10px] font-black uppercase tracking-[0.2em] shadow-2xl`}>
                       <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                      Aktuální poloha
+                      {isSamePlace ? "Jsme na základně" : "Aktuální poloha"}
                     </div>
                     
                     {lastPost && (
@@ -261,9 +261,13 @@ export default async function BlogPage({ params }: { params: Promise<{ id: strin
                             />
                          </div>
                          <div className="text-center">
-                             <div className="text-white font-black text-sm mb-1 uppercase tracking-wider">
-                                {lastPost.title || "Na cestě"}
-                             </div>
+                             {/* Když jsme na základně, název je už v badge nad mapou –
+                                 nemá smysl psát pod sebe dvakrát totéž místo. */}
+                             {!isSamePlace && (
+                               <div className="text-white font-black text-sm mb-1 uppercase tracking-wider">
+                                  {lastPost.title || "Na cestě"}
+                               </div>
+                             )}
                             <div className="text-white/40 text-[10px] font-bold uppercase tracking-[0.2em]">
                                {new Date(lastPost.recordedAt || lastPost.createdAt).toLocaleString("cs-CZ", { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                             </div>

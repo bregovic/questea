@@ -155,6 +155,26 @@ export const LocationSelectionModal: React.FC<LocationSelectionModalProps> = ({
     }
   }, []);
 
+  /* Zamknout stránku pod dialogem. Bez toho se na mobilu při rolování
+     v dialogu posouvalo pozadí (a po zavření zůstala stránka jinde, než
+     kde uživatel byl). position:fixed je jediné, co drží i na iOS. */
+  useEffect(() => {
+    const y = window.scrollY;
+    const { body } = document;
+    const prev = { position: body.style.position, top: body.style.top, width: body.style.width };
+
+    body.style.position = "fixed";
+    body.style.top = `-${y}px`;
+    body.style.width = "100%";
+
+    return () => {
+      body.style.position = prev.position;
+      body.style.top = prev.top;
+      body.style.width = prev.width;
+      window.scrollTo(0, y); // vrátit na místo, odkud se dialog otevřel
+    };
+  }, []);
+
   const handlePlaceClick = (place: any) => {
     setSelectedPlace(place);
     setPlaceName(derivePlaceName(place)); // předvyplní, uživatel může přepsat

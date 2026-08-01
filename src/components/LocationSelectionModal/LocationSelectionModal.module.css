@@ -23,6 +23,9 @@
   display: flex;
   flex-direction: column;
   max-height: 85vh;
+  /* dvh počítá s lištou prohlížeče na mobilu – s vh dialog přesahuje pod
+     spodní hranu obrazovky a na tlačítka se nedá dostat */
+  max-height: 85dvh;
 }
 
 .header {
@@ -78,7 +81,13 @@
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
-  overflow: hidden;
+  /* Jediný scroller dialogu. Dřív tu bylo overflow:hidden, takže se delší
+     obsah (název, parametry, doprava, poznámka) prostě uřízl a na „Uložit
+     místo" nešlo dorolovat. */
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  /* zabrání tomu, aby se po dojetí na konec začalo posouvat pozadí */
+  overscroll-behavior: contain;
 }
 
 .searchBar {
@@ -170,8 +179,11 @@
 }
 
 .resultsList {
-  flex: 1;
+  /* Ne flex:1 – uvnitř rolovacího obsahu by se to pralo o výšku. Omezená
+     výška stačí a seznam si roluje sám, aniž by táhl obsah pod sebou. */
+  max-height: 40vh;
   overflow-y: auto;
+  overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -315,6 +327,14 @@
   display: flex;
   gap: 1rem;
   margin-top: 1rem;
+  /* Uložit zůstává na dohled i při dlouhé poznámce – jinak ho uživatel
+     musí hledat rolováním až úplně dole. */
+  position: sticky;
+  bottom: 0;
+  background: white;
+  padding: 1rem 0 calc(0.25rem + env(safe-area-inset-bottom, 0px));
+  margin-bottom: -0.5rem;
+  box-shadow: 0 -12px 16px -8px rgba(255, 255, 255, 0.95);
 }
 
 .backBtn {

@@ -214,23 +214,22 @@ export function PhotoBook({
         const photos = (p.attachments || [])
           .filter((a) => a.type === "image" && !hidden.has(a.id))
           .map((a) => a.id);
-        const rawText = (p.description || "").trim();
-        // ruční úpravy kusů textu se vracejí zpátky do textu příspěvku
-        const base = chunksFor(rawText, photos.length);
-        const text = base
-          .map((c, i) => settings.chunks[`${p.id}#${i}`] ?? c)
-          .join("\n\n");
+        // Text se nakrájí z původního znění, ruční úpravy se pak na kusy
+        // jen přiloží – pořadí tím zůstává stabilní i po opakované úpravě.
+        const chunks = chunksFor((p.description || "").trim(), photos.length).map(
+          (c, i) => settings.chunks[`${p.id}#${i}`] ?? c
+        );
         return {
           id: p.id,
           title: settings.titles[p.id] ?? (p.title || "").trim(),
           meta: [fmtDate(p), p.locations?.[0]?.placeName || p.locations?.[0]?.address]
             .filter(Boolean)
             .join(" · "),
-          text,
+          chunks,
           photos,
         };
       })
-      .filter((p) => p.photos.length || p.text || p.title);
+      .filter((p) => p.photos.length || p.chunks.some((c) => c.trim()) || p.title);
   }, [posts, settings]);
 
   const geo = useMemo(() => geometryFor(settings?.format || "A4"), [settings?.format]);
@@ -284,6 +283,11 @@ export function PhotoBook({
     patch({ hidden: [...(settings?.hidden || []), id] });
   const restorePhoto = (id: string) =>
     patch({ hidden: (settings?.hidden || []).filter((x) => x !== id) });
+  const editTitle = (postId: string, value: string) => {
+    if (!settings) return;
+    if ((settings.titles[postId] ?? undefined) === value) return;
+    patch({ titles: { ...settings.titles, [postId]: value } });
+  };
   const editChunk = (postId: string, chunkIdx: number, value: string) => {
     const key = `${postId}#${chunkIdx}`;
     if (!settings) return;
@@ -317,6 +321,14 @@ export function PhotoBook({
 
   return (
     <div className="fixed inset-0 z-[11000] flex flex-col bg-stone-950 text-stone-100">
+      {/* Prázdný nadpis by jinak nebyl vidět a nedal se do něj kliknout. */}
+      <style jsx global>{`
+        [data-placeholder]:empty::before {
+          content: attr(data-placeholder);
+          opacity: 0.28;
+        }
+      `}</style>
+
       {/* lišta */}
       <div className="flex flex-wrap items-center gap-3 border-b border-white/10 px-4 py-3">
         <div className="mr-auto flex items-baseline gap-3">
@@ -467,6 +479,7 @@ export function PhotoBook({
                     urlOf={urlOf}
                     editable
                     onEditText={editChunk}
+                    onEditTitle={editTitle}
                     onRemovePhoto={hidePhoto}
                   />
                 )}

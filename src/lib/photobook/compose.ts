@@ -33,7 +33,11 @@ export type SourcePost = {
   title: string;
   /** Datum · místo. */
   meta: string;
-  text: string;
+  /** Text už nakrájený na kusy, které se dají prokládat fotkami.
+   *  Krájí se mimo sazeč, aby ruční úpravy měly stabilní pořadí – kdyby se
+   *  text po každé úpravě dělil znovu, posunuly by se indexy a další úprava
+   *  by přepsala jiný kus. */
+  chunks: string[];
   /** Id fotek v pořadí, v jakém patří k příspěvku. */
   photos: string[];
 };
@@ -309,7 +313,7 @@ export function compose({ posts, aspects, geo }: ComposeInput): Page[] {
 
   for (const post of posts) {
     const photos = post.photos.map((id) => ({ id, aspect: aspectOf(id) }));
-    const chunks = chunksFor(post.text, photos.length);
+    const chunks = post.chunks.filter((c) => c.trim().length > 0);
     if (!chunks.length && !photos.length) continue;
 
     /* ── nadpis ──

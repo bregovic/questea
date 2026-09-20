@@ -18,6 +18,7 @@ export function BookPageView({
   urlOf,
   editable = false,
   onEditText,
+  onEditTitle,
   onRemovePhoto,
 }: {
   page: Page;
@@ -26,7 +27,8 @@ export function BookPageView({
   style: BookStyle;
   urlOf: (id: string) => string;
   editable?: boolean;
-  onEditText?: (postId: string, blockIdx: number, value: string) => void;
+  onEditText?: (postId: string, chunkIdx: number, value: string) => void;
+  onEditTitle?: (postId: string, value: string) => void;
   onRemovePhoto?: (id: string) => void;
 }) {
   return (
@@ -55,12 +57,12 @@ export function BookPageView({
           <BlockView
             key={i}
             block={b}
-            blockIdx={i}
             geo={geo}
             style={style}
             urlOf={urlOf}
             editable={editable}
             onEditText={onEditText}
+            onEditTitle={onEditTitle}
             onRemovePhoto={onRemovePhoto}
           />
         ))}
@@ -87,26 +89,49 @@ export function BookPageView({
 
 function BlockView({
   block,
-  blockIdx,
   geo,
   style,
   urlOf,
   editable,
   onEditText,
+  onEditTitle,
   onRemovePhoto,
 }: {
   block: Block;
-  blockIdx: number;
   geo: Geometry;
   style: BookStyle;
   urlOf: (id: string) => string;
   editable: boolean;
-  onEditText?: (postId: string, blockIdx: number, value: string) => void;
+  onEditText?: (postId: string, chunkIdx: number, value: string) => void;
+  onEditTitle?: (postId: string, value: string) => void;
   onRemovePhoto?: (id: string) => void;
 }) {
   if (block.kind === "heading") {
     return (
-      <div>
+      <div style={{ position: "relative" }}>
+        {editable && onEditTitle && block.title && (
+          <button
+            onClick={() => onEditTitle(block.postId, "")}
+            title="Odstranit nadpis"
+            style={{
+              position: "absolute",
+              top: -2,
+              right: -2,
+              width: 20,
+              height: 20,
+              borderRadius: 10,
+              border: "none",
+              cursor: "pointer",
+              background: "rgba(0,0,0,0.35)",
+              color: "#fff",
+              fontSize: 13,
+              lineHeight: "20px",
+              padding: 0,
+            }}
+          >
+            ×
+          </button>
+        )}
         {block.meta && (
           <div
             style={{
@@ -122,9 +147,15 @@ function BlockView({
             {block.meta}
           </div>
         )}
-        {block.title && (
+        {(block.title || editable) && (
           <div
+            contentEditable={editable && !!onEditTitle}
+            suppressContentEditableWarning
+            data-placeholder="Nadpis"
+            onBlur={(e) => onEditTitle?.(block.postId, e.currentTarget.textContent || "")}
             style={{
+              outline: "none",
+              minHeight: editable ? TYPE.title.size * geo.scale : undefined,
               fontFamily: style.titleFont,
               fontSize: TYPE.title.size * geo.scale,
               lineHeight: TYPE.title.line,
@@ -147,7 +178,7 @@ function BlockView({
         contentEditable={editable}
         suppressContentEditableWarning
         onBlur={(e) =>
-          onEditText?.(block.postId, blockIdx, e.currentTarget.textContent || "")
+          onEditText?.(block.postId, block.chunkIdx, e.currentTarget.textContent || "")
         }
         style={{
           fontSize: t.size * geo.scale,

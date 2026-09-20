@@ -279,7 +279,12 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
                            // We distribute images evenly among paragraphs
                            const imagesPerPara = Math.ceil(images.length / paragraphs.length);
                            const paraImages = images.slice(pIdx * imagesPerPara, (pIdx + 1) * imagesPerPara);
-                           
+
+                           /* Iniciála potřebuje aspoň tři řádky, aby ji text obtekl.
+                              U krátkého odstavce visela pod jediným řádkem a působila
+                              odtrženě – na širokém sloupci je takových odstavců víc. */
+                           const withDropCap = pIdx === 0 && para.length > 180;
+
                            return (
                              <div key={pIdx} className="space-y-16">
                                <Reveal delay={0.1}>
@@ -287,12 +292,12 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
                                      Mřížka fotek (blokový kontext) jí pak uhýbala a zúžila se o její
                                      šířku – na každé obrazovce o 107 px. */}
                                  <div className={`relative flow-root ${isAdventure || isElegant ? 'font-serif leading-relaxed text-2xl max-w-2xl' : 'text-stone-600 leading-[1.8] text-xl md:text-2xl max-w-3xl'}`}>
-                                    {pIdx === 0 && (
+                                    {withDropCap && (
                                       <span className={`drop-cap ${isAdventure ? 'text-[#d4a373]' : isElegant ? 'text-[#c5a059]' : isDark ? 'text-white/20' : 'text-[#ea580c]/30'}`}>
                                         {para.charAt(0)}
                                       </span>
                                     )}
-                                    <p className="whitespace-pre-wrap">{pIdx === 0 ? para.slice(1) : para}</p>
+                                    <p className="whitespace-pre-wrap">{withDropCap ? para.slice(1) : para}</p>
                                  </div>
                                </Reveal>
 

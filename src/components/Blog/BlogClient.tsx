@@ -102,6 +102,24 @@ export const FloatingHeader = ({ children }: { children: ReactNode }) => {
   );
 };
 
+/* Podkladové dlaždice map.
+   CARTO začalo do volných dlaždic vypalovat vodoznak „API KEY", tak jsme přešli
+   na Esri Light Gray: světlý podklad bez klíče a bez registrace, na kterém
+   vynikne trasa, a ladí s pískovým tématem. Služba má vlastní dlaždice jen do
+   úrovně 16, výš se dotahují zvětšením (maxNativeZoom).
+   crossOrigin: dlaždice musí chodit s CORS, jinak se ušpiní canvas a rozbije
+   se export do PDF. */
+const TILE_URL =
+  "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}";
+const TILE_ATTRIBUTION =
+  'Podklad &copy; <a href="https://www.esri.com">Esri</a>, HERE, Garmin, &copy; OpenStreetMap';
+const tileOptions = () => ({
+  maxZoom: 19,
+  maxNativeZoom: 16,
+  attribution: TILE_ATTRIBUTION,
+  crossOrigin: true,
+});
+
 const MAX_ZOOM = 4;
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 const dist = (a: { x: number, y: number }, b: { x: number, y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -454,7 +472,7 @@ const JourneyMapFullscreen = ({ points, id }: { points: JourneyPoint[], id: stri
       const map = L.map(id, {
         zoomControl: true,
         scrollWheelZoom: true,
-        attributionControl: false,
+        attributionControl: true,
         dragging: true,
         touchZoom: true,
         doubleClickZoom: true,
@@ -462,10 +480,7 @@ const JourneyMapFullscreen = ({ points, id }: { points: JourneyPoint[], id: stri
       });
       mapRef.current = map;
 
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-        maxZoom: 19,
-        crossOrigin: true   // CORS dlaždice → canvas se neušpiní → export PDF funguje
-      }).addTo(map);
+      L.tileLayer(TILE_URL, tileOptions()).addTo(map);
 
       const latlngs = points.length > 1 ? drawSegments(L, map, points, false) : points.map(p => [p.lat, p.lng] as [number, number]);
 
@@ -543,7 +558,7 @@ export const JourneyMap = ({ points, isMini = false, id = "journey-map", classNa
       const map = L.map(id, {
         zoomControl: false,
         scrollWheelZoom: false,
-        attributionControl: false,
+        attributionControl: !isMini,
         dragging: isUnlocked && !isMini,
         touchZoom: isUnlocked && !isMini,
         doubleClickZoom: isUnlocked && !isMini,
@@ -551,10 +566,7 @@ export const JourneyMap = ({ points, isMini = false, id = "journey-map", classNa
       });
       mapRef.current = map;
 
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-        maxZoom: 19,
-        crossOrigin: true   // CORS dlaždice → canvas se neušpiní → export PDF funguje
-      }).addTo(map);
+      L.tileLayer(TILE_URL, tileOptions()).addTo(map);
 
       const latlngs = points.length > 1 ? drawSegments(L, map, points, isMini) : points.map(p => [p.lat, p.lng] as [number, number]);
 

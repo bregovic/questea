@@ -1,9 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Heart, MessageCircle, Send, X, LogIn, UserPlus, User } from "lucide-react";
+import { Heart, MessageCircle, Send, X, LogIn, User } from "lucide-react";
 import { useSession, signIn } from "next-auth/react";
-import { Reveal } from "./BlogClient";
 import { AnimatePresence, motion } from "framer-motion";
 
 interface PostComment {

@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { MapPin, Clock, Navigation, Calendar, ChevronDown, Camera, X, Maximize2 } from "lucide-react";
-import { Reveal, RevealImage, FloatingHeader, Lightbox, JourneyMap, JourneyPoint } from "./BlogClient";
+import { MapPin, Navigation, Calendar, X, Maximize2 } from "lucide-react";
+import { Reveal, RevealImage, Lightbox, JourneyMap, JourneyPoint } from "./BlogClient";
 import { AnimatePresence, motion } from "framer-motion";
 import { BlogSocial } from "./BlogSocial";
 
@@ -24,8 +24,59 @@ const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
   return R * c;
 };
 
+/* Mřížka fotek je schválně mimo BlogContainer – jako vnořená komponenta by se
+   při každém překreslení (třeba otevření prohlížeče) vytvořila znovu a všechny
+   fotky by se odmountovaly a načítaly nanovo. */
+const SmartImageGrid = ({ images, onOpen, isAdventure, isElegant }: {
+  images: any[]; onOpen: (url: string) => void; isAdventure: boolean; isElegant: boolean;
+}) => {
+  const count = images.length;
+  if (count === 0) return null;
+
+  // Masonry přes CSS columns. Na širokém monitoru přiberou fotky sloupec navíc –
+  // text si svou čtecí míru hlídá zvlášť, tak se roztažením nic nerozbije.
+  const getColumns = () => {
+    if (count === 1) return "columns-1";
+    if (count <= 4) return "columns-1 md:columns-2";
+    return "columns-1 md:columns-2 lg:columns-3 2xl:columns-4";
+  };
+
+  return (
+    <div className={`${getColumns()} gap-8 space-y-8`}>
+      {images.map((att: any, idx: number) => {
+        const rotation = isAdventure ? (idx % 2 === 0 ? -1.5 : 1.5) : 0;
+        return (
+          <div key={att.id} className="break-inside-avoid mb-6">
+            <RevealImage delay={idx * 0.1} rotation={rotation} onClick={() => onOpen(att.url)}>
+              <div className={`relative group overflow-hidden shadow-xl transition-all duration-700 ${isAdventure ? 'border-[10px] border-white p-0.5 rounded-sm shadow-stone-400/20' : isElegant ? 'rounded-none' : 'rounded-2xl md:rounded-3xl'}`}>
+                {isAdventure && idx % 3 === 0 && (
+                  <div className="absolute top-[-15px] left-1/2 -translate-x-1/2 w-20 h-8 washi-tape z-20 rotate-[-3deg] pointer-events-none opacity-60" />
+                )}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={att.url}
+                  alt={att.name}
+                  loading="lazy"
+                  decoding="async"
+                  className="w-full h-auto object-contain transition-transform duration-1000 group-hover:scale-105"
+                />
+                {/* Na dotykových zařízeních není hover – jemně naznač, že fotka jde otevřít. */}
+                <div className="pointer-events-none absolute bottom-3 right-3 z-20 hidden rounded-full bg-black/30 p-1.5 text-white/80 backdrop-blur-sm [@media(hover:none)]:block">
+                  <Maximize2 size={13} />
+                </div>
+              </div>
+            </RevealImage>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, template, onlyMap }) => {
-  const [lightbox, setLightbox] = useState<{ images: string[], index: number } | null>(null);
+  // Prohlížeč drží jen index do společného seznamu všech fotek blogu,
+  // aby po poslední fotce příspěvku plynule pokračoval do dalšího.
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [showMapModal, setShowMapModal] = useState(false);
   const [mounted, setMounted] = React.useState(false);
 
@@ -57,6 +108,27 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
   }, [posts, mounted]);
 
   const visiblePosts = useMemo(() => posts.filter(p => p.taskType !== "GPS_LOG"), [posts]);
+
+  // Na stránce jdou příspěvky od nejnovějšího – pořadí fotek v prohlížeči
+  // musí odpovídat tomu, co uživatel vidí.
+  const orderedPosts = useMemo(() => [...visiblePosts].reverse(), [visiblePosts]);
+
+  const allPhotos = useMemo(() => {
+    const out: { url: string; postTitle: string }[] = [];
+    orderedPosts.forEach((p: any) => {
+      (p.attachments || [])
+        .filter((a: any) => a.type === "image")
+        .forEach((a: any) => out.push({ url: a.url, postTitle: p.title }));
+    });
+    return out;
+  }, [orderedPosts]);
+
+  const photoIndex = useMemo(
+    () => new Map(allPhotos.map((p, i) => [p.url, i])),
+    [allPhotos]
+  );
+
+  const openPhoto = (url: string) => setLightboxIndex(photoIndex.get(url) ?? 0);
 
   const visibleDistances = useMemo(() => {
     const dists: Record<string, number> = {};
@@ -113,49 +185,6 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
 
   const accentColor = isAdventure ? "#d4a373" : isElegant ? "#c5a059" : "#ea580c";
 
-  const SmartImageGrid = ({ images, imageUrls, onLightbox }: { images: any[], imageUrls: string[], onLightbox: (idx: number) => void }) => {
-    const count = images.length;
-    if (count === 0) return null;
-
-    // Masonry approach using CSS columns
-    const getColumns = () => {
-      if (count === 1) return "columns-1";
-      if (count <= 4) return "columns-1 md:columns-2";
-      return "columns-1 md:columns-2 lg:columns-3";
-    };
-
-    return (
-      <div className={`${getColumns()} gap-8 space-y-8 max-w-5xl`}>
-        {images.map((att: any, idx: number) => {
-          const rotation = isAdventure ? (idx % 2 === 0 ? -1.5 : 1.5) : 0;
-          return (
-            <div key={att.id} className="break-inside-avoid mb-6">
-              <RevealImage 
-                delay={idx * 0.1} 
-                rotation={rotation}
-                onClick={() => onLightbox(idx)}
-              >
-                <div className={`relative group overflow-hidden shadow-xl transition-all duration-700 ${isAdventure ? 'border-[10px] border-white p-0.5 rounded-sm shadow-stone-400/20' : isElegant ? 'rounded-none' : 'rounded-2xl md:rounded-3xl'}`}>
-                  {isAdventure && idx % 3 === 0 && (
-                    <div className="absolute top-[-15px] left-1/2 -translate-x-1/2 w-20 h-8 washi-tape z-20 rotate-[-3deg] pointer-events-none opacity-60" />
-                  )}
-                  <img
-                    src={att.url}
-                    alt={att.name}
-                    className="w-full h-auto object-contain transition-transform duration-1000 group-hover:scale-105"
-                  />
-                  {/* Na dotykových zařízeních není hover – jemně naznač, že fotka jde otevřít. */}
-                  <div className="pointer-events-none absolute bottom-3 right-3 z-20 hidden rounded-full bg-black/30 p-1.5 text-white/80 backdrop-blur-sm [@media(hover:none)]:block">
-                    <Maximize2 size={13} />
-                  </div>
-                </div>
-              </RevealImage>
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
 
   return (
     <>
@@ -169,13 +198,12 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
       )}
 
       <div className="space-y-64">
-        {[...visiblePosts].reverse().map((post, idx) => {
+        {orderedPosts.map((post, idx) => {
           const visualIndex = visiblePosts.length - idx;
           const date = new Date(post.recordedAt || post.createdAt);
 
           const images = post.attachments?.filter((a: any) => a.type === "image") || [];
-          const imageUrls = images.map((img: any) => img.url);
-          
+
           const distToNext = visibleDistances[post.id] || 0;
 
           // Sentence-based Granular Interleaving
@@ -193,15 +221,18 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
             return chunks;
           };
 
-          let paragraphs = getSentenceChunks(post.description || "");
+          const paragraphs = getSentenceChunks(post.description || "");
           
           return (
             <article key={post.id} className="relative group blog-article">
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-16 items-start">
-                
+              {/* Pevně široký sloupec s metadaty + zbytek obsahu. Dřív to byla
+                  dvanáctisloupcová mřížka s gap-16, kde samotné mezery snědly
+                  přes 700 px – obsah pak zůstal úzký i na velkém monitoru. */}
+              <div className={`grid grid-cols-1 ${isMinimal ? "" : "md:grid-cols-[6.5rem_minmax(0,1fr)]"} gap-y-12 md:gap-x-10 xl:gap-x-16 items-start`}>
+
                 {/* Metadata Column (Desktop) */}
                 {!isMinimal && (
-                  <div className="md:col-span-2 hidden md:block pt-6 sticky top-24">
+                  <div className="hidden md:block pt-6 sticky top-24">
                      <Reveal>
                        <div className={`text-[13px] font-black uppercase tracking-[0.3em] mb-6 ${isAdventure ? 'text-[#a68a64]' : isElegant ? 'text-[#c5a059]' : isDark ? 'text-white/60' : 'text-[#ea580c]'}`}>
                           {visualIndex}
@@ -215,7 +246,7 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
                 )}
 
                 {/* Main Entry Content */}
-                <div className={`${isMinimal ? 'md:col-span-12' : 'md:col-span-10'}`}>
+                <div className="min-w-0">
                   
                   <header className="mb-16">
                      {/* Datum na časové ose – na mobilu (a u MINIMAL i na desktopu),
@@ -262,25 +293,14 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
                                  </div>
                                </Reveal>
 
-                                <SmartImageGrid 
-                                  images={paraImages} 
-                                  imageUrls={imageUrls} 
-                                  onLightbox={(localIdx) => {
-                                    const absoluteIdx = images.indexOf(paraImages[localIdx]);
-                                    setLightbox({ images: imageUrls, index: absoluteIdx });
-                                  }}
-                                />
+                                <SmartImageGrid images={paraImages} onOpen={openPhoto} isAdventure={isAdventure} isElegant={isElegant} />
                               </div>
                             );
                           })}
                         </div>
                       ) : (
                         // Fallback for posts with only images
-                        <SmartImageGrid 
-                          images={images} 
-                          imageUrls={imageUrls} 
-                          onLightbox={(idx) => setLightbox({ images: imageUrls, index: idx })}
-                        />
+                        <SmartImageGrid images={images} onOpen={openPhoto} isAdventure={isAdventure} isElegant={isElegant} />
                       )}
                   </div>
 
@@ -315,11 +335,11 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
       </div>
 
       <AnimatePresence>
-        {lightbox && (
-          <Lightbox 
-            images={lightbox.images} 
-            initialIndex={lightbox.index} 
-            onClose={() => setLightbox(null)} 
+        {lightboxIndex !== null && (
+          <Lightbox
+            photos={allPhotos}
+            initialIndex={lightboxIndex}
+            onClose={() => setLightboxIndex(null)}
           />
         )}
         {showMapModal && (

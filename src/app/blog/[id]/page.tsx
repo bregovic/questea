@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
-import { MapPin, Clock, Navigation, Calendar, ChevronDown, Camera } from "lucide-react";
-import { Reveal, RevealImage, FloatingHeader, BlogStyles, ViewCounter } from "@/components/Blog/BlogClient";
+import { Navigation, Calendar, ChevronDown } from "lucide-react";
+import { Reveal, FloatingHeader, BlogStyles, ViewCounter } from "@/components/Blog/BlogClient";
 import { BlogContainer } from "@/components/Blog/BlogContainer";
 import { WeatherBadge } from "@/components/Blog/WeatherBadge";
 import { SubscribeButton } from "@/components/Blog/SubscribeButton";
@@ -205,7 +205,7 @@ export default async function BlogPage({ params }: { params: Promise<{ id: strin
             <div className={`absolute inset-0 opacity-40 z-0 scale-110 ${isAdventure ? "bg-[url('https://www.transparenttextures.com/patterns/black-paper.png')]" : "bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')]"}`} />
           </FloatingHeader>
           
-          <div className="relative z-20 text-center px-6 max-w-5xl">
+          <div className="relative z-20 text-center px-6 max-w-5xl xl:max-w-6xl">
             <Reveal delay={0.4} immediate>
               {/* pt-4: při leading-[0.75] přesahují horní dotažnice řádek,
                   bez odsazení se u velkého písma ořezávaly */}
@@ -296,7 +296,7 @@ export default async function BlogPage({ params }: { params: Promise<{ id: strin
           </div>
         </header>
       ) : (
-        <header className="max-w-4xl mx-auto px-6 pt-40 pb-24 text-center">
+        <header className="max-w-4xl xl:max-w-6xl 2xl:max-w-[88rem] mx-auto px-6 lg:px-10 pt-40 pb-24 text-center">
            <Reveal immediate>
              <h1 className="text-8xl md:text-9xl font-light tracking-tighter mb-12">{folder.title}</h1>
              <div className="flex justify-center gap-16 text-stone-400 text-xs font-black tracking-widest uppercase">
@@ -308,7 +308,7 @@ export default async function BlogPage({ params }: { params: Promise<{ id: strin
       )}
 
       {/* Main Content */}
-      <main className={`max-w-4xl mx-auto px-6 relative z-30 ${isMinimal ? 'pt-24' : 'pt-20 md:pt-32'}`}>
+      <main className={`max-w-4xl xl:max-w-6xl 2xl:max-w-[88rem] mx-auto px-6 lg:px-10 relative z-30 ${isMinimal ? 'pt-24' : 'pt-20 md:pt-32'}`}>
         <BlogContainer posts={posts} folder={folder} template={template} />
       </main>
 

@@ -3,6 +3,7 @@
 import { useState, useEffect, ReactNode, useRef } from "react";
 import { motion } from "framer-motion";
 import { X, ChevronLeft, ChevronRight, Navigation, Maximize2 } from "lucide-react";
+import { useScrollLock } from "@/lib/useScrollLock";
 import { AnimatePresence } from "framer-motion";
 
 export const BlogStyles = () => {
@@ -102,9 +103,14 @@ const MAX_ZOOM = 4;
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 const dist = (a: { x: number, y: number }, b: { x: number, y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
 
-export const Lightbox = ({ images, initialIndex, onClose }: { images: string[], initialIndex: number, onClose: () => void }) => {
+export type LightboxPhoto = { url: string; postTitle?: string };
+
+/* Prohlížeč dostane fotky celého blogu za sebou, ne jen jednoho příspěvku –
+   na konci příspěvku se tak plynule pokračuje do dalšího. */
+export const Lightbox = ({ photos, initialIndex, onClose }: { photos: LightboxPhoto[], initialIndex: number, onClose: () => void }) => {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [zoomed, setZoomed] = useState(false);
+  const current = photos[currentIndex];
 
   const stageRef = useRef<HTMLDivElement>(null);
   const zoomRef = useRef<HTMLDivElement>(null);
@@ -140,7 +146,7 @@ export const Lightbox = ({ images, initialIndex, onClose }: { images: string[], 
   };
 
   const reset = (animate = false) => setTransform(1, 0, 0, animate);
-  const go = (dir: number) => setCurrentIndex((prev) => (prev + dir + images.length) % images.length);
+  const go = (dir: number) => setCurrentIndex((prev) => (prev + dir + photos.length) % photos.length);
 
   /* Dvojtap / dvojklik přiblíží na místo, kam uživatel ťukl. */
   const toggleZoomAt = (clientX: number, clientY: number) => {
@@ -153,6 +159,19 @@ export const Lightbox = ({ images, initialIndex, onClose }: { images: string[], 
 
   useEffect(() => { reset(false); }, [currentIndex]);
 
+  /* Sousední fotky se přednačtou, ať přechod přes hranici příspěvku nebliká. */
+  useEffect(() => {
+    [currentIndex - 1, currentIndex + 1].forEach((i) => {
+      const p = photos[(i + photos.length) % photos.length];
+      if (p && p.url !== current?.url) {
+        const img = new Image();
+        img.src = p.url;
+      }
+    });
+  }, [currentIndex, photos, current?.url]);
+
+  useScrollLock(true);
+
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -160,13 +179,8 @@ export const Lightbox = ({ images, initialIndex, onClose }: { images: string[], 
       if (e.key === "ArrowLeft") go(-1);
     };
     window.addEventListener("keydown", handleKey);
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      window.removeEventListener("keydown", handleKey);
-      document.body.style.overflow = prevOverflow;
-    };
-  }, [images.length, onClose]);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [photos.length, onClose]);
 
   const onPointerDown = (e: React.PointerEvent) => {
     const s = g.current;
@@ -238,7 +252,7 @@ export const Lightbox = ({ images, initialIndex, onClose }: { images: string[], 
 
     if (tr.current.scale <= 1.01) {
       const { dx, dy } = s;
-      if (images.length > 1 && Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)) {
+      if (photos.length > 1 && Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)) {
         go(dx < 0 ? 1 : -1);
       } else if (dy > 110 && Math.abs(dy) > Math.abs(dx)) {
         onClose();
@@ -292,15 +306,23 @@ export const Lightbox = ({ images, initialIndex, onClose }: { images: string[], 
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.4, ease: "easeOut" }}
-            src={images[currentIndex]}
+            src={current?.url}
             draggable={false}
             className="max-w-full max-h-full object-contain shadow-2xl rounded-sm"
           />
         </div>
 
-        {images.length > 1 && (
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/40 font-mono text-sm tracking-widest bg-black/20 px-4 py-2 rounded-full backdrop-blur-md pointer-events-none">
-            {currentIndex + 1} / {images.length}
+        {photos.length > 1 && (
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-3 max-w-[90vw] text-white/50 text-sm bg-black/25 px-4 py-2 rounded-full backdrop-blur-md pointer-events-none">
+            {current?.postTitle && (
+              <>
+                <span className="truncate font-bold text-white/70">{current.postTitle}</span>
+                <span className="opacity-40">·</span>
+              </>
+            )}
+            <span className="font-mono tracking-widest whitespace-nowrap">
+              {currentIndex + 1} / {photos.length}
+            </span>
           </div>
         )}
       </div>
@@ -313,7 +335,7 @@ export const Lightbox = ({ images, initialIndex, onClose }: { images: string[], 
         <X size={28} />
       </button>
 
-      {images.length > 1 && (
+      {photos.length > 1 && (
         <>
           <button
             className="absolute left-8 top-1/2 -translate-y-1/2 text-white/30 hover:text-white transition-colors p-4 z-[100] hidden md:block"

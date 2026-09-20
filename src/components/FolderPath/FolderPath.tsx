@@ -24,6 +24,12 @@ const norm = (s: string) =>
 
 const PANEL_W = 340;
 
+/** Myš a jemný ukazatel = je po ruce i klávesnice. Volá se jen z otevřeného
+ *  panelu, tedy vždy v prohlížeči. */
+const hasKeyboard = () =>
+  typeof window !== "undefined" &&
+  !!window.matchMedia?.("(hover: hover) and (pointer: fine)").matches;
+
 export function FolderPath({
   tasks,
   currentId,
@@ -159,7 +165,10 @@ export function FolderPath({
         <div className={styles.searchRow}>
           <Search size={16} className={styles.searchIcon} />
           <input
-            autoFocus
+            /* Na dotykovém zařízení nefokusovat: vyjela by klávesnice a zakryla
+               nabídku, přitom se sem chodí hlavně klikat. Psát se začne, až
+               když uživatel do hledání ťukne. */
+            autoFocus={hasKeyboard()}
             className={styles.searchInput}
             placeholder="Hledat složku…"
             value={query}

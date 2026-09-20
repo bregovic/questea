@@ -98,7 +98,9 @@ export function PhotoBook({
   const lastSavedRef = useRef<string>("");
   const [stageScale, setStageScale] = useState(0.7);
 
-  const urlOf = useCallback((id: string) => `/api/images/${id}`, []);
+  // ?raw=1 → fotka jde přes náš server, ne přesměrováním na R2. Bez toho
+  // by ji prohlížeč kvůli chybějícímu CORS zablokoval a PDF by nešlo vytvořit.
+  const urlOf = useCallback((id: string) => `/api/images/${id}?raw=1`, []);
 
   /* ── načtení příspěvků ── */
   useEffect(() => {
@@ -147,12 +149,12 @@ export function PhotoBook({
         next[a.id] = 1.5;
         done();
       };
-      im.src = a.url;
+      im.src = urlOf(a.id); // stejná adresa jako při vykreslení → načte se jen jednou
     });
     return () => {
       cancelled = true;
     };
-  }, [allImages]);
+  }, [allImages, urlOf]);
 
   /* ── nastavení z databáze; starý formát (pole stránek) se zahodí a přesází ── */
   useEffect(() => {

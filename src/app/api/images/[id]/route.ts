@@ -31,6 +31,26 @@ export async function GET(
       });
     }
 
+    /* `?raw=1` – data potečou přes nás místo přesměrování na veřejnou adresu R2.
+       Ta neposílá Access-Control-Allow-Origin, takže fotku načtenou s
+       crossOrigin="anonymous" prohlížeč zablokuje. To potřebuje fotokniha:
+       bez CORS by se stránky nevykreslily a nešlo by z nich udělat PDF
+       (html2canvas by narazil na „ušpiněné" plátno). Běžné zobrazení fotek
+       dál jede přesměrováním, ať servírování obrázků nejde přes náš server. */
+    if (new URL(request.url).searchParams.has("raw")) {
+      const upstream = await fetch(attachment.url);
+      if (!upstream.ok || !upstream.body) {
+        return new NextResponse("Upstream error", { status: 502 });
+      }
+      return new NextResponse(upstream.body, {
+        headers: {
+          "Content-Type": upstream.headers.get("content-type") || "image/jpeg",
+          "Cache-Control": "public, max-age=31536000, immutable",
+          "Access-Control-Allow-Origin": "*",
+        },
+      });
+    }
+
     // If it's a regular URL, redirect to it
     return NextResponse.redirect(attachment.url);
 

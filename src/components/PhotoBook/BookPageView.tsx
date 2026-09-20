@@ -167,7 +167,9 @@ function BlockView({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: geo.gap }}>
       {block.rows.map((row, ri) => (
-        <div key={ri} style={{ display: "flex", gap: geo.gap, height: row.h }}>
+        // Poslední řádek nemusí vyplnit celou šířku (má strop výšky) – ať pak
+        // nevisí u levého okraje, vycentruje se.
+        <div key={ri} style={{ display: "flex", gap: geo.gap, height: row.h, justifyContent: "center" }}>
           {row.cells.map((c) => (
             <div
               key={c.id}

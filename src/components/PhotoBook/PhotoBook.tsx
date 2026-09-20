@@ -309,6 +309,19 @@ export function PhotoBook({
   const addPhoto = (i: number, id: string) => mutate((pages) => { if (!pages[i].photos.includes(id)) pages[i].photos = [...pages[i].photos, id]; return pages; });
   const removePhoto = (i: number, id: string) => mutate((pages) => { pages[i].photos = pages[i].photos.filter((x) => x !== id); return pages; });
   const resetDoc = () => { if (posts && confirm("Obnovit knihu z příspěvků? Tvoje úpravy se zahodí.")) setDoc(buildAutoDoc(posts, folder.title || "")); };
+  const movePageTo = (from: number, to: number) => mutate((pages) => { if (from === to || to < 0 || to >= pages.length) return pages; const [m] = pages.splice(from, 1); pages.splice(to, 0, m); setSel(to); return pages; });
+  const reorderPhoto = (i: number, fromId: string, toId: string) => mutate((pages) => { const ph = [...pages[i].photos]; const fi = ph.indexOf(fromId); if (fi < 0 || fromId === toId) return pages; ph.splice(fi, 1); const ti = ph.indexOf(toId); ph.splice(ti < 0 ? ph.length : ti, 0, fromId); pages[i].photos = ph; return pages; });
+  const insertPhotoAt = (i: number, id: string, beforeId: string) => mutate((pages) => { if (pages[i].photos.includes(id)) return pages; const ph = [...pages[i].photos]; const ti = ph.indexOf(beforeId); ph.splice(ti < 0 ? ph.length : ti, 0, id); pages[i].photos = ph; return pages; });
+
+  /* drag & drop model: přetahování stránek ve stripu, fotek ze zásobníku a mezi sloty */
+  const dragRef = useRef<{ kind: "page"; from: number } | { kind: "tray"; id: string } | { kind: "photo"; id: string } | null>(null);
+  const [dragOverPage, setDragOverPage] = useState<number | null>(null);
+  const dnd = {
+    active: () => dragRef.current?.kind === "tray" || dragRef.current?.kind === "photo",
+    startPhotoDrag: (id: string) => { dragRef.current = { kind: "photo", id }; },
+    dropOnCell: (targetId: string) => { const d = dragRef.current; if (!d) return; if (d.kind === "photo") reorderPhoto(sel, d.id, targetId); else if (d.kind === "tray") insertPhotoAt(sel, d.id, targetId); dragRef.current = null; },
+    dropOnPage: () => { const d = dragRef.current; if (!d || d.kind !== "tray") { dragRef.current = null; return; } if (doc?.[sel]?.template === "fullbleed") patchPage(sel, { photos: [d.id] }); else addPhoto(sel, d.id); dragRef.current = null; },
+  };
 
   async function exportPdf() {
     if (!exportRef.current) return;
@@ -367,8 +380,14 @@ export function PhotoBook({
           <div className="flex w-[150px] shrink-0 flex-col gap-2 overflow-y-auto border-r border-white/10 bg-stone-950/60 p-3">
             {doc!.map((p, i) => (
               <button key={p.id} onClick={() => setSel(i)}
-                className={`group relative aspect-[210/297] w-full overflow-hidden rounded-md border text-left transition ${i === sel ? "border-2" : "border-white/15 hover:border-white/40"}`}
-                style={{ borderColor: i === sel ? accent : undefined, background: p.template === "cover" ? "#1a1410" : "#fff" }}>
+                draggable
+                onDragStart={() => { dragRef.current = { kind: "page", from: i }; }}
+                onDragOver={(e) => { if (dragRef.current?.kind === "page") { e.preventDefault(); setDragOverPage(i); } }}
+                onDragLeave={() => setDragOverPage((d) => (d === i ? null : d))}
+                onDrop={(e) => { e.preventDefault(); if (dragRef.current?.kind === "page") movePageTo(dragRef.current.from, i); dragRef.current = null; setDragOverPage(null); }}
+                onDragEnd={() => { dragRef.current = null; setDragOverPage(null); }}
+                className={`group relative aspect-[210/297] w-full cursor-grab overflow-hidden rounded-md border text-left transition active:cursor-grabbing ${i === sel ? "border-2" : "border-white/15 hover:border-white/40"}`}
+                style={{ borderColor: dragOverPage === i ? "#fff" : i === sel ? accent : undefined, boxShadow: dragOverPage === i ? "inset 0 0 0 2px #fff" : undefined, background: p.template === "cover" ? "#1a1410" : "#fff" }}>
                 <div className="pointer-events-none absolute inset-0 origin-top-left" style={{ width: dims.w, height: dims.h, transform: `scale(${150 / dims.w})` }}>
                   <PageView page={p} idx={i} accent={accent} format={format} dims={dims} PAD={PAD} GAP={GAP} pageW={pageW} pageH={pageH} aspects={aspects} urlOf={urlOf} mapPoints={mapPoints} dateRange={dateRange} editable={false} />
                 </div>
@@ -407,6 +426,7 @@ export function PhotoBook({
                     editable
                     onText={(patch) => patchPage(sel, patch)}
                     onRemovePhoto={(id) => removePhoto(sel, id)}
+                    dnd={dnd}
                   />
                 </div>
               )}
@@ -426,8 +446,11 @@ export function PhotoBook({
                   const canAdd = curPage && curPage.template !== "cover" && curPage.template !== "text";
                   return (
                     <button key={a.id} disabled={!canAdd || used} onClick={() => addPhoto(sel, a.id)}
-                      title={used ? "Už na stránce" : canAdd ? "Přidat na stránku" : "Tato šablona fotky nemá"}
-                      className={`relative aspect-square overflow-hidden rounded border transition ${used ? "border-2 opacity-50" : "border-white/10 hover:border-white/50"} ${!canAdd ? "cursor-not-allowed opacity-30" : ""}`}
+                      draggable={!!canAdd && !used}
+                      onDragStart={() => { dragRef.current = { kind: "tray", id: a.id }; }}
+                      onDragEnd={() => { dragRef.current = null; }}
+                      title={used ? "Už na stránce" : canAdd ? "Klik nebo přetáhni na stránku" : "Tato šablona fotky nemá"}
+                      className={`relative aspect-square overflow-hidden rounded border transition ${used ? "border-2 opacity-50" : "border-white/10 hover:border-white/50"} ${!canAdd ? "cursor-not-allowed opacity-30" : !used ? "cursor-grab active:cursor-grabbing" : ""}`}
                       style={{ borderColor: used ? accent : undefined }}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={a.url} alt="" className="h-full w-full object-cover" />
@@ -468,9 +491,11 @@ function PbLabel({ children, light, accent, a4 }: { children: React.ReactNode; l
   return <div style={{ fontFamily: "Outfit, sans-serif", fontSize: a4 ? 11 : 10, fontWeight: 700, letterSpacing: "0.24em", textTransform: "uppercase", color: light ? "rgba(245,240,232,0.55)" : accent }}>{children}</div>;
 }
 
-function PbPhotos({ ids, full, editable, onRemovePhoto, aspects, urlOf, pageW, pageH, gap, a4 }: {
+type Dnd = { active: () => boolean; startPhotoDrag: (id: string) => void; dropOnCell: (targetId: string) => void; dropOnPage: () => void };
+
+function PbPhotos({ ids, full, editable, onRemovePhoto, aspects, urlOf, pageW, pageH, gap, a4, dnd }: {
   ids: string[]; full?: boolean; editable: boolean; onRemovePhoto?: (id: string) => void;
-  aspects: Record<string, number>; urlOf: (id: string) => string; pageW: number; pageH: number; gap: number; a4: boolean;
+  aspects: Record<string, number>; urlOf: (id: string) => string; pageW: number; pageH: number; gap: number; a4: boolean; dnd?: Dnd;
 }) {
   if (full) {
     const id = ids[0];
@@ -479,46 +504,60 @@ function PbPhotos({ ids, full, editable, onRemovePhoto, aspects, urlOf, pageW, p
         {id ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={urlOf(id)} alt="" crossOrigin="anonymous" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-        ) : <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "rgba(255,255,255,0.4)", fontFamily: "Outfit, sans-serif", fontSize: 13 }}>Přidej fotku ze zásobníku →</div>}
+        ) : <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "rgba(255,255,255,0.4)", fontFamily: "Outfit, sans-serif", fontSize: 13 }}>Přetáhni sem fotku ze zásobníku</div>}
         {editable && id && onRemovePhoto && <RemoveBtn onClick={() => onRemovePhoto(id)} />}
       </div>
     );
   }
-  const targetRowH = pageH / (a4 ? 3.15 : 2.85);
+  // kompaktní magazín: řádky i buňky se přes flex roztáhnou tak, aby VYPLNILY
+  // dostupnou výšku (rodič dává flex:1). Poměry řídí flex-grow (váhy), ořez = cover.
+  const targetRowH = pageH / (a4 ? 3.0 : 2.7);
   if (ids.length === 0) {
-    return editable ? <div style={{ height: targetRowH, border: "2px dashed #e0d8ca", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", color: "#b8ac99", fontFamily: "Outfit, sans-serif", fontSize: 13 }}>Přidej fotky ze zásobníku →</div> : null;
+    return editable ? <div style={{ flex: 1, minHeight: 0, border: "2px dashed #e0d8ca", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", color: "#b8ac99", fontFamily: "Outfit, sans-serif", fontSize: 13 }}>Přidej fotky ze zásobníku (klik nebo přetáhni)</div> : null;
   }
   const rows = justifyRows(ids.map((id) => ({ id, aspect: aspects[id] || 1.5 })), pageW, gap, targetRowH);
   return (
-    <>{rows.map((row, ri) => (
-      <div key={ri} style={{ display: "flex", gap, height: row.h, justifyContent: "center", marginTop: ri > 0 ? gap : 0 }}>
-        {row.cells.map((c) => (
-          <div key={c.id} style={{ width: c.w, height: row.h, flexShrink: 0, overflow: "hidden", borderRadius: 6, background: "#ece8e1", boxShadow: "0 8px 22px rgba(0,0,0,0.10)", position: "relative" }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={urlOf(c.id)} alt="" crossOrigin="anonymous" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-            {editable && onRemovePhoto && <RemoveBtn onClick={() => onRemovePhoto(c.id)} />}
-          </div>
-        ))}
-      </div>
-    ))}</>
+    <div style={{ display: "flex", flexDirection: "column", gap, height: "100%", minHeight: 0 }}>
+      {rows.map((row, ri) => (
+        <div key={ri} style={{ display: "flex", gap, flexGrow: row.h, flexBasis: 0, minHeight: 0 }}>
+          {row.cells.map((c) => (
+            <div key={c.id}
+              draggable={!!dnd}
+              onDragStart={dnd ? (e) => { e.stopPropagation(); dnd.startPhotoDrag(c.id); } : undefined}
+              onDragOver={dnd ? (e) => { if (dnd.active()) { e.preventDefault(); e.stopPropagation(); } } : undefined}
+              onDrop={dnd ? (e) => { e.preventDefault(); e.stopPropagation(); dnd.dropOnCell(c.id); } : undefined}
+              style={{ flexGrow: c.w, flexBasis: 0, minWidth: 0, height: "100%", overflow: "hidden", borderRadius: 6, background: "#ece8e1", boxShadow: "0 8px 22px rgba(0,0,0,0.10)", position: "relative", cursor: dnd ? "grab" : "default" }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={urlOf(c.id)} alt="" crossOrigin="anonymous" draggable={false} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+              {editable && onRemovePhoto && <RemoveBtn onClick={() => onRemovePhoto(c.id)} />}
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
   );
 }
 
 /* ════════════════════════ render jedné stránky ════════════════════════ */
 function PageView({
   page, idx, accent, format, dims, PAD, GAP, pageW, pageH, aspects, urlOf, mapPoints, dateRange,
-  editable, onText, onRemovePhoto,
+  editable, onText, onRemovePhoto, dnd,
 }: {
   page: BookPage; idx: number; accent: string; format: Format;
   dims: { w: number; h: number }; PAD: number; GAP: number; pageW: number; pageH: number;
   aspects: Record<string, number>; urlOf: (id: string) => string;
   mapPoints: { lat: number; lng: number; title: string }[]; dateRange: string;
-  editable: boolean; onText?: (patch: Partial<BookPage>) => void; onRemovePhoto?: (id: string) => void;
+  editable: boolean; onText?: (patch: Partial<BookPage>) => void; onRemovePhoto?: (id: string) => void; dnd?: Dnd;
 }) {
   const a4 = format === "A4";
   const commit = (patch: Partial<BookPage>) => onText?.(patch);
-  const photoProps = { editable, onRemovePhoto, aspects, urlOf, pageW, pageH, gap: GAP, a4 };
+  const photoProps = { editable, onRemovePhoto, aspects, urlOf, pageW, pageH, gap: GAP, a4, dnd };
   const innerStyle = (center?: boolean): React.CSSProperties => ({ position: "absolute", inset: PAD, overflow: "hidden", display: "flex", flexDirection: "column", justifyContent: center ? "center" : "flex-start" });
+  // drop na volnou plochu stránky = přidat přetaženou fotku ze zásobníku
+  const pageDrop = dnd ? {
+    onDragOver: (e: React.DragEvent) => { if (dnd.active()) e.preventDefault(); },
+    onDrop: (e: React.DragEvent) => { if (dnd.active()) { e.preventDefault(); dnd.dropOnPage(); } },
+  } : {};
 
   /* ── obálka ── */
   if (page.template === "cover") {
@@ -543,7 +582,7 @@ function PageView({
   /* ── celostránková fotka ── */
   if (page.template === "fullbleed") {
     return (
-      <div style={{ width: dims.w, height: dims.h, position: "relative", background: "#1a1410", overflow: "hidden" }}>
+      <div {...pageDrop} style={{ width: dims.w, height: dims.h, position: "relative", background: "#1a1410", overflow: "hidden" }}>
         <PbPhotos ids={page.photos} full {...photoProps} />
         {(page.title || page.meta) && (
           <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, padding: a4 ? "120px 52px 44px" : "80px 34px 30px", background: "linear-gradient(to top, rgba(0,0,0,0.72), rgba(0,0,0,0))" }}>
@@ -579,7 +618,7 @@ function PageView({
   const isEditorial = page.template === "editorial";
   return (
     <div style={{ width: dims.w, height: dims.h, background: "#fff", position: "relative" }}>
-      <div style={innerStyle()}>
+      <div {...pageDrop} style={innerStyle()}>
         {page.meta && <div style={{ marginBottom: 12 }}><PbLabel accent={accent} a4={a4}>{page.meta}</PbLabel></div>}
         {(page.title || editable) && (<>
           <PbEditable editable={editable} value={page.title} onCommit={(v) => commit({ title: v })}

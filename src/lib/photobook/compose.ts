@@ -19,11 +19,20 @@
 export type Geometry = {
   pageW: number;
   pageH: number;
-  pad: number;
+  /** Okraje jsou zrcadlené: u hřbetu širší, protože se tam část stránky
+   *  ztratí ohybem a lepením. Šířka sazebního obrazce je na obou stranách
+   *  stejná, liší se jen jeho odsazení – sazeč tak parity stránek nemusí řešit. */
+  padInner: number;
+  padOuter: number;
+  padTop: number;
+  padBottom: number;
   gap: number;
   /** Šířka a výška sazebního obrazce (stránka bez okrajů). */
   contentW: number;
   contentH: number;
+  /** Míra textu: širší řádek než ~65 znaků se špatně čte, tak se text
+   *  nesází přes celou šířku stránky. */
+  textW: number;
   /** Měřítko typografie: A4 = 1, A5 = 0.72. */
   scale: number;
 };
@@ -64,23 +73,33 @@ export type Doc = {
 
 /* ─────────────────────────── geometrie ─────────────────────────── */
 
+/* Okraje podle zvyklostí knižní sazby: vnitřní (u hřbetu) výrazně širší než
+   vnější, dolní o něco větší než horní. Hodnoty v px při 96 DPI, tj.
+   1 mm ≈ 3.78 px – vnitřní 80 px ≈ 21 mm, vnější 50 px ≈ 13 mm. */
 export const PAGE_SIZES = {
-  A4: { w: 794, h: 1123, pad: 58, scale: 1 },
-  A5: { w: 559, h: 794, pad: 40, scale: 0.72 },
+  A4: { w: 794, h: 1123, inner: 80, outer: 50, top: 50, bottom: 64, scale: 1 },
+  A5: { w: 559, h: 794, inner: 58, outer: 36, top: 36, bottom: 46, scale: 0.72 },
 } as const;
 
 export type Format = keyof typeof PAGE_SIZES;
 
+/** Kolem 65 znaků na řádek se čte nejlépe; víc už oko ztrácí návaznost. */
+const IDEAL_CHARS_PER_LINE = 65;
+
 export function geometryFor(format: Format): Geometry {
   const s = PAGE_SIZES[format];
-  const gap = Math.round(11 * s.scale);
+  const contentW = s.w - s.inner - s.outer;
   return {
     pageW: s.w,
     pageH: s.h,
-    pad: s.pad,
-    gap,
-    contentW: s.w - 2 * s.pad,
-    contentH: s.h - 2 * s.pad,
+    padInner: s.inner,
+    padOuter: s.outer,
+    padTop: s.top,
+    padBottom: s.bottom,
+    gap: Math.round(16 * s.scale),
+    contentW,
+    contentH: s.h - s.top - s.bottom,
+    textW: Math.min(contentW, Math.round(TYPE.body.size * s.scale * AVG_CHAR_W * IDEAL_CHARS_PER_LINE)),
     scale: s.scale,
   };
 }
@@ -116,7 +135,7 @@ export function textHeight(text: string, geo: Geometry, lead: boolean): number {
   const t = lead ? TYPE.lead : TYPE.body;
   const size = t.size * geo.scale;
   const paras = text.split(/\n+/).filter((p) => p.trim().length > 0).length;
-  const lines = wrappedLines(text, geo.contentW, size);
+  const lines = wrappedLines(text, geo.textW, size);
   // mezera mezi odstavci uvnitř bloku
   return Math.ceil(lines * size * t.line + Math.max(0, paras - 1) * size * 0.6);
 }
@@ -182,12 +201,14 @@ export function justify(
 export function fitPhotos(
   photos: { id: string; aspect: number }[],
   geo: Geometry,
-  available: number
+  available: number,
+  density: Density = 3
 ): { rows: PhotoRow[]; used: number; rest: { id: string; aspect: number }[] } {
   if (!photos.length || available <= 0) return { rows: [], used: 0, rest: photos };
 
-  const minRowH = geo.contentH * 0.14;
-  const maxRowH = geo.contentH * 0.46;
+  const band = ROW_BANDS[density];
+  const minRowH = geo.contentH * band[0];
+  const maxRowH = geo.contentH * band[1];
 
   let best: { rows: PhotoRow[]; used: number; count: number; fill: number } | null = null;
 
@@ -274,10 +295,24 @@ export function chunksFor(text: string, photoCount: number): string[] {
 let _seq = 0;
 const pid = () => `pg${(_seq++).toString(36)}`;
 
+/** 1 = pár velkých fotek na stránku, 5 = hustá mřížka. Doporučený průměr
+ *  u fotoknih jsou 3–4 fotky na stránku, proto výchozí 3. */
+export type Density = 1 | 2 | 3 | 4 | 5;
+
+/** Rozmezí výšky řádku fotek jako podíl výšky sazebního obrazce. */
+const ROW_BANDS: Record<Density, [number, number]> = {
+  1: [0.30, 0.66],
+  2: [0.22, 0.54],
+  3: [0.16, 0.44],
+  4: [0.12, 0.34],
+  5: [0.09, 0.26],
+};
+
 export type ComposeInput = {
   posts: SourcePost[];
   aspects: Record<string, number>;
   geo: Geometry;
+  density?: Density;
 };
 
 /**
@@ -289,7 +324,7 @@ export type ComposeInput = {
  *  - když na stránce zbývá míň než sedmina výšky, stránka se uzavře,
  *  - zbylé místo se rozdělí do mezer mezi bloky, ať text neplave nahoře.
  */
-export function compose({ posts, aspects, geo }: ComposeInput): Page[] {
+export function compose({ posts, aspects, geo, density = 3 }: ComposeInput): Page[] {
   const pages: Page[] = [];
   let cur: Block[] = [];
   let used = 0;
@@ -309,6 +344,20 @@ export function compose({ posts, aspects, geo }: ComposeInput): Page[] {
   const place = (b: Block) => {
     used += (cur.length ? geo.gap : 0) + b.h;
     cur.push(b);
+  };
+
+  /** Uzavře stránku, ale nadpis na jejím konci vezme s sebou na další –
+   *  jinak by zůstal viset sám bez obsahu, ke kterému patří. */
+  const closeCarryingHeading = () => {
+    const last = cur[cur.length - 1];
+    if (last && last.kind === "heading") {
+      cur.pop();
+      used -= last.h + (cur.length ? geo.gap : 0);
+      closePage();
+      place(last);
+      return;
+    }
+    closePage();
   };
 
   for (const post of posts) {
@@ -365,11 +414,12 @@ export function compose({ posts, aspects, geo }: ComposeInput): Page[] {
       let rest = item.group;
       let guard = 0;
       while (rest.length && guard++ < 500) {
-        if (remaining() < MIN_TAIL) closePage();
-        const fit = fitPhotos(rest, geo, remaining());
+        if (remaining() < MIN_TAIL) closeCarryingHeading();
+        const fit = fitPhotos(rest, geo, remaining(), density);
         if (!fit.rows.length) {
-          if (!cur.length) break; // pojistka proti zacyklení na prázdné stránce
-          closePage();
+          // na stránce je jen nadpis (nebo nic) → dál už se to nezlepší
+          if (!cur.length || (cur.length === 1 && cur[0].kind === "heading")) break;
+          closeCarryingHeading();
           continue;
         }
         place({ kind: "photos", postId: post.id, rows: fit.rows, h: fit.used });

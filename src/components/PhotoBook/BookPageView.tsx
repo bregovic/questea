@@ -31,6 +31,10 @@ export function BookPageView({
   onEditTitle?: (postId: string, value: string) => void;
   onRemovePhoto?: (id: string) => void;
 }) {
+  /* Kniha se čte po dvoustranách: první stránka za obálkou je pravá, pak se
+     střídají. Vnitřní (širší) okraj musí být vždy u hřbetu. */
+  const rightHand = index % 2 === 0;
+
   return (
     <div
       className="print-page"
@@ -47,7 +51,10 @@ export function BookPageView({
       <div
         style={{
           position: "absolute",
-          inset: geo.pad,
+          top: geo.padTop,
+          bottom: geo.padBottom,
+          left: rightHand ? geo.padInner : geo.padOuter,
+          right: rightHand ? geo.padOuter : geo.padInner,
           display: "flex",
           flexDirection: "column",
           gap: geo.gap,
@@ -71,10 +78,10 @@ export function BookPageView({
       <div
         style={{
           position: "absolute",
-          bottom: Math.round(geo.pad * 0.42),
-          left: 0,
-          right: 0,
-          textAlign: "center",
+          bottom: Math.round(geo.padBottom * 0.38),
+          left: rightHand ? geo.padInner : geo.padOuter,
+          right: rightHand ? geo.padOuter : geo.padInner,
+          textAlign: rightHand ? "right" : "left",
           fontSize: 9 * geo.scale,
           fontWeight: 700,
           letterSpacing: "0.2em",
@@ -181,6 +188,7 @@ function BlockView({
           onEditText?.(block.postId, block.chunkIdx, e.currentTarget.textContent || "")
         }
         style={{
+          maxWidth: geo.textW,
           fontSize: t.size * geo.scale,
           lineHeight: t.line,
           color: block.lead ? style.text : style.muted,

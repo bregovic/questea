@@ -65,9 +65,9 @@ export function BookCover({
       <div
         style={{
           position: "absolute",
-          left: geo.pad,
-          right: geo.pad,
-          bottom: geo.pad,
+          left: geo.padOuter,
+          right: geo.padOuter,
+          bottom: geo.padBottom,
           color: photoId ? "#fff" : style.text,
         }}
       >

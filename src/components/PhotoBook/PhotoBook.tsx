@@ -7,6 +7,7 @@ import {
   compose,
   chunksFor,
   geometryFor,
+  type Density,
   type Format,
   type Page,
   type SourcePost,
@@ -44,6 +45,8 @@ type Settings = {
   titles: Record<string, string>;
   /** Přepsané kusy textu, klíč = `idPříspěvku#poradí`. */
   chunks: Record<string, string>;
+  /** Kolik fotek na stránku: 1 = pár velkých, 5 = hustá mřížka. */
+  density: Density;
 };
 
 const DEFAULTS: Settings = {
@@ -53,6 +56,7 @@ const DEFAULTS: Settings = {
   hidden: [],
   titles: {},
   chunks: {},
+  density: 3,
 };
 
 function styleFor(blogTemplate?: string | null): StyleId {
@@ -67,6 +71,14 @@ function styleFor(blogTemplate?: string | null): StyleId {
       return "sand";
   }
 }
+
+const DENSITY_LABEL: Record<Density, string> = {
+  1: "pár velkých",
+  2: "vzdušně",
+  3: "vyváženě",
+  4: "hustě",
+  5: "hodně",
+};
 
 function fmtDate(p: Post): string {
   const d = p.recordedAt || p.createdAt;
@@ -238,8 +250,8 @@ export function PhotoBook({
     if (!sources.length) return [];
     // dokud se nenačtou poměry stran, sazba by byla nanečisto
     if (allImages.length && Object.keys(aspects).length < allImages.length) return [];
-    return compose({ posts: sources, aspects, geo });
-  }, [sources, aspects, geo, allImages.length]);
+    return compose({ posts: sources, aspects, geo, density: settings?.density ?? 3 });
+  }, [sources, aspects, geo, allImages.length, settings?.density]);
 
   const style = STYLES[settings?.style || "sand"];
   const ready = !!settings && !!posts && (!allImages.length || pages.length > 0);
@@ -353,6 +365,20 @@ export function PhotoBook({
             </option>
           ))}
         </select>
+
+        <label className="flex items-center gap-2 rounded-lg bg-white/10 px-3 py-1.5 text-sm" title="Kolik fotek se vejde na stránku">
+          <span className="text-stone-400">Fotek na stránku</span>
+          <input
+            type="range"
+            min={1}
+            max={5}
+            step={1}
+            value={settings?.density ?? 3}
+            onChange={(e) => patch({ density: Number(e.target.value) as Density })}
+            className="w-24 accent-orange-600"
+          />
+          <span className="w-16 text-xs text-stone-400">{DENSITY_LABEL[settings?.density ?? 3]}</span>
+        </label>
 
         <div className="flex overflow-hidden rounded-lg bg-white/10 text-sm">
           {(["A4", "A5"] as Format[]).map((f) => (

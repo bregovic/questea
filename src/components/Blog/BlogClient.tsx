@@ -86,13 +86,16 @@ export const RevealImage = ({ children, delay = 0, rotation = 0, onClick }: { ch
   );
 };
 
+/* Podkladová textura hlavičky. Musí být mimo tok: jako běžná položka
+   pružného řádku (w-full) si ukrajovala polovinu šířky a odsouvala nadpis
+   hlavičky doprava – na širokém monitoru výrazně, na mobilu až mimo obraz. */
 export const FloatingHeader = ({ children }: { children: ReactNode }) => {
   return (
     <motion.div
       initial={{ opacity: 0, scale: 1.1 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 2, ease: "easeOut" }}
-      className="w-full h-full"
+      className="absolute inset-0 pointer-events-none"
     >
       {children}
     </motion.div>

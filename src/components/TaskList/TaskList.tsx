@@ -6,9 +6,9 @@ import { TaskCard } from "../TaskCard/TaskCard";
 import { TaskDetail } from "../TaskDetail/TaskDetail";
 import { QuickExpenseModal } from "../QuickExpenseModal/QuickExpenseModal";
 import { LocationSelectionModal } from "../LocationSelectionModal/LocationSelectionModal";
-import { LocationTracker } from "../LocationTracker/LocationTracker";
 import { PhotoBook } from "../PhotoBook/PhotoBook";
-import { Search, Grid, List as ListIcon, Home, ChevronRight, Maximize2, Minimize2, Wallet, Tag, Building, X, Save, MapPin, Share, CheckSquare, FolderOpen, Navigation, Settings as SettingsIcon, FileUp, FileDown, Wand2, PlusCircle, LayoutGrid, FileText, Printer } from "lucide-react";
+import { FolderPath } from "../FolderPath/FolderPath";
+import { Search, Grid, List as ListIcon, ChevronRight, Maximize2, Minimize2, Wallet, X, MapPin, Share, CheckSquare, FolderOpen, Navigation, Settings as SettingsIcon, FileUp, FileDown, Wand2, LayoutGrid, FileText, Printer } from "lucide-react";
 import InstallPWA from "../InstallPWA/InstallPWA";
 import styles from "./TaskList.module.css";
 import { motion, AnimatePresence } from "framer-motion";
@@ -45,12 +45,13 @@ export const TaskList = () => {
   const [categories, setCategories] = useState<any[]>([]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isLookupOpen, setIsLookupOpen] = useState(false);
+  const [isFolderPathOpen, setIsFolderPathOpen] = useState(false);
   const [isPrintEditorOpen, setIsPrintEditorOpen] = useState(false);
   const [printFolder, setPrintFolder] = useState<any | null>(null);
   const [lookupQuery, setLookupQuery] = useState("");
 
   // dialogy nad seznamem – pod nimi se nemá posouvat stránka
-  useScrollLock(isSettingsOpen || isLookupOpen);
+  useScrollLock(isSettingsOpen || isLookupOpen || isFolderPathOpen);
 
   const toggleZen = () => {
     const nextZen = !isZen;
@@ -136,6 +137,7 @@ export const TaskList = () => {
         else if (isSelectingLocation) setIsSelectingLocation(false);
         else if (isAddingTask) setIsAddingTask(false);
         else if (isLookupOpen) setIsLookupOpen(false);
+        else if (isFolderPathOpen) setIsFolderPathOpen(false);
         else goUp();
       }
     };
@@ -164,7 +166,7 @@ export const TaskList = () => {
     // POZOR: všechno, co handler čte, musí být v závislostech. Dřív tu chyběly
     // quickActionTask a isLookupOpen, takže posluchač držel jejich staré
     // hodnoty a Escape nad otevřeným dialogem místo zavření skočil o složku ven.
-  }, [goUp, selectedTask, isAddingTask, quickActionTask, isLookupOpen, isSelectingLocation]);
+  }, [goUp, selectedTask, isAddingTask, quickActionTask, isLookupOpen, isFolderPathOpen, isSelectingLocation]);
 
   // Restore last parent on mount
   useEffect(() => {
@@ -234,6 +236,8 @@ export const TaskList = () => {
   const currentFolder = tasks.find(t => t.id === currentParentId);
   const isEvidenceView = currentFolder?.taskType === "EXPENSE" || currentFolder?.taskType === "LOCATION_HISTORY";
   const isLocationHistoryFolder = currentFolder?.taskType === "LOCATION_HISTORY" || currentFolder?.title.toLowerCase().includes("místa");
+  // Kontextové akce cesty (GPS, ruční místo, blog) – na mobilu kvůli nim ustupuje tlačítko zpět.
+  const hasQuickActions = currentFolder?.taskType === "LOCATION_HISTORY";
 
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
     const R = 6371; 
@@ -357,21 +361,6 @@ export const TaskList = () => {
 
   const displayTasks = getSortedDisplayTasks();
 
-  const breadcrumbs: any[] = [];
-  let curr: any = currentFolder;
-  if (!curr && currentParentId) {
-    // If parent is transferred/missing, find a child that knows about it
-    const sampleChild = tasks.find(t => t.parentId === currentParentId);
-    if (sampleChild) curr = sampleChild.parent;
-  }
-  
-  while (curr) {
-    breadcrumbs.unshift(curr);
-    const pId = curr.parentId;
-    if (!pId) break;
-    curr = tasks.find(t => t.id === pId) || curr.parent;
-  }
-
   // Auto-calculate progress based on subtasks if not set manually
   const getTaskProgress = (task: any) => {
     const children = tasks.filter(t => t.parentId === task.id && !t.isDeleted);
@@ -393,22 +382,12 @@ export const TaskList = () => {
     }
 
     const originalTasks = [...tasks];
-    
-    // Recursive close: If marking parent as DONE, close all subtasks
-    let updatedData = { ...data };
+
+    // Uzavření nadřízeného uzavírá i podúkoly – tady jen v lokálním seznamu,
+    // v databázi to dělá PATCH /api/tasks/[id] (updateMany přes parentId).
     const newTasks = tasks.map(t => {
-      if (t.id === id) {
-        const updated = { ...t, ...data };
-        // If this is a parent being finished, recursively update children in local state
-        if (data.status === "DONE" && t.subTasks) {
-          // This is a bit complex for flat list, but we can do it via parentId
-        }
-        return updated;
-      }
-      // Recursive logic for flat list: if parentId matches the updated task and it's being closed
-      if (data.status === "DONE" && t.parentId === id) {
-        return { ...t, status: "DONE" };
-      }
+      if (t.id === id) return { ...t, ...data };
+      if (data.status === "DONE" && t.parentId === id) return { ...t, status: "DONE" };
       return t;
     });
 
@@ -421,13 +400,7 @@ export const TaskList = () => {
         body: JSON.stringify(data),
       });
       if (!res.ok) throw new Error();
-      
-      // If we closed a parent, we should also update children on backend
-      if (data.status === "DONE") {
-         // The backend should handle recursive status update
-      }
-
-    } catch (error) {
+    } catch {
       setTasks(originalTasks);
     }
   };
@@ -451,20 +424,6 @@ export const TaskList = () => {
         body: JSON.stringify({ isDeleted: true }) 
       });
       if (!res.ok) throw new Error();
-    } catch (error) {
-      setTasks(originalTasks);
-    }
-  };
-
-  const handleRestore = async (id: string) => {
-    const originalTasks = [...tasks];
-    setTasks(tasks.map(t => t.id === id ? { ...t, isDeleted: false } : t));
-    try {
-      await fetch(`/api/tasks/${id}`, { 
-        method: "PATCH", 
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isDeleted: false }) 
-      });
     } catch (error) {
       setTasks(originalTasks);
     }
@@ -575,14 +534,9 @@ export const TaskList = () => {
     }
   };
 
-  const handleQuickLocation = async (task: any) => {
-    // Deprecated in favor of handleLocationSelect via modal
-    setIsSelectingLocation(true);
-  };
 
-
-  // Mobile swipe support (simple)
-  const [touchStart, setTouchStart] = useState<number | null>(null);
+  // Mobile swipe support (simple) – stav gesta žije v refu `swipe` níž,
+  // aby tažení prstem nepřekreslovalo celý seznam.
   /* Gesto „ven o úroveň" nesmí ukrást vodorovné posouvání uvnitř seznamů
      (pruh typů záznamů, drobečky, filtry) – tam swipe doprava dřív skončil
      jako skok o složku zpátky. Když gesto začne v něčem, co se dá posouvat
@@ -605,15 +559,13 @@ export const TaskList = () => {
     const t = e.targetTouches[0];
     const ignore =
       isInsideHorizontalScroller(e.target) ||
-      !!selectedTask || isAddingTask || isSelectingLocation || isLookupOpen;
+      !!selectedTask || isAddingTask || isSelectingLocation || isLookupOpen || isFolderPathOpen;
     swipe.current = { x: t.clientX, y: t.clientY, ignore };
-    setTouchStart(t.clientX);
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
     const s = swipe.current;
     swipe.current = null;
-    setTouchStart(null);
     if (!s || s.ignore) return;
 
     const dx = e.changedTouches[0].clientX - s.x;
@@ -839,6 +791,7 @@ export const TaskList = () => {
                 </div>
                 <div className="max-h-[60dvh] overflow-y-auto overscroll-contain p-4 space-y-2">
                    {[
+                     { id: 'switch-folder', name: 'Přepnout složku / Projekt', icon: FolderOpen, action: () => setIsFolderPathOpen(true) },
                      { id: 'add-folder', name: 'Nová složka / Projekt', icon: FolderOpen, action: () => { setAddingType('FOLDER'); setIsAddingTask(true); } },
                      { id: 'add-location', name: 'Zaznamenat polohu / Zastávku', icon: MapPin, action: () => setIsSelectingLocation(true) },
                      { id: 'add-expense', name: 'Zapsat výdaj', icon: Wallet, action: () => { if (currentParentId) { setQuickActionTask(tasks.find(t => t.id === currentParentId)); } else alert("Otevřete nejprve složku"); } },
@@ -857,7 +810,9 @@ export const TaskList = () => {
                      { id: 'export-xml', name: 'Exportovat data (XML)', icon: FileDown, action: handleExportXml },
                      { id: 'import-xml', name: 'Importovat data (XML)', icon: FileUp, action: () => document.getElementById('global-xml-import')?.click() },
                      { id: 'zen-mode', name: 'Přepnout Zen režim', icon: Maximize2, action: toggleZen },
-                     { id: 'pwa-install', name: 'Instalovat jako aplikaci', icon: LayoutGrid, action: () => setIsSettingsOpen(false) },
+                     { id: 'settings', name: 'Nastavení', icon: SettingsIcon, action: () => setIsSettingsOpen(true) },
+                     // Instalace PWA žije uvnitř Nastavení – dřív se tu dialog omylem zavíral místo otevíral.
+                     { id: 'pwa-install', name: 'Instalovat jako aplikaci', icon: LayoutGrid, action: () => setIsSettingsOpen(true) },
                    ].filter(a => a.name.toLowerCase().includes(lookupQuery.toLowerCase())).map(action => (
                      <button 
                        key={action.id}
@@ -880,61 +835,24 @@ export const TaskList = () => {
       {!isZen ? (
         <>
           <header className={styles.header}>
-            <div className={styles.breadcrumbHeader}>
-              {currentParentId ? (
-                <div className="flex items-center gap-2 overflow-hidden">
-                  <button onClick={goUp} className={styles.backBtn}>
+            <div className={`${styles.breadcrumbHeader} ${hasQuickActions ? styles.hasQuickActions : ""}`}>
+              <div className={styles.pathZone}>
+                {currentParentId && (
+                  <button onClick={goUp} className={styles.backBtn} title="O úroveň výš" aria-label="O úroveň výš">
                     <ChevronRight size={22} style={{ transform: 'rotate(180deg)' }} />
                   </button>
-                  <h2 className={styles.currentFolderTitle}>
-                    {tasks.find(t => t.id === currentParentId)?.title || "Zpět"}
-                  </h2>
-                  <div className="flex items-center gap-1 ml-2 opacity-20 hover:opacity-100 transition-opacity">
-                     <button onClick={() => setIsLookupOpen(true)} title="Vyhledat funkci" className="p-1 hover:text-orange-600">
-                        <Wand2 size={14} />
-                     </button>
-                     <button onClick={handleExportXml} title="Exportovat XML" className="p-1 hover:text-orange-600">
-                        <FileDown size={14} />
-                     </button>
-                     <label className="p-1 hover:text-orange-600 cursor-pointer">
-                        <FileUp size={14} />
-                        <input type="file" accept=".xml" className="hidden" onChange={handleImportXml} />
-                     </label>
-                  </div>
-                </div>
-              ) : (
-                <div className={styles.breadcrumbContainer}>
-                  <button onClick={() => goToFolder(null)} className={styles.pathItem}>
-                    <Home size={20} className={!currentParentId ? "text-coral" : ""} />
-                  </button>
-                  {breadcrumbs.map((b, idx) => (
-                    <React.Fragment key={b.id}>
-                      <ChevronRight size={14} className={styles.pathSeparator} />
-                      <button 
-                        onClick={() => goToFolder(b.id)}
-                        className={`${styles.pathItem} ${idx === breadcrumbs.length - 1 ? styles.activePath : ""}`}
-                      >
-                        {b.title}
-                      </button>
-                    </React.Fragment>
-                  ))}
-                  <button 
-                    onClick={() => setIsLookupOpen(true)}
-                    className="ml-auto p-2 text-stone-300 hover:text-stone-950 transition-colors"
-                  >
-                    <Wand2 size={20} />
-                  </button>
-                  <button 
-                    onClick={() => setIsSettingsOpen(true)}
-                    className="p-2 text-stone-300 hover:text-stone-950 transition-colors"
-                  >
-                    <SettingsIcon size={20} />
-                  </button>
-                </div>
-              )}
+                )}
+                <FolderPath
+                  tasks={tasks}
+                  currentId={currentParentId}
+                  open={isFolderPathOpen}
+                  onOpenChange={setIsFolderPathOpen}
+                  onNavigate={goToFolder}
+                />
+              </div>
 
               <div className={styles.headerActions}>
-                {currentFolder?.taskType === "LOCATION_HISTORY" && (
+                {hasQuickActions && (
                   <div className={styles.quickActionGroup}>
                     <button 
                       onClick={() => setIsSelectingLocation(true)} 
@@ -985,7 +903,24 @@ export const TaskList = () => {
                     </button>
                   </div>
                 )}
-                <button onClick={toggleZen} className={styles.zenToggle}>
+                <button
+                  onClick={() => setIsLookupOpen(true)}
+                  className={styles.headerIconBtn}
+                  title="Vyhledat funkci"
+                  aria-label="Vyhledat funkci"
+                >
+                  <Wand2 size={18} />
+                </button>
+                {/* Nastavení a Zen jsou na mobilu schované – obojí je i v nabídce funkcí. */}
+                <button
+                  onClick={() => setIsSettingsOpen(true)}
+                  className={`${styles.headerIconBtn} ${styles.deskOnly}`}
+                  title="Nastavení"
+                  aria-label="Nastavení"
+                >
+                  <SettingsIcon size={18} />
+                </button>
+                <button onClick={toggleZen} className={`${styles.zenToggle} ${styles.deskOnly}`} title="Zen režim" aria-label="Zen režim">
                   <Maximize2 size={18} />
                 </button>
               </div>

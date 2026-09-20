@@ -1,0 +1,289 @@
+/* Cesta složkami v hlavičce seznamu + rozbalovací přepínač složek. */
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0; /* bez tohohle se flex položka nesmrskne a vytlačí akce z hlavičky */
+  flex: 1;
+}
+
+.home {
+  background: none;
+  border: none;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  transition: color 0.2s;
+}
+
+.home:hover {
+  color: var(--accent-primary);
+}
+
+.sep {
+  color: var(--text-muted);
+  opacity: 0.35;
+  flex-shrink: 0;
+}
+
+.crumb {
+  font-family: "Outfit", sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  padding: 2px 2px;
+  max-width: 14ch;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  flex-shrink: 1;
+  min-width: 0;
+  transition: color 0.2s;
+}
+
+.crumb:hover {
+  color: var(--accent-primary);
+}
+
+/* Aktuální složka = spouštěč nabídky. Nesmí se zmenšit pod čitelnou míru. */
+.trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: none;
+  border: none;
+  border-radius: 12px;
+  padding: 4px 8px 4px 6px;
+  margin-left: -2px;
+  cursor: pointer;
+  color: var(--text-main);
+  min-width: 0;
+  flex-shrink: 1;
+  transition: background 0.2s;
+}
+
+.trigger:hover {
+  background: var(--accent-soft);
+}
+
+.triggerText {
+  font-family: "Outfit", sans-serif;
+  font-size: 1.25rem;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.triggerIcon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+/* ── rozbalovací panel ───────────────────────────────────────────── */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(28, 25, 23, 0.35);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 12000;
+}
+
+.panel {
+  position: fixed;
+  top: var(--anchor-top, 72px);
+  left: var(--anchor-left, 16px);
+  width: 340px;
+  max-height: min(70dvh, 520px);
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid var(--panel-border);
+  border-radius: 24px;
+  box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+  z-index: 12001;
+}
+
+.searchRow {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.9rem 1.1rem;
+  border-bottom: 1px solid var(--panel-border);
+  flex-shrink: 0;
+}
+
+.searchIcon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.searchInput {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.searchInput::placeholder {
+  color: var(--text-muted);
+  opacity: 0.6;
+  font-weight: 500;
+}
+
+.scroll {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 0.5rem;
+}
+
+.section + .section {
+  margin-top: 0.35rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid var(--panel-border);
+}
+
+.sectionTitle {
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  opacity: 0.7;
+  padding: 0.5rem 0.75rem 0.35rem;
+}
+
+.row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.875rem;
+  border: none;
+  background: none;
+  border-radius: 14px;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text-main);
+  transition: background 0.15s;
+}
+
+.row:hover {
+  background: #faf8f5;
+}
+
+.rowActive {
+  background: var(--accent-soft);
+}
+
+.rowActive:hover {
+  background: var(--accent-soft);
+}
+
+.rowIcon {
+  display: flex;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.rowActive .rowIcon {
+  color: var(--accent-primary);
+}
+
+.rowText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.rowTitle {
+  font-size: 0.9rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rowActive .rowTitle {
+  color: var(--accent-primary);
+}
+
+.rowSub {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rowHere {
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent-primary);
+  flex-shrink: 0;
+}
+
+.empty {
+  padding: 2rem 1rem;
+  text-align: center;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+/* ── mobil: z panelu je spodní sheet, mezičlánky cesty se schovají ── */
+
+@media (max-width: 768px) {
+  .home {
+    display: none; /* kořen je první položkou v nabídce, tady by jen kradl místo */
+  }
+
+  .crumb,
+  .sep {
+    display: none; /* celou cestu ukáže nabídka */
+  }
+
+  .triggerText {
+    font-size: 1.15rem;
+  }
+
+  .panel {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    max-height: 78dvh;
+    border-radius: 28px 28px 0 0;
+    border-bottom: none;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .scroll {
+    padding: 0.5rem 0.5rem 1rem;
+  }
+
+  .row {
+    padding: 0.8rem 0.875rem; /* palcem se to musí trefit */
+  }
+}

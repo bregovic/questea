@@ -283,7 +283,10 @@ export const BlogContainer: React.FC<BlogContainerProps> = ({ posts, folder, tem
                            return (
                              <div key={pIdx} className="space-y-16">
                                <Reveal delay={0.1}>
-                                 <div className={`relative ${isAdventure || isElegant ? 'font-serif leading-relaxed text-2xl max-w-2xl' : 'text-stone-600 leading-[1.8] text-xl md:text-2xl max-w-3xl'}`}>
+                                 {/* flow-root: iniciála je float a u krátkého odstavce přetekla pod něj.
+                                     Mřížka fotek (blokový kontext) jí pak uhýbala a zúžila se o její
+                                     šířku – na každé obrazovce o 107 px. */}
+                                 <div className={`relative flow-root ${isAdventure || isElegant ? 'font-serif leading-relaxed text-2xl max-w-2xl' : 'text-stone-600 leading-[1.8] text-xl md:text-2xl max-w-3xl'}`}>
                                     {pIdx === 0 && (
                                       <span className={`drop-cap ${isAdventure ? 'text-[#d4a373]' : isElegant ? 'text-[#c5a059]' : isDark ? 'text-white/20' : 'text-[#ea580c]/30'}`}>
                                         {para.charAt(0)}

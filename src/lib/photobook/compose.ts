@@ -116,7 +116,7 @@ const AVG_CHAR_W = 0.5;
 
 export const TYPE = {
   title: { size: 27, line: 1.12, gapAfter: 7 },
-  meta: { size: 10, line: 1.3, gapAfter: 13 },
+  meta: { size: 11, line: 1.3, gapAfter: 13 }, // 11 px ≈ 8,3 pt – tiskové minimum pro bezpatkové je 8 pt
   lead: { size: 14.5, line: 1.62, gapAfter: 0 },
   body: { size: 12.5, line: 1.66, gapAfter: 0 },
 } as const;
@@ -155,6 +155,13 @@ export function headingHeight(title: string, meta: string, geo: Geometry): numbe
 /**
  * Rozláme fotky do řádků tak, aby každý řádek přesně vyplnil šířku.
  * Výška řádku vyplyne z poměrů stran – žádná fotka se neořezává.
+ *
+ * Zalomení se hledá dynamickým programováním přes celou skupinu, ne hladově
+ * fotka po fotce. Hladový postup se rozhoduje podle toho, co zrovna vidí, a
+ * doplatí na to konec skupiny: poslední řádek vyjde buď přeplácaný, nebo v něm
+ * zůstane jedna fotka. Tady se minimalizuje součet čtverců odchylek výšky
+ * řádku od cílové (váženo počtem fotek v řádku), takže se odchylka rozloží
+ * rovnoměrně. Je to stejný princip, jakým se v sazbě lámou odstavce na řádky.
  */
 export function justify(
   photos: { id: string; aspect: number }[],
@@ -162,30 +169,49 @@ export function justify(
   gap: number,
   targetRowH: number
 ): PhotoRow[] {
-  const rows: PhotoRow[] = [];
-  let cur: { id: string; aspect: number }[] = [];
-  let arSum = 0;
+  const n = photos.length;
+  if (!n) return [];
 
-  const flush = (isLast: boolean) => {
-    if (!cur.length) return;
-    let h = (width - gap * (cur.length - 1)) / arSum;
-    // Poslední řádek by se jinak roztáhl přes celou šířku i kdyby v něm byla
-    // jediná fotka – strop ho drží v rozumné výšce.
-    if (isLast) h = Math.min(h, targetRowH * 1.45);
-    rows.push({
-      h,
-      cells: cur.map((it) => ({ id: it.id, w: it.aspect * h, h })),
-    });
-    cur = [];
-    arSum = 0;
-  };
+  // prefixové součty poměrů stran → šířka libovolného úseku je rozdíl dvou čísel
+  const pre = [0];
+  for (const p of photos) pre.push(pre[pre.length - 1] + p.aspect);
 
-  for (const p of photos) {
-    cur.push(p);
-    arSum += p.aspect;
-    if ((width - gap * (cur.length - 1)) / arSum <= targetRowH) flush(false);
+  const rowH = (i: number, j: number) =>
+    (width - gap * (j - i - 1)) / (pre[j] - pre[i]);
+
+  // Kolik fotek se na řádek vůbec může vejít – strop prohledávání.
+  const minAspect = Math.min(...photos.map((p) => p.aspect));
+  const maxPerRow = Math.max(1, Math.round(width / targetRowH / minAspect) + 2);
+
+  const cost = new Array<number>(n + 1).fill(Infinity);
+  const from = new Array<number>(n + 1).fill(0);
+  cost[0] = 0;
+
+  for (let j = 1; j <= n; j++) {
+    for (let i = Math.max(0, j - maxPerRow); i < j; i++) {
+      if (!isFinite(cost[i])) continue;
+      const h = rowH(i, j);
+      if (h <= 0) continue;
+      const c = cost[i] + (h - targetRowH) ** 2 * (j - i);
+      if (c < cost[j]) {
+        cost[j] = c;
+        from[j] = i;
+      }
+    }
   }
-  flush(true);
+
+  const cuts: number[] = [];
+  for (let j = n; j > 0; j = from[j]) cuts.unshift(j);
+
+  const rows: PhotoRow[] = [];
+  let start = 0;
+  for (const end of cuts) {
+    const slice = photos.slice(start, end);
+    // Strop výšky: jedna fotka na řádku by se jinak roztáhla přes celou šířku.
+    const h = Math.min(rowH(start, end), targetRowH * 1.1);
+    rows.push({ h, cells: slice.map((it) => ({ id: it.id, w: it.aspect * h, h })) });
+    start = end;
+  }
   return rows;
 }
 

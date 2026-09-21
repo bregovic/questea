@@ -342,7 +342,21 @@ export function fitPhotos(
   }
 
   if (!best) return { rows: [], used: 0, rest: photos };
-  const b = best as { rows: PhotoRow[]; used: number; count: number; fill: number };
+  let b = best as { rows: PhotoRow[]; used: number; count: number; fill: number };
+
+  /* Zbyde-li po nejlepší variantě jedna dvě fotky, přetečou na další stránku
+     a udělají tam stránku o jedné fotce. Radši se vezme varianta, která je
+     umístí všechny, i když stránku zaplní míň – zbytek stránky doplní obsah,
+     který teče za ní. */
+  if (b.count < photos.length && photos.length - b.count <= 2) {
+    const before = b;
+    best = null;
+    search(geo.contentH * band[1], photos.length);
+    if (!best) search(Math.min(available * 0.96, geo.contentH * 0.96), photos.length);
+    const all = best as null | { rows: PhotoRow[]; used: number; count: number; fill: number };
+    b = all && all.fill >= 0.28 ? all : before;
+  }
+
   return { rows: b.rows, used: b.used, rest: photos.slice(b.count) };
 }
 
@@ -519,6 +533,10 @@ export function compose({ posts, aspects, geo, density = 3, textLayouts = {}, ph
    *  kterým se už na téhle stránce nevešly fotky. Stránka končící jen
    *  nadpisem a odstavcem vypadá jako nedopsaná – takový ocas patří k
    *  obsahu, který ho následuje. Stránku ale nikdy nevyprázdní úplně. */
+  /** Nese blok obrázek? Text s fotkou po boku je plnohodnotný obsah, ne
+   *  holý odstavec – stránka na něj smí skončit. */
+  const hasPhoto = (b: Block) => b.kind === "photos" || (b.kind === "text" && !!b.photo);
+
   const closeCarryingTrailingText = (postId: string) => {
     const tail: Block[] = [];
     while (cur.length > 1) {
@@ -526,7 +544,7 @@ export function compose({ posts, aspects, geo, density = 3, textLayouts = {}, ph
       // Bere jen ocas příspěvku, jehož fotky se nevešly. Text příspěvku,
       // který žádné fotky nemá, na stránce zůstat smí – jinak by se stránka
       // zbytečně vyprázdnila.
-      if (last.kind === "photos" || last.postId !== postId) break;
+      if (hasPhoto(last) || last.postId !== postId) break;
       cur.pop();
       used -= last.h + (cur.length ? geo.gap : 0);
       tail.unshift(last);
@@ -684,7 +702,7 @@ export function compose({ posts, aspects, geo, density = 3, textLayouts = {}, ph
         const fit = fitPhotos(rest, geo, remaining(), density);
         if (!fit.rows.length) {
           // na stránce je jen nadpis (nebo nic) → dál už se to nezlepší
-          if (!cur.length || !cur.some((x) => x.kind === "photos")) break;
+          if (!cur.length || !cur.some(hasPhoto)) break;
           closeCarryingTrailingText(post.id);
           continue;
         }

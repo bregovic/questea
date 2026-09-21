@@ -42,6 +42,8 @@ type Settings = {
   style: StyleId;
   /** Fotky vynechané z knihy. */
   hidden: string[];
+  /** Celé příspěvky vynechané z knihy. */
+  hiddenPosts: string[];
   /** Přepsané nadpisy, klíč = id příspěvku. */
   titles: Record<string, string>;
   /** Přepsané kusy textu, klíč = `idPříspěvku#poradí`. */
@@ -57,6 +59,7 @@ const DEFAULTS: Settings = {
   format: "A4",
   style: "sand",
   hidden: [],
+  hiddenPosts: [],
   titles: {},
   chunks: {},
   density: 3,
@@ -224,8 +227,9 @@ export function PhotoBook({
   const sources: SourcePost[] = useMemo(() => {
     if (!posts || !settings) return [];
     const hidden = new Set(settings.hidden);
+    const skipped = new Set(settings.hiddenPosts);
     return posts
-      .filter((p) => p.taskType !== "GPS_LOG")
+      .filter((p) => p.taskType !== "GPS_LOG" && !skipped.has(p.id))
       .map((p) => {
         const photos = (p.attachments || [])
           .filter((a) => a.type === "image" && !hidden.has(a.id))
@@ -305,6 +309,10 @@ export function PhotoBook({
     patch({ hidden: [...(settings?.hidden || []), id] });
   const restorePhoto = (id: string) =>
     patch({ hidden: (settings?.hidden || []).filter((x) => x !== id) });
+  const hidePost = (postId: string) =>
+    patch({ hiddenPosts: [...(settings?.hiddenPosts || []), postId] });
+  const restorePost = (postId: string) =>
+    patch({ hiddenPosts: (settings?.hiddenPosts || []).filter((x) => x !== postId) });
   const editTitle = (postId: string, value: string) => {
     if (!settings) return;
     if ((settings.titles[postId] ?? undefined) === value) return;
@@ -326,7 +334,7 @@ export function PhotoBook({
   };
   const resetEdits = () => {
     if (!confirm("Vrátit knihu do původního stavu? Ruční úpravy textu a vynechané fotky se zahodí.")) return;
-    patch({ hidden: [], titles: {}, chunks: {} });
+    patch({ hidden: [], hiddenPosts: [], titles: {}, chunks: {}, textLayouts: {} });
   };
 
   async function exportPdf() {
@@ -348,6 +356,10 @@ export function PhotoBook({
   const hiddenList = (settings?.hidden || [])
     .map((id) => allImages.find((a) => a.id === id))
     .filter(Boolean) as Att[];
+
+  const hiddenPostList = (settings?.hiddenPosts || [])
+    .map((id) => posts?.find((p) => p.id === id))
+    .filter(Boolean) as Post[];
 
   return (
     <div className="fixed inset-0 z-[11000] flex flex-col bg-stone-950 text-stone-100">
@@ -525,6 +537,7 @@ export function PhotoBook({
                     onEditText={editChunk}
                     onEditTitle={editTitle}
                     onCycleLayout={cycleLayout}
+                    onRemovePost={hidePost}
                     onRemovePhoto={hidePhoto}
                   />
                 )}
@@ -533,11 +546,25 @@ export function PhotoBook({
           </div>
 
           {/* vynechané fotky */}
-          {hiddenList.length > 0 && (
+          {(hiddenList.length > 0 || hiddenPostList.length > 0) && (
             <div className="w-[150px] shrink-0 overflow-y-auto border-l border-white/10 bg-black/40 p-3">
               <div className="mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-stone-400">
                 <ImageOff size={12} /> Vynechané
               </div>
+              {hiddenPostList.length > 0 && (
+                <div className="mb-3 space-y-1">
+                  {hiddenPostList.map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => restorePost(p.id)}
+                      title="Vrátit příspěvek do knihy"
+                      className="block w-full truncate rounded bg-white/5 px-2 py-1 text-left text-[11px] text-stone-300 hover:bg-white/15"
+                    >
+                      ↩ {p.title || "Bez názvu"}
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-2">
                 {hiddenList.map((a) => (
                   <button

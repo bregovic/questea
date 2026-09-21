@@ -20,6 +20,7 @@ export function BookPageView({
   onEditText,
   onEditTitle,
   onCycleLayout,
+  onRemovePost,
   onRemovePhoto,
 }: {
   page: Page;
@@ -31,6 +32,7 @@ export function BookPageView({
   onEditText?: (postId: string, chunkIdx: number, value: string) => void;
   onEditTitle?: (postId: string, value: string) => void;
   onCycleLayout?: (postId: string, chunkIdx: number) => void;
+  onRemovePost?: (postId: string) => void;
   onRemovePhoto?: (id: string) => void;
 }) {
   /* Kniha se čte po dvoustranách: první stránka za obálkou je pravá, pak se
@@ -73,6 +75,7 @@ export function BookPageView({
             onEditText={onEditText}
             onEditTitle={onEditTitle}
             onCycleLayout={onCycleLayout}
+            onRemovePost={onRemovePost}
             onRemovePhoto={onRemovePhoto}
           />
         ))}
@@ -106,6 +109,7 @@ function BlockView({
   onEditText,
   onEditTitle,
   onCycleLayout,
+  onRemovePost,
   onRemovePhoto,
 }: {
   block: Block;
@@ -116,33 +120,29 @@ function BlockView({
   onEditText?: (postId: string, chunkIdx: number, value: string) => void;
   onEditTitle?: (postId: string, value: string) => void;
   onCycleLayout?: (postId: string, chunkIdx: number) => void;
+  onRemovePost?: (postId: string) => void;
   onRemovePhoto?: (id: string) => void;
 }) {
   if (block.kind === "heading") {
     return (
       <div style={{ position: "relative" }}>
-        {editable && onEditTitle && block.title && (
-          <button
-            onClick={() => onEditTitle(block.postId, "")}
-            title="Odstranit nadpis"
-            style={{
-              position: "absolute",
-              top: -2,
-              right: -2,
-              width: 20,
-              height: 20,
-              borderRadius: 10,
-              border: "none",
-              cursor: "pointer",
-              background: "rgba(0,0,0,0.35)",
-              color: "#fff",
-              fontSize: 13,
-              lineHeight: "20px",
-              padding: 0,
-            }}
-          >
-            ×
-          </button>
+        {editable && (
+          <div style={{ position: "absolute", top: -2, right: -2, display: "flex", gap: 4 }}>
+            {onRemovePost && (
+              <button
+                onClick={() => onRemovePost(block.postId)}
+                title="Vynechat celý příspěvek z knihy"
+                style={HEAD_BTN}
+              >
+                ⌫
+              </button>
+            )}
+            {onEditTitle && block.title && (
+              <button onClick={() => onEditTitle(block.postId, "")} title="Odstranit nadpis" style={HEAD_BTN}>
+                ×
+              </button>
+            )}
+          </div>
         )}
         {block.meta && (
           <div
@@ -333,6 +333,19 @@ function BlockView({
     </div>
   );
 }
+
+const HEAD_BTN: React.CSSProperties = {
+  width: 20,
+  height: 20,
+  borderRadius: 10,
+  border: "none",
+  cursor: "pointer",
+  background: "rgba(0,0,0,0.35)",
+  color: "#fff",
+  fontSize: 12,
+  lineHeight: "20px",
+  padding: 0,
+};
 
 function RemoveBtn({ onClick }: { onClick: () => void }) {
   return (

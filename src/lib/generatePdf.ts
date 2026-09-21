@@ -7,6 +7,9 @@
 export interface PdfOptions {
   format: "A4" | "A5";
   title: string;
+  /** Násobek rozlišení snímku. 2 ≈ 192 DPI u A4; víc je ostřejší, ale u
+   *  dlouhé knihy hrozí, že prohlížeči dojde paměť. */
+  scale?: number;
   onProgress?: (current: number, total: number) => void;
 }
 
@@ -14,7 +17,7 @@ export async function generatePhotoBookPdf(
   containerEl: HTMLElement,
   options: PdfOptions
 ): Promise<void> {
-  const { format, title, onProgress } = options;
+  const { format, title, scale = 2, onProgress } = options;
 
   // Dynamically import to avoid SSR issues
   const html2canvas = (await import("html2canvas")).default;
@@ -68,21 +71,36 @@ export async function generatePhotoBookPdf(
       // Scroll the page into view within the fixed container
       pageEl.scrollIntoView({ block: "start" });
 
-      const canvas = await html2canvas(pageEl, {
-        scale: 2,              // 2x = high-resolution for print quality
-        useCORS: true,         // allow cross-origin images (S3 etc.)
-        allowTaint: false,
-        backgroundColor: "#fcfaf7",
-        logging: false,
-        width: pxW,
-        height: pxH,
-        windowWidth: pxW,
-        windowHeight: pxH,
-        x: 0,
-        y: 0,
-      });
+      let canvas: HTMLCanvasElement;
+      try {
+        canvas = await html2canvas(pageEl, {
+          scale,
+          useCORS: true,         // allow cross-origin images (S3 etc.)
+          allowTaint: false,
+          backgroundColor: "#fcfaf7",
+          logging: false,
+          width: pxW,
+          height: pxH,
+          windowWidth: pxW,
+          windowHeight: pxH,
+          x: 0,
+          y: 0,
+        });
+      } catch (err) {
+        // Bez tohohle se skutečná příčina ztratila a uživatel viděl jen
+        // „export selhal". Číslo stránky je to hlavní vodítko.
+        throw new Error(
+          `Snímek strany ${i + 1} z ${pages.length} selhal: ${err instanceof Error ? err.message : String(err)}`
+        );
+      }
 
-      const imgData = canvas.toDataURL("image/jpeg", 0.93);
+      const imgData = canvas.toDataURL("image/jpeg", 0.9);
+
+      /* Plátno jedné strany A4 při dvojnásobném zvětšení zabere kolem 14 MB.
+         Prohlížeč ho sám neuvolní dost rychle, takže u dlouhé knihy dojde
+         paměť – proto se po použití výslovně zahodí. */
+      canvas.width = 0;
+      canvas.height = 0;
 
       if (i > 0) {
         pdf.addPage([pdfW, pdfH], "portrait");
@@ -90,6 +108,9 @@ export async function generatePhotoBookPdf(
 
       // Fill the entire PDF page with the captured image (no margins)
       pdf.addImage(imgData, "JPEG", 0, 0, pdfW, pdfH, undefined, "FAST");
+
+      // Pustit prohlížeč ke slovu: uvolní paměť a stihne překreslit ukazatel.
+      await new Promise((r) => setTimeout(r, 0));
     }
   } finally {
     // Always restore the container styles

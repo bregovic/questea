@@ -388,8 +388,10 @@ export function PhotoBook({
         title: folder.title || "fotokniha",
         onProgress: (cur, t) => setProgress({ cur, total: t }),
       });
-    } catch {
-      setError("Vytvoření PDF selhalo.");
+    } catch (err) {
+      setError(
+        err instanceof Error ? `Vytvoření PDF selhalo. ${err.message}` : "Vytvoření PDF selhalo."
+      );
     } finally {
       setProgress(null);
     }

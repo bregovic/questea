@@ -59,7 +59,7 @@ export type TextLayout = "full" | "measured" | "aside";
 
 /** Ruční velikost fotky. Bez ořezu se velikost řídí tím, s kolika fotkami
  *  se dělí o řádek: čím míň jich v řádku je, tím je každá vyšší a širší. */
-export type PhotoSize = "s" | "m" | "l" | "full";
+export type PhotoSize = "s" | "m" | "l" | "full" | "bleed";
 
 /** Kolik fotek smí být v řádku, který tuhle fotku obsahuje. */
 const SIZE_LIMITS: Record<PhotoSize, { min: number; max: number }> = {
@@ -67,6 +67,7 @@ const SIZE_LIMITS: Record<PhotoSize, { min: number; max: number }> = {
   m: { min: 1, max: 9 },
   l: { min: 1, max: 2 },
   full: { min: 1, max: 1 },
+  bleed: { min: 1, max: 1 }, // sází se zvlášť, přes celou stránku
 };
 export type PhotoRow = { h: number; cells: PhotoCell[] };
 
@@ -85,7 +86,10 @@ export type Block =
       photo?: PhotoCell;
       h: number;
     }
-  | { kind: "photos"; postId: string; rows: PhotoRow[]; h: number };
+  | { kind: "photos"; postId: string; rows: PhotoRow[]; h: number }
+  /** Fotka přes celou stránku až za ořez – jediný způsob, jak využít i plochu
+   *  okrajů. Za to se platí ořezem fotky do tvaru stránky. */
+  | { kind: "bleed"; postId: string; photoId: string; h: number };
 
 export type Page = {
   id: string;
@@ -492,8 +496,8 @@ export function compose({ posts, aspects, geo, density = 3, textLayouts = {}, ph
        Nejdřív se poskládá pořadí obsahu, teprve pak se sází – čte se to líp
        než míchat rozdělování a lámání stránek dohromady. */
     type Item =
-      | { t: "text"; text: string; lead: boolean; idx: number; layout: TextLayout; photo?: { id: string; aspect: number } }
-      | { t: "photos"; group: { id: string; aspect: number }[] };
+      | { t: "text"; text: string; lead: boolean; idx: number; layout: TextLayout; photo?: { id: string; aspect: number; size?: PhotoSize } }
+      | { t: "photos"; group: { id: string; aspect: number; size?: PhotoSize }[] };
 
     const items: Item[] = [];
     if (chunks.length) {
@@ -514,7 +518,7 @@ export function compose({ posts, aspects, geo, density = 3, textLayouts = {}, ph
         else if (len <= ASIDE_MAX && pool.length >= 2 && !lastWasAside) layout = "aside";
         else layout = "measured";
 
-        let aside: { id: string; aspect: number } | undefined;
+        let aside: { id: string; aspect: number; size?: PhotoSize } | undefined;
         if (layout === "aside" && pool.length) {
           aside = pool[0];
           pool = pool.slice(1);
@@ -558,9 +562,18 @@ export function compose({ posts, aspects, geo, density = 3, textLayouts = {}, ph
         continue;
       }
 
+      /* Fotky „na spad" se sázejí každá na vlastní stránku přes celou plochu –
+         mezi ostatní řádky nepatří, protože ignorují okraje. */
+      const bleeds = item.group.filter((g) => g.size === "bleed");
+      for (const bp of bleeds) {
+        closePage();
+        place({ kind: "bleed", postId: post.id, photoId: bp.id, h: geo.contentH });
+        closePage();
+      }
+
       // Skupina fotek se smí zlomit jen na hranici řádku; co se nevejde,
       // pokračuje na další stránce.
-      let rest = item.group;
+      let rest = item.group.filter((g) => g.size !== "bleed");
       let guard = 0;
       while (rest.length && guard++ < 500) {
         if (remaining() < MIN_TAIL) closeCarryingTrailingText(post.id);

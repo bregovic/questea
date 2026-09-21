@@ -353,7 +353,7 @@ export function PhotoBook({
         : [...settings.pageBreaks, postId],
     });
   };
-  const SIZE_CYCLE: PhotoSize[] = ["m", "l", "full", "s"];
+  const SIZE_CYCLE: PhotoSize[] = ["m", "l", "full", "bleed", "s"];
   const cyclePhotoSize = (id: string) => {
     if (!settings) return;
     const cur = settings.photoSizes[id] || "m";

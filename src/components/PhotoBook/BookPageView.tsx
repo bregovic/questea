@@ -49,6 +49,7 @@ export function BookPageView({
   /* Kniha se čte po dvoustranách: první stránka za obálkou je pravá, pak se
      střídají. Vnitřní (širší) okraj musí být vždy u hřbetu. */
   const rightHand = index % 2 === 0;
+  const bleed = page.blocks.length === 1 && page.blocks[0].kind === "bleed" ? page.blocks[0] : null;
 
   /* Obsah se sází odshora, takže při neúplné stránce zbylo místo dole.
      Zbytek se rozpustí do mezer mezi bloky – ale jen do rozumné míry, aby
@@ -70,14 +71,32 @@ export function BookPageView({
         fontFamily: style.bodyFont,
       }}
     >
+      {bleed && (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img
+          src={urlOf(bleed.photoId)}
+          alt=""
+          crossOrigin="anonymous"
+          draggable={false}
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            display: "block",
+          }}
+        />
+      )}
+
       <div
         style={{
+          display: bleed ? "none" : "flex",
           position: "absolute",
           top: geo.padTop,
           bottom: geo.padBottom,
           left: rightHand ? geo.padInner : geo.padOuter,
           right: rightHand ? geo.padOuter : geo.padInner,
-          display: "flex",
           flexDirection: "column",
           gap: geo.gap + extraGap,
         }}
@@ -106,6 +125,7 @@ export function BookPageView({
 
       <div
         style={{
+          display: bleed ? "none" : "block",
           position: "absolute",
           bottom: Math.round(geo.padBottom * 0.38),
           left: rightHand ? geo.padInner : geo.padOuter,
@@ -337,6 +357,8 @@ function BlockView({
       </div>
     );
   }
+
+  if (block.kind === "bleed") return null;
 
   // skupina fotek: řádky už spočítal sazeč, tady se jen vykreslí
   return (

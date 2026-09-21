@@ -123,6 +123,13 @@ export function BookPageView({
   );
 }
 
+/* Velká písmena se dělají v JS, ne přes CSS text-transform.
+   html2canvas měří převedený řetězec, ale rozsahy nastavuje na původní
+   textový uzel; jakmile se délky rozejdou, spadne na IndexSizeError.
+   U češtiny se délka nemění, ale rakouské „ß" se převádí na „SS" – o znak
+   delší – a export knihy z cesty přes Rakousko na tom padal. */
+const upper = (s: string) => s.toLocaleUpperCase("cs-CZ");
+
 function BlockView({
   block,
   geo,
@@ -192,13 +199,12 @@ function BlockView({
               fontSize: TYPE.meta.size * geo.scale,
               lineHeight: TYPE.meta.line,
               fontWeight: 700,
-              textTransform: "uppercase",
               letterSpacing: style.metaTracking,
               color: style.accent,
               marginBottom: TYPE.meta.gapAfter * geo.scale * 0.4,
             }}
           >
-            {block.meta}
+            {upper(block.meta)}
           </div>
         )}
         {(block.title || editable) && (

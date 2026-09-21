@@ -8,6 +8,13 @@ import type { BookStyle } from "@/lib/photobook/styles";
  * Obálka knihy: fotka na spad, přes ni ztmavení a název. U tmavého papíru
  * se ztmavení nepřidává, jinak by obálka zčernala.
  */
+/* Velká písmena se dělají v JS, ne přes CSS text-transform.
+   html2canvas měří převedený řetězec, ale rozsahy nastavuje na původní
+   textový uzel; jakmile se délky rozejdou, spadne na IndexSizeError.
+   U češtiny se délka nemění, ale rakouské „ß" se převádí na „SS" – o znak
+   delší – a export knihy z cesty přes Rakousko na tom padal. */
+const upper = (s: string) => s.toLocaleUpperCase("cs-CZ");
+
 export function BookCover({
   title,
   subtitle,
@@ -80,13 +87,12 @@ export function BookCover({
             style={{
               fontSize: 10 * geo.scale,
               fontWeight: 700,
-              textTransform: "uppercase",
               letterSpacing: style.metaTracking,
               marginBottom: 12 * geo.scale,
               opacity: 0.8,
             }}
           >
-            {subtitle}
+            {upper(subtitle)}
           </div>
         )}
         <div

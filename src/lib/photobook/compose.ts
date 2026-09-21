@@ -736,5 +736,62 @@ export function compose({ posts, aspects, geo, density = 3, textLayouts = {}, ph
   }
 
   closePage();
+  return compact(pages, geo, breaks);
+}
+
+/**
+ * Úklid po sazbě: stáhne obsah z další stránky nahoru, dokud se vejde.
+ *
+ * Sazba je jednoprůchodová a rozhoduje se podle toho, co zrovna vidí – tím
+ * občas vznikne stránka se dvěma fotkami a prázdnou spodní třetinou,
+ * přestože začátek dalšího příspěvku by se tam pohodlně vešel. Tenhle
+ * průchod takové případy posbírá bez ohledu na to, čím vznikly.
+ *
+ * Nesahá na stránky s fotkou na spad, nepřetahuje přes ruční zalomení a
+ * nenechá nahoře viset osamocený nadpis.
+ */
+function compact(pages: Page[], geo: Geometry, breaks: Set<string>): Page[] {
+  const heightOf = (blocks: Block[]) =>
+    blocks.reduce((s, b) => s + b.h, 0) + Math.max(0, blocks.length - 1) * geo.gap;
+
+  const isBleedPage = (p: Page) => p.blocks.length === 1 && p.blocks[0].kind === "bleed";
+
+  for (let i = 0; i < pages.length - 1; i++) {
+    const page = pages[i];
+    if (isBleedPage(page)) continue;
+
+    for (;;) {
+      const next = pages[i + 1];
+      if (!next || isBleedPage(next) || !next.blocks.length) break;
+
+      const first = next.blocks[0];
+      // příspěvek s ručním zalomením musí zůstat na začátku stránky
+      if (breaks.has(first.postId) && next.startsPosts.includes(first.postId)) break;
+
+      // nadpis se stěhuje jen s obsahem, který po něm následuje
+      const move = first.kind === "heading" ? next.blocks.slice(0, 2) : [first];
+      if (first.kind === "heading" && move.length < 2) break;
+
+      const free = geo.contentH - heightOf(page.blocks) - geo.gap;
+      if (heightOf(move) > free) break;
+
+      page.blocks.push(...move);
+      next.blocks.splice(0, move.length);
+      if (!next.blocks.length) pages.splice(i + 1, 1);
+    }
+  }
+
+  // přepočítat zaplnění a to, které příspěvky na stránce začínají
+  const seen = new Set<string>();
+  for (const p of pages) {
+    p.fill = heightOf(p.blocks) / geo.contentH;
+    p.startsPosts = [];
+    for (const b of p.blocks) {
+      if (!seen.has(b.postId)) {
+        seen.add(b.postId);
+        p.startsPosts.push(b.postId);
+      }
+    }
+  }
   return pages;
 }

@@ -323,7 +323,9 @@ function BlockView({
     // `aside`: text vlevo, fotka vpravo – obojí na půl šířky sazebního obrazce
     if (block.layout === "aside" && block.photo) {
       return (
-        <div style={{ display: "flex", gap: geo.gap, alignItems: "flex-start" }}>
+        /* Fotka bývá vyšší než text, takže pod textem zbývalo místo. Svislé
+           vystředění z toho udělá souměrnou mezeru, která vypadá jako záměr. */
+        <div style={{ display: "flex", gap: geo.gap, alignItems: "center" }}>
           {body}
           <div
             style={{

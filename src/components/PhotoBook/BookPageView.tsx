@@ -233,8 +233,8 @@ function BlockView({
           boxSizing: "border-box",
           fontSize: t.size * geo.scale,
           lineHeight: t.line,
-          color: block.lead ? style.text : style.muted,
-          fontWeight: block.lead ? 500 : 400,
+          color: style.text,
+          fontWeight: block.lead ? 600 : 450,
           whiteSpace: "pre-wrap",
           outline: "none",
         }}
@@ -313,9 +313,9 @@ function BlockView({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: geo.gap }}>
       {block.rows.map((row, ri) => (
-        // Poslední řádek nemusí vyplnit celou šířku (má strop výšky) – ať pak
-        // nevisí u levého okraje, vycentruje se.
-        <div key={ri} style={{ display: "flex", gap: geo.gap, height: row.h, justifyContent: "center" }}>
+        // Řádky vyplňují celou šířku sazebního obrazce, takže lícují s okraji
+        // stránky i mezi sebou; zarovnání na začátek je jen pojistka.
+        <div key={ri} style={{ display: "flex", gap: geo.gap, height: row.h, justifyContent: "flex-start" }}>
           {row.cells.map((c) => (
             <div
               key={c.id}

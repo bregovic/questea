@@ -252,13 +252,15 @@ export function justify(
   const cuts: number[] = [];
   for (let j = n; j > 0; j = from[j]) cuts.unshift(j);
 
+  /* Každý řádek se roztáhne přesně na šířku sazebního obrazce – fotky tak
+     lícují s okraji stránky i mezi sebou. Žádný strop výšky se neuplatňuje:
+     osamocenou vysokou fotku už nevyrábí náhoda, ale rozhodnutí lámání,
+     které si ji vybralo jako nejlevnější, a taková fotka má stránku vyplnit. */
   const rows: PhotoRow[] = [];
   let start = 0;
   for (const end of cuts) {
     const slice = photos.slice(start, end);
-    // Strop výšky: jedna fotka na řádku by se jinak roztáhla přes celou šířku.
-    const solo = slice.length === 1 && slice[0].size === "full";
-    const h = Math.min(rowH(start, end), targetRowH * (solo ? 1.9 : 1.1));
+    const h = rowH(start, end);
     rows.push({ h, cells: slice.map((it) => ({ id: it.id, w: it.aspect * h, h })) });
     start = end;
   }
@@ -288,7 +290,7 @@ export function fitPhotos(
 
   let best: { rows: PhotoRow[]; used: number; count: number; fill: number } | null = null;
 
-  const STEPS = 22;
+  const STEPS = 40;
   for (let i = 0; i <= STEPS; i++) {
     const target = minRowH + ((maxRowH - minRowH) * i) / STEPS;
     const all = justify(photos, geo.contentW, geo.gap, target);
@@ -448,11 +450,14 @@ export function compose({ posts, aspects, geo, density = 3, textLayouts = {}, ph
    *  kterým se už na téhle stránce nevešly fotky. Stránka končící jen
    *  nadpisem a odstavcem vypadá jako nedopsaná – takový ocas patří k
    *  obsahu, který ho následuje. Stránku ale nikdy nevyprázdní úplně. */
-  const closeCarryingTrailingText = () => {
+  const closeCarryingTrailingText = (postId: string) => {
     const tail: Block[] = [];
     while (cur.length > 1) {
       const last = cur[cur.length - 1];
-      if (last.kind === "photos") break;
+      // Bere jen ocas příspěvku, jehož fotky se nevešly. Text příspěvku,
+      // který žádné fotky nemá, na stránce zůstat smí – jinak by se stránka
+      // zbytečně vyprázdnila.
+      if (last.kind === "photos" || last.postId !== postId) break;
       cur.pop();
       used -= last.h + (cur.length ? geo.gap : 0);
       tail.unshift(last);
@@ -558,12 +563,12 @@ export function compose({ posts, aspects, geo, density = 3, textLayouts = {}, ph
       let rest = item.group;
       let guard = 0;
       while (rest.length && guard++ < 500) {
-        if (remaining() < MIN_TAIL) closeCarryingTrailingText();
+        if (remaining() < MIN_TAIL) closeCarryingTrailingText(post.id);
         const fit = fitPhotos(rest, geo, remaining(), density);
         if (!fit.rows.length) {
           // na stránce je jen nadpis (nebo nic) → dál už se to nezlepší
           if (!cur.length || !cur.some((x) => x.kind === "photos")) break;
-          closeCarryingTrailingText();
+          closeCarryingTrailingText(post.id);
           continue;
         }
         place({ kind: "photos", postId: post.id, rows: fit.rows, h: fit.used });

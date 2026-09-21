@@ -12,6 +12,7 @@ import {
   type Page,
   type SourcePost,
   type TextLayout,
+  type PhotoSize,
 } from "@/lib/photobook/compose";
 import { STYLES, STYLE_LIST, type StyleId } from "@/lib/photobook/styles";
 import { BookPageView } from "./BookPageView";
@@ -52,6 +53,8 @@ type Settings = {
   density: Density;
   /** Ruční volba šířky textu, klíč `idPříspěvku#poradíKusu`. */
   textLayouts: Record<string, TextLayout>;
+  /** Ruční velikosti fotek, klíč = id fotky. */
+  photoSizes: Record<string, PhotoSize>;
 };
 
 const DEFAULTS: Settings = {
@@ -64,6 +67,7 @@ const DEFAULTS: Settings = {
   chunks: {},
   density: 3,
   textLayouts: {},
+  photoSizes: {},
 };
 
 function styleFor(blogTemplate?: string | null): StyleId {
@@ -264,8 +268,9 @@ export function PhotoBook({
       geo,
       density: settings?.density ?? 3,
       textLayouts: settings?.textLayouts,
+      photoSizes: settings?.photoSizes,
     });
-  }, [sources, aspects, geo, allImages.length, settings?.density, settings?.textLayouts]);
+  }, [sources, aspects, geo, allImages.length, settings?.density, settings?.textLayouts, settings?.photoSizes]);
 
   const style = STYLES[settings?.style || "sand"];
   const ready = !!settings && !!posts && (!allImages.length || pages.length > 0);
@@ -318,6 +323,13 @@ export function PhotoBook({
     if ((settings.titles[postId] ?? undefined) === value) return;
     patch({ titles: { ...settings.titles, [postId]: value } });
   };
+  const SIZE_CYCLE: PhotoSize[] = ["m", "l", "full", "s"];
+  const cyclePhotoSize = (id: string) => {
+    if (!settings) return;
+    const cur = settings.photoSizes[id] || "m";
+    const next = SIZE_CYCLE[(SIZE_CYCLE.indexOf(cur) + 1) % SIZE_CYCLE.length];
+    patch({ photoSizes: { ...settings.photoSizes, [id]: next } });
+  };
   const LAYOUT_CYCLE: TextLayout[] = ["full", "measured", "aside"];
   const cycleLayout = (postId: string, chunkIdx: number) => {
     if (!settings) return;
@@ -334,7 +346,7 @@ export function PhotoBook({
   };
   const resetEdits = () => {
     if (!confirm("Vrátit knihu do původního stavu? Ruční úpravy textu a vynechané fotky se zahodí.")) return;
-    patch({ hidden: [], hiddenPosts: [], titles: {}, chunks: {}, textLayouts: {} });
+    patch({ hidden: [], hiddenPosts: [], titles: {}, chunks: {}, textLayouts: {}, photoSizes: {} });
   };
 
   async function exportPdf() {
@@ -539,6 +551,7 @@ export function PhotoBook({
                     onCycleLayout={cycleLayout}
                     onRemovePost={hidePost}
                     onRemovePhoto={hidePhoto}
+                    onCyclePhotoSize={cyclePhotoSize}
                   />
                 )}
               </div>

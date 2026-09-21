@@ -22,6 +22,7 @@ export function BookPageView({
   onCycleLayout,
   onRemovePost,
   onRemovePhoto,
+  onCyclePhotoSize,
 }: {
   page: Page;
   index: number;
@@ -34,6 +35,7 @@ export function BookPageView({
   onCycleLayout?: (postId: string, chunkIdx: number) => void;
   onRemovePost?: (postId: string) => void;
   onRemovePhoto?: (id: string) => void;
+  onCyclePhotoSize?: (id: string) => void;
 }) {
   /* Kniha se čte po dvoustranách: první stránka za obálkou je pravá, pak se
      střídají. Vnitřní (širší) okraj musí být vždy u hřbetu. */
@@ -77,6 +79,7 @@ export function BookPageView({
             onCycleLayout={onCycleLayout}
             onRemovePost={onRemovePost}
             onRemovePhoto={onRemovePhoto}
+            onCyclePhotoSize={onCyclePhotoSize}
           />
         ))}
       </div>
@@ -111,6 +114,7 @@ function BlockView({
   onCycleLayout,
   onRemovePost,
   onRemovePhoto,
+  onCyclePhotoSize,
 }: {
   block: Block;
   geo: Geometry;
@@ -122,6 +126,7 @@ function BlockView({
   onCycleLayout?: (postId: string, chunkIdx: number) => void;
   onRemovePost?: (postId: string) => void;
   onRemovePhoto?: (id: string) => void;
+  onCyclePhotoSize?: (id: string) => void;
 }) {
   if (block.kind === "heading") {
     return (
@@ -303,28 +308,19 @@ function BlockView({
                 draggable={false}
                 style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
               />
-              {editable && onRemovePhoto && (
-                <button
-                  onClick={() => onRemovePhoto(c.id)}
-                  title="Vynechat fotku z knihy"
-                  style={{
-                    position: "absolute",
-                    top: 4,
-                    right: 4,
-                    width: 20,
-                    height: 20,
-                    borderRadius: 10,
-                    border: "none",
-                    cursor: "pointer",
-                    background: "rgba(0,0,0,0.55)",
-                    color: "#fff",
-                    fontSize: 13,
-                    lineHeight: "20px",
-                    padding: 0,
-                  }}
-                >
-                  ×
-                </button>
+              {editable && (
+                <div style={{ position: "absolute", top: 4, right: 4, display: "flex", gap: 4 }}>
+                  {onCyclePhotoSize && (
+                    <button
+                      onClick={() => onCyclePhotoSize(c.id)}
+                      title="Změnit velikost fotky"
+                      style={{ ...HEAD_BTN, background: "rgba(0,0,0,0.55)" }}
+                    >
+                      ⤢
+                    </button>
+                  )}
+                  {onRemovePhoto && <RemoveBtn onClick={() => onRemovePhoto(c.id)} />}
+                </div>
               )}
             </div>
           ))}
@@ -353,9 +349,6 @@ function RemoveBtn({ onClick }: { onClick: () => void }) {
       onClick={onClick}
       title="Vynechat fotku z knihy"
       style={{
-        position: "absolute",
-        top: 4,
-        right: 4,
         width: 20,
         height: 20,
         borderRadius: 10,

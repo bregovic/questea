@@ -56,6 +56,18 @@ export type PhotoCell = { id: string; w: number; h: number };
 /** `full` = přes celou šířku (krátká poznámka), `measured` = čitelná míra
  *  (souvislý text), `aside` = na půl šířky a vedle fotka. */
 export type TextLayout = "full" | "measured" | "aside";
+
+/** Ruční velikost fotky. Bez ořezu se velikost řídí tím, s kolika fotkami
+ *  se dělí o řádek: čím míň jich v řádku je, tím je každá vyšší a širší. */
+export type PhotoSize = "s" | "m" | "l" | "full";
+
+/** Kolik fotek smí být v řádku, který tuhle fotku obsahuje. */
+const SIZE_LIMITS: Record<PhotoSize, { min: number; max: number }> = {
+  s: { min: 3, max: 9 },
+  m: { min: 1, max: 9 },
+  l: { min: 1, max: 2 },
+  full: { min: 1, max: 1 },
+};
 export type PhotoRow = { h: number; cells: PhotoCell[] };
 
 export type Block =
@@ -180,7 +192,7 @@ export function headingHeight(title: string, meta: string, geo: Geometry): numbe
  * rovnoměrně. Je to stejný princip, jakým se v sazbě lámou odstavce na řádky.
  */
 export function justify(
-  photos: { id: string; aspect: number }[],
+  photos: { id: string; aspect: number; size?: PhotoSize }[],
   width: number,
   gap: number,
   targetRowH: number
@@ -199,6 +211,16 @@ export function justify(
   const minAspect = Math.min(...photos.map((p) => p.aspect));
   const maxPerRow = Math.max(1, Math.round(width / targetRowH / minAspect) + 2);
 
+  /** Smí úsek [i,j) tvořit řádek? Ruční velikosti omezují počet fotek v řádku. */
+  const allowed = (i: number, j: number) => {
+    const k = j - i;
+    for (let x = i; x < j; x++) {
+      const lim = SIZE_LIMITS[photos[x].size || "m"];
+      if (k < lim.min || k > lim.max) return false;
+    }
+    return true;
+  };
+
   const cost = new Array<number>(n + 1).fill(Infinity);
   const from = new Array<number>(n + 1).fill(0);
   cost[0] = 0;
@@ -206,6 +228,7 @@ export function justify(
   for (let j = 1; j <= n; j++) {
     for (let i = Math.max(0, j - maxPerRow); i < j; i++) {
       if (!isFinite(cost[i])) continue;
+      if (!allowed(i, j)) continue;
       const h = rowH(i, j);
       if (h <= 0) continue;
       const c = cost[i] + (h - targetRowH) ** 2 * (j - i);
@@ -216,6 +239,12 @@ export function justify(
     }
   }
 
+  // Kdyby se ruční velikosti nedaly splnit (např. „malá" jako jediná zbylá
+  // fotka), radši se omezení pustí, než aby se skupina vůbec nevysázela.
+  if (!isFinite(cost[n])) {
+    return justify(photos.map((p) => ({ id: p.id, aspect: p.aspect })), width, gap, targetRowH);
+  }
+
   const cuts: number[] = [];
   for (let j = n; j > 0; j = from[j]) cuts.unshift(j);
 
@@ -224,7 +253,8 @@ export function justify(
   for (const end of cuts) {
     const slice = photos.slice(start, end);
     // Strop výšky: jedna fotka na řádku by se jinak roztáhla přes celou šířku.
-    const h = Math.min(rowH(start, end), targetRowH * 1.1);
+    const solo = slice.length === 1 && slice[0].size === "full";
+    const h = Math.min(rowH(start, end), targetRowH * (solo ? 1.9 : 1.1));
     rows.push({ h, cells: slice.map((it) => ({ id: it.id, w: it.aspect * h, h })) });
     start = end;
   }
@@ -241,11 +271,11 @@ export function justify(
  * nejvíc; při shodě tu, která umístí víc fotek.
  */
 export function fitPhotos(
-  photos: { id: string; aspect: number }[],
+  photos: { id: string; aspect: number; size?: PhotoSize }[],
   geo: Geometry,
   available: number,
   density: Density = 3
-): { rows: PhotoRow[]; used: number; rest: { id: string; aspect: number }[] } {
+): { rows: PhotoRow[]; used: number; rest: { id: string; aspect: number; size?: PhotoSize }[] } {
   if (!photos.length || available <= 0) return { rows: [], used: 0, rest: photos };
 
   const band = ROW_BANDS[density];
@@ -370,6 +400,8 @@ export type ComposeInput = {
   density?: Density;
   /** Ruční volba šířky textu, klíč `idPříspěvku#poradíKusu`. */
   textLayouts?: Record<string, TextLayout>;
+  /** Ruční velikosti fotek, klíč = id fotky. */
+  photoSizes?: Record<string, PhotoSize>;
 };
 
 /**
@@ -381,7 +413,7 @@ export type ComposeInput = {
  *  - když na stránce zbývá míň než sedmina výšky, stránka se uzavře,
  *  - zbylé místo se rozdělí do mezer mezi bloky, ať text neplave nahoře.
  */
-export function compose({ posts, aspects, geo, density = 3, textLayouts = {} }: ComposeInput): Page[] {
+export function compose({ posts, aspects, geo, density = 3, textLayouts = {}, photoSizes = {} }: ComposeInput): Page[] {
   const layoutOf = (postId: string, idx: number): TextLayout | undefined =>
     textLayouts[`${postId}#${idx}`];
   const pages: Page[] = [];
@@ -420,7 +452,7 @@ export function compose({ posts, aspects, geo, density = 3, textLayouts = {} }: 
   };
 
   for (const post of posts) {
-    const photos = post.photos.map((id) => ({ id, aspect: aspectOf(id) }));
+    const photos = post.photos.map((id) => ({ id, aspect: aspectOf(id), size: photoSizes[id] }));
     const chunks = post.chunks.filter((c) => c.trim().length > 0);
     if (!chunks.length && !photos.length) continue;
 

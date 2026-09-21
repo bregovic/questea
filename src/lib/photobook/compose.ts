@@ -52,11 +52,27 @@ export type SourcePost = {
 };
 
 export type PhotoCell = { id: string; w: number; h: number };
+
+/** `full` = přes celou šířku (krátká poznámka), `measured` = čitelná míra
+ *  (souvislý text), `aside` = na půl šířky a vedle fotka. */
+export type TextLayout = "full" | "measured" | "aside";
 export type PhotoRow = { h: number; cells: PhotoCell[] };
 
 export type Block =
   | { kind: "heading"; postId: string; title: string; meta: string; h: number }
-  | { kind: "text"; postId: string; text: string; lead: boolean; chunkIdx: number; h: number }
+  | {
+      kind: "text";
+      postId: string;
+      text: string;
+      lead: boolean;
+      chunkIdx: number;
+      /** Jak široko text sedí: přes celou šířku, v čitelné míře, nebo na půl
+       *  šířky s fotkou vedle sebe. */
+      layout: TextLayout;
+      /** Jen u `aside` – fotka po pravé straně textu. */
+      photo?: PhotoCell;
+      h: number;
+    }
   | { kind: "photos"; postId: string; rows: PhotoRow[]; h: number };
 
 export type Page = {
@@ -131,11 +147,11 @@ function wrappedLines(text: string, width: number, fontSize: number): number {
     .reduce((n, para) => n + Math.max(1, Math.ceil(para.trim().length / perLine)), 0);
 }
 
-export function textHeight(text: string, geo: Geometry, lead: boolean): number {
+export function textHeight(text: string, geo: Geometry, lead: boolean, width?: number): number {
   const t = lead ? TYPE.lead : TYPE.body;
   const size = t.size * geo.scale;
   const paras = text.split(/\n+/).filter((p) => p.trim().length > 0).length;
-  const lines = wrappedLines(text, geo.textW, size);
+  const lines = wrappedLines(text, width ?? geo.textW, size);
   // mezera mezi odstavci uvnitř bloku
   return Math.ceil(lines * size * t.line + Math.max(0, paras - 1) * size * 0.6);
 }
@@ -316,6 +332,19 @@ export function chunksFor(text: string, photoCount: number): string[] {
   return merged;
 }
 
+/** Šířka textového sloupce pro dané rozvržení. */
+export function textWidthFor(layout: TextLayout, geo: Geometry): number {
+  if (layout === "full") return geo.contentW;
+  if (layout === "aside") return Math.round((geo.contentW - geo.gap) / 2);
+  return geo.textW;
+}
+
+/* Krátká poznámka v úzkém sloupci vypadá jen zhuštěně a plýtvá místem –
+   doporučení „65 znaků na řádek" platí pro souvislé čtení stránek textu,
+   ne pro dvě věty z cesty. */
+const SHORT_TEXT = 200;
+const ASIDE_MAX = 700;
+
 /* ─────────────────────────── sazba stránek ─────────────────────────── */
 
 let _seq = 0;
@@ -339,6 +368,8 @@ export type ComposeInput = {
   aspects: Record<string, number>;
   geo: Geometry;
   density?: Density;
+  /** Ruční volba šířky textu, klíč `idPříspěvku#poradíKusu`. */
+  textLayouts?: Record<string, TextLayout>;
 };
 
 /**
@@ -350,7 +381,9 @@ export type ComposeInput = {
  *  - když na stránce zbývá míň než sedmina výšky, stránka se uzavře,
  *  - zbylé místo se rozdělí do mezer mezi bloky, ať text neplave nahoře.
  */
-export function compose({ posts, aspects, geo, density = 3 }: ComposeInput): Page[] {
+export function compose({ posts, aspects, geo, density = 3, textLayouts = {} }: ComposeInput): Page[] {
+  const layoutOf = (postId: string, idx: number): TextLayout | undefined =>
+    textLayouts[`${postId}#${idx}`];
   const pages: Page[] = [];
   let cur: Block[] = [];
   let used = 0;
@@ -395,7 +428,7 @@ export function compose({ posts, aspects, geo, density = 3 }: ComposeInput): Pag
        Nesmí zůstat viset sám dole. Vyžádá si místo i pro první kus obsahu. */
     const hh = headingHeight(post.title, post.meta, geo);
     const firstContentH = chunks.length
-      ? textHeight(chunks[0], geo, true)
+      ? textHeight(chunks[0], geo, true, geo.contentW)
       : geo.contentH * 0.2;
     if (hh > 0) {
       if (remaining() < hh + geo.gap + Math.min(firstContentH, geo.contentH * 0.18)) {
@@ -409,15 +442,39 @@ export function compose({ posts, aspects, geo, density = 3 }: ComposeInput): Pag
        Nejdřív se poskládá pořadí obsahu, teprve pak se sází – čte se to líp
        než míchat rozdělování a lámání stránek dohromady. */
     type Item =
-      | { t: "text"; text: string; lead: boolean; idx: number }
+      | { t: "text"; text: string; lead: boolean; idx: number; layout: TextLayout; photo?: { id: string; aspect: number } }
       | { t: "photos"; group: { id: string; aspect: number }[] };
 
     const items: Item[] = [];
     if (chunks.length) {
       const perChunk = Math.ceil(photos.length / chunks.length);
       let pool = photos;
+      let lastWasAside = false;
+
       chunks.forEach((chunk, i) => {
-        items.push({ t: "text", text: chunk, lead: i === 0, idx: i });
+        const len = chunk.length;
+        const override = layoutOf(post.id, i);
+
+        /* Volba šířky: krátká poznámka přes celou šířku (neplýtvá místem),
+           střední text s fotkou po boku (a nesmí být dva takové za sebou),
+           dlouhý text v čitelné míře. */
+        let layout: TextLayout;
+        if (override) layout = override;
+        else if (len < SHORT_TEXT) layout = "full";
+        else if (len <= ASIDE_MAX && pool.length >= 2 && !lastWasAside) layout = "aside";
+        else layout = "measured";
+
+        let aside: { id: string; aspect: number } | undefined;
+        if (layout === "aside" && pool.length) {
+          aside = pool[0];
+          pool = pool.slice(1);
+        } else if (layout === "aside") {
+          layout = "full"; // nebyla volná fotka
+        }
+        lastWasAside = layout === "aside";
+
+        items.push({ t: "text", text: chunk, lead: i === 0, idx: i, layout, photo: aside });
+
         const group = pool.slice(0, perChunk);
         pool = pool.slice(group.length);
         if (group.length) items.push({ t: "photos", group });
@@ -429,9 +486,25 @@ export function compose({ posts, aspects, geo, density = 3 }: ComposeInput): Pag
 
     for (const item of items) {
       if (item.t === "text") {
-        const th = textHeight(item.text, geo, item.lead);
+        const w = textWidthFor(item.layout, geo);
+        let th = textHeight(item.text, geo, item.lead, w);
+        let cell: PhotoCell | undefined;
+        if (item.layout === "aside" && item.photo) {
+          const ph = w / item.photo.aspect;
+          cell = { id: item.photo.id, w, h: ph };
+          th = Math.max(th, ph);
+        }
         if (remaining() < Math.min(th, geo.contentH * 0.22)) closePage();
-        place({ kind: "text", postId: post.id, text: item.text, lead: item.lead, chunkIdx: item.idx, h: th });
+        place({
+          kind: "text",
+          postId: post.id,
+          text: item.text,
+          lead: item.lead,
+          chunkIdx: item.idx,
+          layout: item.layout,
+          photo: cell,
+          h: th,
+        });
         continue;
       }
 

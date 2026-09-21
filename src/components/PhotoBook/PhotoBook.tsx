@@ -11,6 +11,7 @@ import {
   type Format,
   type Page,
   type SourcePost,
+  type TextLayout,
 } from "@/lib/photobook/compose";
 import { STYLES, STYLE_LIST, type StyleId } from "@/lib/photobook/styles";
 import { BookPageView } from "./BookPageView";
@@ -47,6 +48,8 @@ type Settings = {
   chunks: Record<string, string>;
   /** Kolik fotek na stránku: 1 = pár velkých, 5 = hustá mřížka. */
   density: Density;
+  /** Ruční volba šířky textu, klíč `idPříspěvku#poradíKusu`. */
+  textLayouts: Record<string, TextLayout>;
 };
 
 const DEFAULTS: Settings = {
@@ -57,6 +60,7 @@ const DEFAULTS: Settings = {
   titles: {},
   chunks: {},
   density: 3,
+  textLayouts: {},
 };
 
 function styleFor(blogTemplate?: string | null): StyleId {
@@ -250,8 +254,14 @@ export function PhotoBook({
     if (!sources.length) return [];
     // dokud se nenačtou poměry stran, sazba by byla nanečisto
     if (allImages.length && Object.keys(aspects).length < allImages.length) return [];
-    return compose({ posts: sources, aspects, geo, density: settings?.density ?? 3 });
-  }, [sources, aspects, geo, allImages.length, settings?.density]);
+    return compose({
+      posts: sources,
+      aspects,
+      geo,
+      density: settings?.density ?? 3,
+      textLayouts: settings?.textLayouts,
+    });
+  }, [sources, aspects, geo, allImages.length, settings?.density, settings?.textLayouts]);
 
   const style = STYLES[settings?.style || "sand"];
   const ready = !!settings && !!posts && (!allImages.length || pages.length > 0);
@@ -299,6 +309,14 @@ export function PhotoBook({
     if (!settings) return;
     if ((settings.titles[postId] ?? undefined) === value) return;
     patch({ titles: { ...settings.titles, [postId]: value } });
+  };
+  const LAYOUT_CYCLE: TextLayout[] = ["full", "measured", "aside"];
+  const cycleLayout = (postId: string, chunkIdx: number) => {
+    if (!settings) return;
+    const key = `${postId}#${chunkIdx}`;
+    const cur = settings.textLayouts[key];
+    const next = LAYOUT_CYCLE[(LAYOUT_CYCLE.indexOf(cur) + 1) % LAYOUT_CYCLE.length];
+    patch({ textLayouts: { ...settings.textLayouts, [key]: next } });
   };
   const editChunk = (postId: string, chunkIdx: number, value: string) => {
     const key = `${postId}#${chunkIdx}`;
@@ -506,6 +524,7 @@ export function PhotoBook({
                     editable
                     onEditText={editChunk}
                     onEditTitle={editTitle}
+                    onCycleLayout={cycleLayout}
                     onRemovePhoto={hidePhoto}
                   />
                 )}

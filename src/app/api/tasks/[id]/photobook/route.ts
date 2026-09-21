@@ -42,7 +42,12 @@ export async function PUT(
   let body: { doc?: unknown };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Bad JSON" }, { status: 400 }); }
 
-  if (!Array.isArray(body.doc)) return NextResponse.json({ error: "doc must be an array" }, { status: 400 });
+  /* Dřív se ukládalo pole stránek, dnes objekt s nastavením knihy (stránky
+     se dopočítají sazečem). Kontrola na pole proto nové ukládání odmítala
+     s chybou 400 a žádná úprava nepřežila zavření editoru. */
+  if (body.doc === null || body.doc === undefined || typeof body.doc !== "object") {
+    return NextResponse.json({ error: "doc must be an object or array" }, { status: 400 });
+  }
 
   try {
     const res = await prisma.task.updateMany({

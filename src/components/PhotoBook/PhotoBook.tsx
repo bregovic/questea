@@ -17,6 +17,7 @@ import {
 import { STYLES, STYLE_LIST, type StyleId } from "@/lib/photobook/styles";
 import { BookPageView } from "./BookPageView";
 import { BookCover } from "./BookCover";
+import type { Caption } from "./PhotoCaption";
 
 type Att = { id: string; type: string; url: string };
 type Loc = { address?: string | null; placeName?: string | null };
@@ -57,6 +58,8 @@ type Settings = {
   photoSizes: Record<string, PhotoSize>;
   /** Id příspěvků, které mají začít na nové stránce. */
   pageBreaks: string[];
+  /** Popisky položené přes fotky, klíč = id fotky. */
+  captions: Record<string, Caption>;
   /** Ručně vybraná fotka a název na obálce. */
   coverPhoto?: string;
   coverTitle?: string;
@@ -74,6 +77,7 @@ const DEFAULTS: Settings = {
   textLayouts: {},
   photoSizes: {},
   pageBreaks: [],
+  captions: {},
 };
 
 function styleFor(blogTemplate?: string | null): StyleId {
@@ -333,6 +337,13 @@ export function PhotoBook({
     if ((settings.titles[postId] ?? undefined) === value) return;
     patch({ titles: { ...settings.titles, [postId]: value } });
   };
+  const setCaption = (photoId: string, next: Caption | null) => {
+    if (!settings) return;
+    const captions = { ...settings.captions };
+    if (next) captions[photoId] = next;
+    else delete captions[photoId];
+    patch({ captions });
+  };
   const togglePageBreak = (postId: string) => {
     if (!settings) return;
     const on = settings.pageBreaks.includes(postId);
@@ -365,7 +376,7 @@ export function PhotoBook({
   };
   const resetEdits = () => {
     if (!confirm("Vrátit knihu do původního stavu? Ruční úpravy textu a vynechané fotky se zahodí.")) return;
-    patch({ hidden: [], hiddenPosts: [], titles: {}, chunks: {}, textLayouts: {}, photoSizes: {}, pageBreaks: [], coverPhoto: undefined, coverTitle: undefined });
+    patch({ hidden: [], hiddenPosts: [], titles: {}, chunks: {}, textLayouts: {}, photoSizes: {}, pageBreaks: [], captions: {}, coverPhoto: undefined, coverTitle: undefined });
   };
 
   async function exportPdf() {
@@ -575,6 +586,8 @@ export function PhotoBook({
                     onCyclePhotoSize={cyclePhotoSize}
                     onTogglePageBreak={togglePageBreak}
                     pageBreaks={breakSet}
+                    captions={settings?.captions}
+                    onCaption={setCaption}
                   />
                 )}
               </div>
@@ -655,7 +668,15 @@ export function PhotoBook({
           urlOf={urlOf}
         />
         {pages.map((p, i) => (
-          <BookPageView key={p.id} page={p} index={i} geo={geo} style={style} urlOf={urlOf} />
+          <BookPageView
+            key={p.id}
+            page={p}
+            index={i}
+            geo={geo}
+            style={style}
+            urlOf={urlOf}
+            captions={settings?.captions}
+          />
         ))}
       </div>
     </div>

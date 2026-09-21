@@ -4,6 +4,7 @@ import React from "react";
 import type { Block, Geometry, Page } from "@/lib/photobook/compose";
 import { TYPE, TEXT_PAD, textWidthFor } from "@/lib/photobook/compose";
 import type { BookStyle } from "@/lib/photobook/styles";
+import { PhotoCaption, type Caption } from "./PhotoCaption";
 
 /**
  * Vykreslení jedné vysázené stránky. Rozměry chodí ze sazeče v pixelech,
@@ -25,6 +26,8 @@ export function BookPageView({
   onCyclePhotoSize,
   onTogglePageBreak,
   pageBreaks,
+  captions,
+  onCaption,
 }: {
   page: Page;
   index: number;
@@ -40,6 +43,8 @@ export function BookPageView({
   onCyclePhotoSize?: (id: string) => void;
   onTogglePageBreak?: (postId: string) => void;
   pageBreaks?: Set<string>;
+  captions?: Record<string, Caption>;
+  onCaption?: (photoId: string, next: Caption | null) => void;
 }) {
   /* Kniha se čte po dvoustranách: první stránka za obálkou je pravá, pak se
      střídají. Vnitřní (širší) okraj musí být vždy u hřbetu. */
@@ -93,6 +98,8 @@ export function BookPageView({
             onCyclePhotoSize={onCyclePhotoSize}
             onTogglePageBreak={onTogglePageBreak}
             pageBreaks={pageBreaks}
+            captions={captions}
+            onCaption={onCaption}
           />
         ))}
       </div>
@@ -130,6 +137,8 @@ function BlockView({
   onCyclePhotoSize,
   onTogglePageBreak,
   pageBreaks,
+  captions,
+  onCaption,
 }: {
   block: Block;
   geo: Geometry;
@@ -144,6 +153,8 @@ function BlockView({
   onCyclePhotoSize?: (id: string) => void;
   onTogglePageBreak?: (postId: string) => void;
   pageBreaks?: Set<string>;
+  captions?: Record<string, Caption>;
+  onCaption?: (photoId: string, next: Caption | null) => void;
 }) {
   if (block.kind === "heading") {
     return (
@@ -270,8 +281,20 @@ function BlockView({
               draggable={false}
               style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
             />
+            {captions?.[block.photo.id] && (
+              <PhotoCaption
+                caption={captions[block.photo.id]}
+                style={style}
+                scale={geo.scale}
+                editable={editable}
+                onChange={(next) => onCaption?.(block.photo!.id, next)}
+                onRemove={() => onCaption?.(block.photo!.id, null)}
+              />
+            )}
             {editable && onRemovePhoto && (
-              <RemoveBtn onClick={() => onRemovePhoto(block.photo!.id)} />
+              <div style={{ position: "absolute", top: 4, right: 4 }}>
+                <RemoveBtn onClick={() => onRemovePhoto(block.photo!.id)} />
+              </div>
             )}
           </div>
         </div>
@@ -341,8 +364,27 @@ function BlockView({
                 draggable={false}
                 style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
               />
+              {captions?.[c.id] && (
+                <PhotoCaption
+                  caption={captions[c.id]}
+                  style={style}
+                  scale={geo.scale}
+                  editable={editable}
+                  onChange={(next) => onCaption?.(c.id, next)}
+                  onRemove={() => onCaption?.(c.id, null)}
+                />
+              )}
               {editable && (
                 <div style={{ position: "absolute", top: 4, right: 4, display: "flex", gap: 4 }}>
+                  {onCaption && !captions?.[c.id] && (
+                    <button
+                      onClick={() => onCaption(c.id, { text: "Popisek", x: 6, y: 78 })}
+                      title="Přidat popisek do fotky"
+                      style={{ ...HEAD_BTN, background: "rgba(0,0,0,0.55)" }}
+                    >
+                      T
+                    </button>
+                  )}
                   {onCyclePhotoSize && (
                     <button
                       onClick={() => onCyclePhotoSize(c.id)}

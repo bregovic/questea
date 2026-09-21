@@ -294,7 +294,7 @@ export function fitPhotos(
   let best: { rows: PhotoRow[]; used: number; count: number; fill: number } | null = null;
 
   const STEPS = 40;
-  const search = (maxRowH: number) => {
+  const search = (maxRowH: number, minCount = 1) => {
     for (let i = 0; i <= STEPS; i++) {
       const target = minRowH + ((maxRowH - minRowH) * i) / STEPS;
       const all = justify(photos, geo.contentW, geo.gap, target);
@@ -311,6 +311,7 @@ export function fitPhotos(
       if (!taken.length) continue;
 
       const count = taken.reduce((n, r) => n + r.cells.length, 0);
+      if (count < minCount) continue;
       const fill = h / available;
       if (
         !best ||
@@ -330,7 +331,11 @@ export function fitPhotos(
      stránky vyplní. Jinak by po malé skupině zůstala prázdná spodní třetina.
      U velké skupiny se sem nedojde, takže volba hustoty zůstává v platnosti. */
   if (!best || (best as { fill: number }).fill < 0.78) {
-    search(Math.min(available * 0.96, geo.contentH * 0.96));
+    /* Stránku smí vyplnit jediná fotka jen tehdy, když o to uživatel stál
+       (velikost „přes celou šířku") nebo když víc fotek není. Jinak by
+       „vyplnit stránku" znamenalo rozházet knihu po jedné fotce na stranu. */
+    const soloAllowed = photos.length < 2 || photos[0].size === "full" || photos[0].size === "bleed";
+    search(Math.min(available * 0.96, geo.contentH * 0.96), soloAllowed ? 1 : 2);
   }
 
   if (!best) return { rows: [], used: 0, rest: photos };

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { X, Download, RefreshCw, Loader2, ImageOff } from "lucide-react";
+import { X, Download, RefreshCw, Loader2, ImageOff, Undo2 } from "lucide-react";
 import { generatePhotoBookPdf } from "@/lib/generatePdf";
 import {
   compose,
@@ -143,6 +143,10 @@ export function PhotoBook({
   const exportRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const lastSavedRef = useRef<string>("");
+  /* Historie pro krok zpět. Drží se v refu, ne ve stavu – překreslovat editor
+     kvůli ní nemá smysl a u dlouhé knihy by to zdržovalo. */
+  const historyRef = useRef<Settings[]>([]);
+  const [canUndo, setCanUndo] = useState(false);
   const [stageScale, setStageScale] = useState(0.7);
 
   // ?raw=1 → fotka jde přes náš server, ne přesměrováním na R2. Bez toho
@@ -249,7 +253,35 @@ export function PhotoBook({
     return () => clearTimeout(t);
   }, [settings, folder.id]);
 
-  const patch = (p: Partial<Settings>) => setSettings((s) => (s ? { ...s, ...p } : s));
+  const patch = (p: Partial<Settings>) => {
+    if (settings) {
+      historyRef.current.push(settings);
+      if (historyRef.current.length > 50) historyRef.current.shift();
+      setCanUndo(true);
+    }
+    setSettings((s) => (s ? { ...s, ...p } : s));
+  };
+
+  const undo = useCallback(() => {
+    const prev = historyRef.current.pop();
+    if (!prev) return;
+    setSettings(prev);
+    setCanUndo(historyRef.current.length > 0);
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+        // v rozepsaném textu má Ctrl+Z patřit prohlížeči
+        const t = e.target as HTMLElement | null;
+        if (t?.isContentEditable || t?.tagName === "INPUT" || t?.tagName === "TEXTAREA") return;
+        e.preventDefault();
+        undo();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [undo]);
 
   /* ── příspěvky → vstup pro sazeč (s ručními zásahy) ── */
   const sources: SourcePost[] = useMemo(() => {
@@ -461,6 +493,17 @@ export function PhotoBook({
     patch({ photoOrder: { ...settings.photoOrder, [postId]: next } });
   };
 
+  /** Přetažení odstavce na fotku: text se z toku vyjme a položí se na fotku
+   *  jako popisek. Uvolněné místo v toku doplní sazeč fotkami samy. */
+  const textToPhoto = (postId: string, chunkIdx: number, photoId: string, text: string) => {
+    if (!settings) return;
+    patch({
+      captions: { ...settings.captions, [photoId]: { text, x: 6, y: 74 } },
+      chunks: { ...settings.chunks, [`${postId}#${chunkIdx}`]: "" },
+    });
+    setPicked(photoId);
+  };
+
   const setCaption = (photoId: string, next: Caption | null) => {
     if (!settings) return;
     const captions = { ...settings.captions };
@@ -589,6 +632,15 @@ export function PhotoBook({
             </button>
           ))}
         </div>
+
+        <button
+          onClick={undo}
+          disabled={!canUndo}
+          className="flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-sm hover:bg-white/20 disabled:opacity-40"
+          title="Zpět (Ctrl+Z)"
+        >
+          <Undo2 size={14} /> Zpět
+        </button>
 
         <button
           onClick={addSticker}
@@ -732,6 +784,7 @@ export function PhotoBook({
                       setReplacing(false);
                     }}
                     onResizePhoto={resizePhoto}
+                    onTextToPhoto={textToPhoto}
                   />
                 )}
               </div>

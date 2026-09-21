@@ -35,6 +35,7 @@ export function BookPageView({
   selectedPhoto,
   onSelectPhoto,
   onResizePhoto,
+  onTextToPhoto,
 }: {
   page: Page;
   index: number;
@@ -58,6 +59,7 @@ export function BookPageView({
   selectedPhoto?: string | null;
   onSelectPhoto?: (id: string | null) => void;
   onResizePhoto?: (id: string, widthFraction: number) => void;
+  onTextToPhoto?: (postId: string, chunkIdx: number, photoId: string, text: string) => void;
 }) {
   /* Kniha se čte po dvoustranách: první stránka za obálkou je pravá, pak se
      střídají. Vnitřní (širší) okraj musí být vždy u hřbetu. */
@@ -137,6 +139,7 @@ export function BookPageView({
             selectedPhoto={selectedPhoto}
             onSelectPhoto={onSelectPhoto}
             onResizePhoto={onResizePhoto}
+            onTextToPhoto={onTextToPhoto}
           />
         ))}
       </div>
@@ -217,6 +220,7 @@ function BlockView({
   selectedPhoto,
   onSelectPhoto,
   onResizePhoto,
+  onTextToPhoto,
 }: {
   block: Block;
   geo: Geometry;
@@ -237,6 +241,7 @@ function BlockView({
   selectedPhoto?: string | null;
   onSelectPhoto?: (id: string | null) => void;
   onResizePhoto?: (id: string, widthFraction: number) => void;
+  onTextToPhoto?: (postId: string, chunkIdx: number, photoId: string, text: string) => void;
 }) {
   if (block.kind === "heading") {
     return (
@@ -312,6 +317,18 @@ function BlockView({
 
     const body = (
       <div
+        draggable={editable && !!onTextToPhoto}
+        onDragStart={(e) =>
+          e.dataTransfer.setData(
+            "text/plain",
+            JSON.stringify({
+              kind: "text",
+              postId: block.postId,
+              chunkIdx: block.chunkIdx,
+              text: block.text,
+            })
+          )
+        }
         contentEditable={editable}
         suppressContentEditableWarning
         onBlur={(e) =>
@@ -434,12 +451,19 @@ function BlockView({
                 onSelectPhoto(selectedPhoto === c.id ? null : c.id);
               }}
               draggable={editable && !!onMovePhoto}
-              onDragStart={(e) => e.dataTransfer.setData("text/plain", c.id)}
-              onDragOver={(e) => editable && onMovePhoto && e.preventDefault()}
+              onDragStart={(e) =>
+                e.dataTransfer.setData("text/plain", JSON.stringify({ kind: "photo", id: c.id }))
+              }
+              onDragOver={(e) => editable && e.preventDefault()}
               onDrop={(e) => {
                 e.preventDefault();
-                const from = e.dataTransfer.getData("text/plain");
-                if (from && from !== c.id) onMovePhoto?.(block.postId, from, c.id);
+                const payload = readDrag(e.dataTransfer.getData("text/plain"));
+                if (!payload) return;
+                if (payload.kind === "photo" && payload.id !== c.id) {
+                  onMovePhoto?.(block.postId, payload.id, c.id);
+                } else if (payload.kind === "text") {
+                  onTextToPhoto?.(payload.postId, payload.chunkIdx, c.id, payload.text);
+                }
               }}
               style={{
                 cursor: editable && onMovePhoto ? "grab" : undefined,
@@ -549,6 +573,19 @@ function tiltFor(id: string, max: number): number {
   let h = 0;
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 1000;
   return ((h / 1000) * 2 - 1) * max;
+}
+
+type DragPayload =
+  | { kind: "photo"; id: string }
+  | { kind: "text"; postId: string; chunkIdx: number; text: string };
+
+function readDrag(raw: string): DragPayload | null {
+  try {
+    const v = JSON.parse(raw);
+    return v && (v.kind === "photo" || v.kind === "text") ? (v as DragPayload) : null;
+  } catch {
+    return null;
+  }
 }
 
 const HEAD_BTN: React.CSSProperties = {

@@ -149,8 +149,11 @@ const AVG_CHAR_W = 0.5;
 export const TYPE = {
   title: { size: 27, line: 1.12, gapAfter: 7 },
   meta: { size: 11, line: 1.3, gapAfter: 13 }, // 11 px ≈ 8,3 pt – tiskové minimum pro bezpatkové je 8 pt
-  lead: { size: 14.5, line: 1.62, gapAfter: 0 },
-  body: { size: 12.5, line: 1.66, gapAfter: 0 },
+  /* Text má v celé knize jednu velikost. Dřív byl první odstavec příspěvku
+     větší (14,5 vs 12,5 px) jako perex v časopise – u krátkých poznámek
+     z cesty to ale nevypadá jako záměr, jen jako nejednotnost. */
+  lead: { size: 13.5, line: 1.62, gapAfter: 0 },
+  body: { size: 13.5, line: 1.62, gapAfter: 0 },
 } as const;
 
 function wrappedLines(text: string, width: number, fontSize: number): number {
@@ -574,8 +577,14 @@ export function compose({ posts, aspects, geo, density = 3, textLayouts = {}, ph
         /* Volba šířky: krátká poznámka přes celou šířku (neplýtvá místem),
            střední text s fotkou po boku (a nesmí být dva takové za sebou),
            dlouhý text v čitelné míře. */
+        /* Když příspěvek začíná nízko na stránce, dostane první odstavec
+           fotku po boku. Jinak by dole zůstal jen nadpis a kus textu –
+           a to vypadá jako nedopsaná stránka. */
+        const startsLow = i === 0 && remaining() < geo.contentH * 0.38 && len <= ASIDE_MAX;
+
         let layout: TextLayout;
         if (override) layout = override;
+        else if (startsLow && pool.length >= 1) layout = "aside";
         else if (len < SHORT_TEXT) layout = "full";
         else if (len <= ASIDE_MAX && pool.length >= 2 && !lastWasAside) layout = "aside";
         else layout = "measured";
@@ -633,7 +642,7 @@ export function compose({ posts, aspects, geo, density = 3, textLayouts = {}, ph
           cell = { id: item.photo.id, w, h: ph };
           th = Math.max(th, ph);
         }
-        if (remaining() < Math.min(th, geo.contentH * 0.22)) closePage();
+        if (remaining() < Math.min(th, geo.contentH * 0.22)) closeCarryingTrailingText(post.id);
         place({
           kind: "text",
           postId: post.id,

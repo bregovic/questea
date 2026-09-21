@@ -52,12 +52,12 @@ export function BookPageView({
   const bleed = page.blocks.length === 1 && page.blocks[0].kind === "bleed" ? page.blocks[0] : null;
 
   /* Obsah se sází odshora, takže při neúplné stránce zbylo místo dole.
-     Zbytek se rozpustí do mezer mezi bloky. U téměř plné stránky se rozpustí
-     celý, u výrazně nedoplněné jen po strop – jinak by mezi dvěma bloky
-     vznikla propast, která vypadá hůř než volný spodek. */
+     Zbytek se rozpustí do mezer mezi bloky, ale jen málo: velké mezery mezi
+     textem a fotkami vypadají jako díry v sazbě a hlavně zabírají místo,
+     kam se jinak vejde začátek dalšího příspěvku. */
   const slack = Math.max(0, geo.contentH * (1 - page.fill));
   const extraGap =
-    page.blocks.length > 1 ? Math.min(slack / (page.blocks.length - 1), geo.gap * 3.5) : 0;
+    page.blocks.length > 1 ? Math.min(slack / (page.blocks.length - 1), geo.gap * 1.2) : 0;
 
   return (
     <div

@@ -403,6 +403,45 @@ export function textWidthFor(layout: TextLayout, geo: Geometry): number {
 const SHORT_TEXT = 200;
 const ASIDE_MAX = 700;
 
+
+/**
+ * Zkusí vejít celý příspěvek na zbytek stránky.
+ *
+ * Bez tohohle se příspěvek sázel hladově: první skupina fotek si vzala, co
+ * mohla, a na další stránku přetekl ocas o dvou fotkách. Čtenáři se tím
+ * jeden den rozpadne na dvě stránky kvůli pár centimetrům. Když se všechno
+ * vejde při rozumně velkých fotkách, drží se to pohromadě.
+ *
+ * Hledá největší výšku řádku, při které se text i všechny fotky vejdou do
+ * `avail`. Vrací výšky řádků po skupinách, nebo null, když by fotky musely
+ * být menší, než má smysl tisknout.
+ */
+function fitWholePost(
+  groups: { id: string; aspect: number; size?: PhotoSize }[][],
+  textTotal: number,
+  gapCount: number,
+  geo: Geometry,
+  avail: number,
+  minRowH: number
+): PhotoRow[][] | null {
+  const budget = avail - textTotal - gapCount * geo.gap;
+  if (budget <= 0) return null;
+
+  const maxRowH = Math.min(geo.contentH * 0.96, budget);
+  const STEPS = 60;
+  for (let i = STEPS; i >= 0; i--) {
+    const t = minRowH + ((maxRowH - minRowH) * i) / STEPS;
+    if (t < minRowH) break;
+    const rows = groups.map((g) => justify(g, geo.contentW, geo.gap, t));
+    const total = rows.reduce(
+      (sum, rs) => sum + rs.reduce((a, r) => a + r.h, 0) + Math.max(0, rs.length - 1) * geo.gap,
+      0
+    );
+    if (total <= budget) return rows;
+  }
+  return null;
+}
+
 /* ─────────────────────────── sazba stránek ─────────────────────────── */
 
 let _seq = 0;
@@ -411,6 +450,11 @@ const pid = () => `pg${(_seq++).toString(36)}`;
 /** 1 = pár velkých fotek na stránku, 5 = hustá mřížka. Doporučený průměr
  *  u fotoknih jsou 3–4 fotky na stránku, proto výchozí 3. */
 export type Density = 1 | 2 | 3 | 4 | 5;
+
+/* Pod tuhle výšku řádku se kvůli udržení příspěvku na jedné stránce nejde.
+   0,12 výšky sazebního obrazce je u A4 asi 32 mm – menší fotka už v knize
+   nic neukáže a držet kvůli ní příspěvek pohromadě nemá cenu. */
+const MIN_PHOTO_ROW = 0.12;
 
 /** Rozmezí výšky řádku fotek jako podíl výšky sazebního obrazce. */
 const ROW_BANDS: Record<Density, [number, number]> = {
@@ -556,6 +600,29 @@ export function compose({ posts, aspects, geo, density = 3, textLayouts = {}, ph
       items.push({ t: "photos", group: photos });
     }
 
+    /* Vejde se celý příspěvek na zbytek stránky? Pak se vysází vcelku
+       a nerozpadne se kvůli pár centimetrům na dvě stránky. */
+    const photoGroups = items.filter((it) => it.t === "photos").map((it) => it.group);
+    const asideH = items.reduce((sum, it) => {
+      if (it.t !== "text") return sum;
+      const w = textWidthFor(it.layout, geo);
+      let th = textHeight(it.text, geo, it.lead, w);
+      if (it.layout === "aside" && it.photo) th = Math.max(th, w / it.photo.aspect);
+      return sum + th;
+    }, 0);
+    const wholeFit =
+      photoGroups.length && photoGroups.every((g) => g.every((x) => x.size !== "bleed"))
+        ? fitWholePost(
+            photoGroups,
+            asideH + (post.title || post.meta ? headingHeight(post.title, post.meta, geo) : 0),
+            items.length,
+            geo,
+            remaining(),
+            geo.contentH * MIN_PHOTO_ROW
+          )
+        : null;
+    let wholeIdx = 0;
+
     for (const item of items) {
       if (item.t === "text") {
         const w = textWidthFor(item.layout, geo);
@@ -577,6 +644,16 @@ export function compose({ posts, aspects, geo, density = 3, textLayouts = {}, ph
           photo: cell,
           h: th,
         });
+        continue;
+      }
+
+      // Příspěvek se vejde celý: použij předpočítané řádky a neřeš lámání.
+      if (wholeFit) {
+        const rows = wholeFit[wholeIdx++];
+        if (rows?.length) {
+          const h = rows.reduce((a, r) => a + r.h, 0) + (rows.length - 1) * geo.gap;
+          place({ kind: "photos", postId: post.id, rows, h });
+        }
         continue;
       }
 

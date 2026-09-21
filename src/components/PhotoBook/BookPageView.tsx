@@ -2,7 +2,7 @@
 
 import React from "react";
 import type { Block, Geometry, Page } from "@/lib/photobook/compose";
-import { TYPE, textWidthFor } from "@/lib/photobook/compose";
+import { TYPE, TEXT_PAD, textWidthFor } from "@/lib/photobook/compose";
 import type { BookStyle } from "@/lib/photobook/styles";
 
 /**
@@ -45,6 +45,13 @@ export function BookPageView({
      střídají. Vnitřní (širší) okraj musí být vždy u hřbetu. */
   const rightHand = index % 2 === 0;
 
+  /* Obsah se sází odshora, takže při neúplné stránce zbylo místo dole.
+     Zbytek se rozpustí do mezer mezi bloky – ale jen do rozumné míry, aby
+     z nedoplněné stránky nevznikly propasti. */
+  const slack = Math.max(0, geo.contentH * (1 - page.fill));
+  const extraGap =
+    page.blocks.length > 1 ? Math.min(slack / (page.blocks.length - 1), geo.gap * 1.6) : 0;
+
   return (
     <div
       className="print-page"
@@ -67,7 +74,7 @@ export function BookPageView({
           right: rightHand ? geo.padOuter : geo.padInner,
           display: "flex",
           flexDirection: "column",
-          gap: geo.gap,
+          gap: geo.gap + extraGap,
         }}
       >
         {page.blocks.map((b, i) => (
@@ -220,6 +227,10 @@ function BlockView({
         }
         style={{
           width,
+          background: style.textTint || undefined,
+          padding: style.textTint ? `${TEXT_PAD * geo.scale}px ${TEXT_PAD * 1.4 * geo.scale}px` : undefined,
+          borderRadius: style.textTint ? 6 : undefined,
+          boxSizing: "border-box",
           fontSize: t.size * geo.scale,
           lineHeight: t.line,
           color: block.lead ? style.text : style.muted,
@@ -239,6 +250,7 @@ function BlockView({
           {body}
           <div
             style={{
+              transform: `rotate(${tiltFor(block.photo.id, style.tilt)}deg)`,
               width: block.photo.w,
               height: block.photo.h,
               overflow: "hidden",
@@ -308,6 +320,8 @@ function BlockView({
             <div
               key={c.id}
               style={{
+                transform:
+                  row.cells.length === 1 ? `rotate(${tiltFor(c.id, style.tilt)}deg)` : undefined,
                 width: c.w,
                 height: row.h,
                 position: "relative",
@@ -347,6 +361,14 @@ function BlockView({
       ))}
     </div>
   );
+}
+
+/** Stálé „náhodné" pootočení odvozené z id fotky – při překreslení se nemění. */
+function tiltFor(id: string, max: number): number {
+  if (!max) return 0;
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 1000;
+  return ((h / 1000) * 2 - 1) * max;
 }
 
 const HEAD_BTN: React.CSSProperties = {

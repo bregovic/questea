@@ -28,6 +28,11 @@ export type BookStyle = {
   photoShadow: string | null;
   /** Velká písmena a prostrkání u popisků (datum · místo). */
   metaTracking: string;
+  /** Jemné podbarvení textových bloků, ať na stránce nesplývají s papírem. */
+  textTint: string | null;
+  /** Největší náhodné pootočení samostatné fotky ve stupních. Patří jen ke
+   *  scrapbookovému stylu – v knižní sazbě by vypadalo jako chyba. */
+  tilt: number;
 };
 
 const SANS = "'Outfit', 'Inter', system-ui, sans-serif";
@@ -50,6 +55,8 @@ export const STYLES: Record<StyleId, BookStyle> = {
     photoBorder: null,
     photoShadow: "0 10px 26px rgba(0,0,0,0.10)",
     metaTracking: "0.22em",
+    textTint: "rgba(28,25,23,0.035)",
+    tilt: 0,
   },
   ink: {
     id: "ink",
@@ -67,6 +74,8 @@ export const STYLES: Record<StyleId, BookStyle> = {
     photoBorder: null,
     photoShadow: null,
     metaTracking: "0.26em",
+    textTint: "rgba(20,20,20,0.03)",
+    tilt: 0,
   },
   album: {
     id: "album",
@@ -84,6 +93,8 @@ export const STYLES: Record<StyleId, BookStyle> = {
     photoBorder: "6px solid #ffffff",
     photoShadow: "0 8px 20px rgba(80,60,40,0.16)",
     metaTracking: "0.24em",
+    textTint: "rgba(166,138,100,0.10)",
+    tilt: 0.8,
   },
   noir: {
     id: "noir",
@@ -101,6 +112,8 @@ export const STYLES: Record<StyleId, BookStyle> = {
     photoBorder: null,
     photoShadow: "0 12px 30px rgba(0,0,0,0.5)",
     metaTracking: "0.22em",
+    textTint: "rgba(245,240,232,0.05)",
+    tilt: 0,
   },
 };
 

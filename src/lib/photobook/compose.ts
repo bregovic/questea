@@ -159,13 +159,17 @@ function wrappedLines(text: string, width: number, fontSize: number): number {
     .reduce((n, para) => n + Math.max(1, Math.ceil(para.trim().length / perLine)), 0);
 }
 
+/** Odsazení uvnitř podbarveného textového bloku (px při A4). */
+export const TEXT_PAD = 9;
+
 export function textHeight(text: string, geo: Geometry, lead: boolean, width?: number): number {
   const t = lead ? TYPE.lead : TYPE.body;
   const size = t.size * geo.scale;
+  const pad = TEXT_PAD * geo.scale;
   const paras = text.split(/\n+/).filter((p) => p.trim().length > 0).length;
-  const lines = wrappedLines(text, width ?? geo.textW, size);
-  // mezera mezi odstavci uvnitř bloku
-  return Math.ceil(lines * size * t.line + Math.max(0, paras - 1) * size * 0.6);
+  const lines = wrappedLines(text, (width ?? geo.textW) - pad * 2.8, size);
+  // mezera mezi odstavci uvnitř bloku + odsazení podbarvení
+  return Math.ceil(lines * size * t.line + Math.max(0, paras - 1) * size * 0.6 + pad * 2);
 }
 
 export function headingHeight(title: string, meta: string, geo: Geometry): number {
@@ -440,18 +444,21 @@ export function compose({ posts, aspects, geo, density = 3, textLayouts = {}, ph
     cur.push(b);
   };
 
-  /** Uzavře stránku, ale nadpis na jejím konci vezme s sebou na další –
-   *  jinak by zůstal viset sám bez obsahu, ke kterému patří. */
-  const closeCarryingHeading = () => {
-    const last = cur[cur.length - 1];
-    if (last && last.kind === "heading") {
+  /** Uzavře stránku a vezme s sebou na další koncový nadpis i text, ke
+   *  kterým se už na téhle stránce nevešly fotky. Stránka končící jen
+   *  nadpisem a odstavcem vypadá jako nedopsaná – takový ocas patří k
+   *  obsahu, který ho následuje. Stránku ale nikdy nevyprázdní úplně. */
+  const closeCarryingTrailingText = () => {
+    const tail: Block[] = [];
+    while (cur.length > 1) {
+      const last = cur[cur.length - 1];
+      if (last.kind === "photos") break;
       cur.pop();
       used -= last.h + (cur.length ? geo.gap : 0);
-      closePage();
-      place(last);
-      return;
+      tail.unshift(last);
     }
     closePage();
+    tail.forEach(place);
   };
 
   for (const post of posts) {
@@ -551,12 +558,12 @@ export function compose({ posts, aspects, geo, density = 3, textLayouts = {}, ph
       let rest = item.group;
       let guard = 0;
       while (rest.length && guard++ < 500) {
-        if (remaining() < MIN_TAIL) closeCarryingHeading();
+        if (remaining() < MIN_TAIL) closeCarryingTrailingText();
         const fit = fitPhotos(rest, geo, remaining(), density);
         if (!fit.rows.length) {
           // na stránce je jen nadpis (nebo nic) → dál už se to nezlepší
-          if (!cur.length || (cur.length === 1 && cur[0].kind === "heading")) break;
-          closeCarryingHeading();
+          if (!cur.length || !cur.some((x) => x.kind === "photos")) break;
+          closeCarryingTrailingText();
           continue;
         }
         place({ kind: "photos", postId: post.id, rows: fit.rows, h: fit.used });

@@ -285,10 +285,11 @@ export function PhotoBook({
 
   const coverPhoto = useMemo(() => {
     const hidden = new Set(settings?.hidden || []);
+    // Fotka na obálce se nevybírá automaticky – titulka si zaslouží
+    // vědomou volbu, ne první snímek, který v cestě padl.
     if (settings?.coverPhoto && !hidden.has(settings.coverPhoto)) return settings.coverPhoto;
-    const first = allImages.find((a) => !hidden.has(a.id));
-    return first?.id;
-  }, [allImages, settings?.hidden, settings?.coverPhoto]);
+    return undefined;
+  }, [settings?.hidden, settings?.coverPhoto]);
 
   const dateRange = useMemo(() => {
     if (!posts?.length) return "";

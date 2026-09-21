@@ -94,6 +94,9 @@ export type Block =
 export type Page = {
   id: string;
   blocks: Block[];
+  /** Příspěvky, jejichž obsah na téhle stránce začíná. Nálepky patří
+   *  příspěvku, ne stránce – tohle říká, kam je vykreslit. */
+  startsPosts: string[];
   /** Kolik výšky sazebního obrazce je zaplněno (0–1). Pro ladění a diagnostiku. */
   fill: number;
 };
@@ -203,7 +206,7 @@ export function headingHeight(title: string, meta: string, geo: Geometry): numbe
  * rovnoměrně. Je to stejný princip, jakým se v sazbě lámou odstavce na řádky.
  */
 export function justify(
-  photos: { id: string; aspect: number; size?: PhotoSize }[],
+  photos: { id: string; aspect: number; size?: PhotoSize; rowStart?: boolean }[],
   width: number,
   gap: number,
   targetRowH: number
@@ -222,12 +225,14 @@ export function justify(
   const minAspect = Math.min(...photos.map((p) => p.aspect));
   const maxPerRow = Math.max(1, Math.round(width / targetRowH / minAspect) + 2);
 
-  /** Smí úsek [i,j) tvořit řádek? Ruční velikosti omezují počet fotek v řádku. */
+  /** Smí úsek [i,j) tvořit řádek? Ruční velikosti omezují počet fotek v řádku
+   *  a fotka označená „začít řádkem" nesmí skončit uprostřed. */
   const allowed = (i: number, j: number) => {
     const k = j - i;
     for (let x = i; x < j; x++) {
       const lim = SIZE_LIMITS[photos[x].size || "m"];
       if (k < lim.min || k > lim.max) return false;
+      if (x > i && photos[x].rowStart) return false;
     }
     return true;
   };
@@ -284,11 +289,15 @@ export function justify(
  * nejvíc; při shodě tu, která umístí víc fotek.
  */
 export function fitPhotos(
-  photos: { id: string; aspect: number; size?: PhotoSize }[],
+  photos: { id: string; aspect: number; size?: PhotoSize; rowStart?: boolean }[],
   geo: Geometry,
   available: number,
   density: Density = 3
-): { rows: PhotoRow[]; used: number; rest: { id: string; aspect: number; size?: PhotoSize }[] } {
+): {
+  rows: PhotoRow[];
+  used: number;
+  rest: { id: string; aspect: number; size?: PhotoSize; rowStart?: boolean }[];
+} {
   if (!photos.length || available <= 0) return { rows: [], used: 0, rest: photos };
 
   const band = ROW_BANDS[density];
@@ -434,7 +443,7 @@ const ASIDE_MAX = 700;
  * být menší, než má smysl tisknout.
  */
 function fitWholePost(
-  groups: { id: string; aspect: number; size?: PhotoSize }[][],
+  groups: { id: string; aspect: number; size?: PhotoSize; rowStart?: boolean }[][],
   textTotal: number,
   gapCount: number,
   geo: Geometry,
@@ -493,6 +502,8 @@ export type ComposeInput = {
   photoSizes?: Record<string, PhotoSize>;
   /** Id příspěvků, které mají začít na nové stránce. */
   pageBreaks?: string[];
+  /** Fotky, které mají začínat nový řádek. */
+  rowStarts?: string[];
 };
 
 /**
@@ -504,8 +515,9 @@ export type ComposeInput = {
  *  - když na stránce zbývá míň než sedmina výšky, stránka se uzavře,
  *  - zbylé místo se rozdělí do mezer mezi bloky, ať text neplave nahoře.
  */
-export function compose({ posts, aspects, geo, density = 3, textLayouts = {}, photoSizes = {}, pageBreaks = [] }: ComposeInput): Page[] {
+export function compose({ posts, aspects, geo, density = 3, textLayouts = {}, photoSizes = {}, pageBreaks = [], rowStarts = [] }: ComposeInput): Page[] {
   const breaks = new Set(pageBreaks);
+  const starts = new Set(rowStarts);
   const layoutOf = (postId: string, idx: number): TextLayout | undefined =>
     textLayouts[`${postId}#${idx}`];
   const pages: Page[] = [];
@@ -515,9 +527,17 @@ export function compose({ posts, aspects, geo, density = 3, textLayouts = {}, ph
   const MIN_TAIL = geo.contentH * 0.14; // pod tím už nemá smysl na stránku cpát další blok
   const aspectOf = (id: string) => aspects[id] || 1.5;
 
+  const seenPosts = new Set<string>();
   const closePage = () => {
     if (!cur.length) return;
-    pages.push({ id: pid(), blocks: cur, fill: used / geo.contentH });
+    const starts: string[] = [];
+    for (const b of cur) {
+      if (!seenPosts.has(b.postId)) {
+        seenPosts.add(b.postId);
+        starts.push(b.postId);
+      }
+    }
+    pages.push({ id: pid(), blocks: cur, startsPosts: starts, fill: used / geo.contentH });
     cur = [];
     used = 0;
   };
@@ -557,7 +577,7 @@ export function compose({ posts, aspects, geo, density = 3, textLayouts = {}, ph
     // ruční zalomení: příspěvek má začít na čisté stránce
     if (breaks.has(post.id) && cur.length) closePage();
 
-    const photos = post.photos.map((id) => ({ id, aspect: aspectOf(id), size: photoSizes[id] }));
+    const photos = post.photos.map((id) => ({ id, aspect: aspectOf(id), size: photoSizes[id], rowStart: starts.has(id) }));
     const chunks = post.chunks.filter((c) => c.trim().length > 0);
     if (!chunks.length && !photos.length) continue;
 
@@ -580,7 +600,7 @@ export function compose({ posts, aspects, geo, density = 3, textLayouts = {}, ph
        než míchat rozdělování a lámání stránek dohromady. */
     type Item =
       | { t: "text"; text: string; lead: boolean; idx: number; layout: TextLayout; photo?: { id: string; aspect: number; size?: PhotoSize } }
-      | { t: "photos"; group: { id: string; aspect: number; size?: PhotoSize }[] };
+      | { t: "photos"; group: { id: string; aspect: number; size?: PhotoSize; rowStart?: boolean }[] };
 
     const items: Item[] = [];
     if (chunks.length) {

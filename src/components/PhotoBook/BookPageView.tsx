@@ -5,6 +5,7 @@ import type { Block, Geometry, Page } from "@/lib/photobook/compose";
 import { TYPE, TEXT_PAD, textWidthFor } from "@/lib/photobook/compose";
 import type { BookStyle } from "@/lib/photobook/styles";
 import { PhotoCaption, type Caption } from "./PhotoCaption";
+import { Sticker } from "./Sticker";
 
 /**
  * Vykreslení jedné vysázené stránky. Rozměry chodí ze sazeče v pixelech,
@@ -28,6 +29,9 @@ export function BookPageView({
   pageBreaks,
   captions,
   onCaption,
+  stickers,
+  onSticker,
+  onMovePhoto,
 }: {
   page: Page;
   index: number;
@@ -45,6 +49,9 @@ export function BookPageView({
   pageBreaks?: Set<string>;
   captions?: Record<string, Caption>;
   onCaption?: (photoId: string, next: Caption | null) => void;
+  stickers?: Record<string, Sticker[]>;
+  onSticker?: (postId: string, next: Sticker | null, id?: string) => void;
+  onMovePhoto?: (postId: string, fromId: string, toId: string) => void;
 }) {
   /* Kniha se čte po dvoustranách: první stránka za obálkou je pravá, pak se
      střídají. Vnitřní (širší) okraj musí být vždy u hřbetu. */
@@ -120,9 +127,39 @@ export function BookPageView({
             pageBreaks={pageBreaks}
             captions={captions}
             onCaption={onCaption}
+            onMovePhoto={onMovePhoto}
           />
         ))}
       </div>
+
+      {/* Nálepky leží nad obsahem, ale v sazebním obrazci – patří příspěvku,
+          který na téhle stránce začíná. */}
+      {page.startsPosts.some((id) => stickers?.[id]?.length) && (
+        <div
+          style={{
+            position: "absolute",
+            top: geo.padTop,
+            bottom: geo.padBottom,
+            left: rightHand ? geo.padInner : geo.padOuter,
+            right: rightHand ? geo.padOuter : geo.padInner,
+            pointerEvents: "none",
+          }}
+        >
+          {page.startsPosts.flatMap((postId) =>
+            (stickers?.[postId] || []).map((st) => (
+              <Sticker
+                key={st.id}
+                sticker={st}
+                style={style}
+                scale={geo.scale}
+                editable={editable}
+                onChange={(next) => onSticker?.(postId, next, st.id)}
+                onRemove={() => onSticker?.(postId, null, st.id)}
+              />
+            ))
+          )}
+        </div>
+      )}
 
       <div
         style={{
@@ -167,6 +204,7 @@ function BlockView({
   pageBreaks,
   captions,
   onCaption,
+  onMovePhoto,
 }: {
   block: Block;
   geo: Geometry;
@@ -183,6 +221,7 @@ function BlockView({
   pageBreaks?: Set<string>;
   captions?: Record<string, Caption>;
   onCaption?: (photoId: string, next: Caption | null) => void;
+  onMovePhoto?: (postId: string, fromId: string, toId: string) => void;
 }) {
   if (block.kind === "heading") {
     return (
@@ -371,7 +410,16 @@ function BlockView({
           {row.cells.map((c) => (
             <div
               key={c.id}
+              draggable={editable && !!onMovePhoto}
+              onDragStart={(e) => e.dataTransfer.setData("text/plain", c.id)}
+              onDragOver={(e) => editable && onMovePhoto && e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                const from = e.dataTransfer.getData("text/plain");
+                if (from && from !== c.id) onMovePhoto?.(block.postId, from, c.id);
+              }}
               style={{
+                cursor: editable && onMovePhoto ? "grab" : undefined,
                 transform:
                   row.cells.length === 1 ? `rotate(${tiltFor(c.id, style.tilt)}deg)` : undefined,
                 width: c.w,

@@ -18,6 +18,7 @@ import { STYLES, STYLE_LIST, type StyleId } from "@/lib/photobook/styles";
 import { BookPageView } from "./BookPageView";
 import { BookCover } from "./BookCover";
 import type { Caption } from "./PhotoCaption";
+import type { Sticker } from "./Sticker";
 
 type Att = { id: string; type: string; url: string };
 type Loc = { address?: string | null; placeName?: string | null };
@@ -60,6 +61,12 @@ type Settings = {
   pageBreaks: string[];
   /** Popisky položené přes fotky, klíč = id fotky. */
   captions: Record<string, Caption>;
+  /** Nálepky, klíč = id příspěvku, ke kterému patří. */
+  stickers: Record<string, Sticker[]>;
+  /** Ruční pořadí fotek v příspěvku, klíč = id příspěvku. */
+  photoOrder: Record<string, string[]>;
+  /** Fotky, které mají začínat nový řádek. */
+  rowStarts: string[];
   /** Ručně vybraná fotka a název na obálce. */
   coverPhoto?: string;
   coverTitle?: string;
@@ -78,6 +85,9 @@ const DEFAULTS: Settings = {
   photoSizes: {},
   pageBreaks: [],
   captions: {},
+  stickers: {},
+  photoOrder: {},
+  rowStarts: [],
 };
 
 function styleFor(blogTemplate?: string | null): StyleId {
@@ -245,9 +255,17 @@ export function PhotoBook({
     return posts
       .filter((p) => p.taskType !== "GPS_LOG" && !skipped.has(p.id))
       .map((p) => {
-        const photos = (p.attachments || [])
+        let photos = (p.attachments || [])
           .filter((a) => a.type === "image" && !hidden.has(a.id))
           .map((a) => a.id);
+        // ruční pořadí má přednost; fotky, které v něm nejsou, jdou na konec
+        const order = settings.photoOrder[p.id];
+        if (order?.length) {
+          const rank = new Map(order.map((id, i) => [id, i]));
+          photos = [...photos].sort(
+            (x, y) => (rank.get(x) ?? Number.MAX_SAFE_INTEGER) - (rank.get(y) ?? Number.MAX_SAFE_INTEGER)
+          );
+        }
         // Text se nakrájí z původního znění, ruční úpravy se pak na kusy
         // jen přiloží – pořadí tím zůstává stabilní i po opakované úpravě.
         const chunks = chunksFor((p.description || "").trim(), photos.length).map(
@@ -280,8 +298,9 @@ export function PhotoBook({
       textLayouts: settings?.textLayouts,
       photoSizes: settings?.photoSizes,
       pageBreaks: settings?.pageBreaks,
+      rowStarts: settings?.rowStarts,
     });
-  }, [sources, aspects, geo, allImages.length, settings?.density, settings?.textLayouts, settings?.photoSizes, settings?.pageBreaks]);
+  }, [sources, aspects, geo, allImages.length, settings?.density, settings?.textLayouts, settings?.photoSizes, settings?.pageBreaks, settings?.rowStarts]);
 
   const breakSet = useMemo(() => new Set(settings?.pageBreaks || []), [settings?.pageBreaks]);
   const style = STYLES[settings?.style || "sand"];
@@ -337,6 +356,51 @@ export function PhotoBook({
     if ((settings.titles[postId] ?? undefined) === value) return;
     patch({ titles: { ...settings.titles, [postId]: value } });
   };
+  const setSticker = (postId: string, next: Sticker | null, id?: string) => {
+    if (!settings) return;
+    const list = settings.stickers[postId] || [];
+    const updated = next
+      ? id
+        ? list.map((x) => (x.id === id ? next : x))
+        : [...list, next]
+      : list.filter((x) => x.id !== id);
+    patch({ stickers: { ...settings.stickers, [postId]: updated } });
+  };
+
+  const addSticker = () => {
+    if (!settings) return;
+    const postId = pages[sel - 1]?.startsPosts[0] || pages[sel - 1]?.blocks[0]?.postId;
+    if (!postId) {
+      setError("Nálepku lze přidat jen na stránku s obsahem příspěvku.");
+      return;
+    }
+    setSticker(postId, {
+      id: `s${Date.now().toString(36)}`,
+      text: "Nálepka",
+      x: 8,
+      y: 40,
+      w: 40,
+      size: 15,
+      look: "plate",
+    });
+  };
+
+  /** Přesune fotku před jinou v rámci příspěvku. */
+  const movePhoto = (postId: string, fromId: string, toId: string) => {
+    if (!settings || !posts) return;
+    const post = posts.find((p) => p.id === postId);
+    if (!post) return;
+    const hidden = new Set(settings.hidden);
+    const base =
+      settings.photoOrder[postId]?.length
+        ? settings.photoOrder[postId]
+        : (post.attachments || []).filter((a) => a.type === "image" && !hidden.has(a.id)).map((a) => a.id);
+    const next = base.filter((x) => x !== fromId);
+    const at = next.indexOf(toId);
+    next.splice(at < 0 ? next.length : at, 0, fromId);
+    patch({ photoOrder: { ...settings.photoOrder, [postId]: next } });
+  };
+
   const setCaption = (photoId: string, next: Caption | null) => {
     if (!settings) return;
     const captions = { ...settings.captions };
@@ -376,7 +440,7 @@ export function PhotoBook({
   };
   const resetEdits = () => {
     if (!confirm("Vrátit knihu do původního stavu? Ruční úpravy textu a vynechané fotky se zahodí.")) return;
-    patch({ hidden: [], hiddenPosts: [], titles: {}, chunks: {}, textLayouts: {}, photoSizes: {}, pageBreaks: [], captions: {}, coverPhoto: undefined, coverTitle: undefined });
+    patch({ hidden: [], hiddenPosts: [], titles: {}, chunks: {}, textLayouts: {}, photoSizes: {}, pageBreaks: [], captions: {}, stickers: {}, photoOrder: {}, rowStarts: [], coverPhoto: undefined, coverTitle: undefined });
   };
 
   async function exportPdf() {
@@ -465,6 +529,15 @@ export function PhotoBook({
             </button>
           ))}
         </div>
+
+        <button
+          onClick={addSticker}
+          disabled={sel === 0}
+          className="rounded-lg bg-white/10 px-3 py-1.5 text-sm hover:bg-white/20 disabled:opacity-40"
+          title="Položit na stránku nálepku s textem"
+        >
+          + Nálepka
+        </button>
 
         <button
           onClick={resetEdits}
@@ -590,6 +663,9 @@ export function PhotoBook({
                     pageBreaks={breakSet}
                     captions={settings?.captions}
                     onCaption={setCaption}
+                    stickers={settings?.stickers}
+                    onSticker={setSticker}
+                    onMovePhoto={movePhoto}
                   />
                 )}
               </div>
@@ -678,6 +754,7 @@ export function PhotoBook({
             style={style}
             urlOf={urlOf}
             captions={settings?.captions}
+            stickers={settings?.stickers}
           />
         ))}
       </div>

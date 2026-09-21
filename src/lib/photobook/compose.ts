@@ -290,39 +290,52 @@ export function fitPhotos(
 
   const band = ROW_BANDS[density];
   const minRowH = geo.contentH * band[0];
-  const maxRowH = geo.contentH * band[1];
 
   let best: { rows: PhotoRow[]; used: number; count: number; fill: number } | null = null;
 
   const STEPS = 40;
-  for (let i = 0; i <= STEPS; i++) {
-    const target = minRowH + ((maxRowH - minRowH) * i) / STEPS;
-    const all = justify(photos, geo.contentW, geo.gap, target);
+  const search = (maxRowH: number) => {
+    for (let i = 0; i <= STEPS; i++) {
+      const target = minRowH + ((maxRowH - minRowH) * i) / STEPS;
+      const all = justify(photos, geo.contentW, geo.gap, target);
 
-    // vezmi tolik řádků, kolik se vejde
-    const taken: PhotoRow[] = [];
-    let h = 0;
-    for (const row of all) {
-      const next = h + (taken.length ? geo.gap : 0) + row.h;
-      if (next > available) break;
-      taken.push(row);
-      h = next;
-    }
-    if (!taken.length) continue;
+      // vezmi tolik řádků, kolik se vejde
+      const taken: PhotoRow[] = [];
+      let h = 0;
+      for (const row of all) {
+        const next = h + (taken.length ? geo.gap : 0) + row.h;
+        if (next > available) break;
+        taken.push(row);
+        h = next;
+      }
+      if (!taken.length) continue;
 
-    const count = taken.reduce((n, r) => n + r.cells.length, 0);
-    const fill = h / available;
-    if (
-      !best ||
-      fill > best.fill + 0.001 ||
-      (Math.abs(fill - best.fill) <= 0.001 && count > best.count)
-    ) {
-      best = { rows: taken, used: h, count, fill };
+      const count = taken.reduce((n, r) => n + r.cells.length, 0);
+      const fill = h / available;
+      if (
+        !best ||
+        fill > best.fill + 0.001 ||
+        (Math.abs(fill - best.fill) <= 0.001 && count > best.count)
+      ) {
+        best = { rows: taken, used: h, count, fill };
+      }
     }
+  };
+
+  // Nejdřív v pásmu podle zvolené hustoty.
+  search(geo.contentH * band[1]);
+
+  /* Když ani nejlepší varianta z pásma stránku nezaplní, skupina je na
+     zvolenou hustotu prostě malá – pak se zkusí i vysoké řádky, které zbytek
+     stránky vyplní. Jinak by po malé skupině zůstala prázdná spodní třetina.
+     U velké skupiny se sem nedojde, takže volba hustoty zůstává v platnosti. */
+  if (!best || (best as { fill: number }).fill < 0.78) {
+    search(Math.min(available * 0.96, geo.contentH * 0.96));
   }
 
   if (!best) return { rows: [], used: 0, rest: photos };
-  return { rows: best.rows, used: best.used, rest: photos.slice(best.count) };
+  const b = best as { rows: PhotoRow[]; used: number; count: number; fill: number };
+  return { rows: b.rows, used: b.used, rest: photos.slice(b.count) };
 }
 
 /* ─────────────────────── příspěvky → bloky ─────────────────────── */

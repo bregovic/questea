@@ -23,6 +23,8 @@ export function BookPageView({
   onRemovePost,
   onRemovePhoto,
   onCyclePhotoSize,
+  onTogglePageBreak,
+  pageBreaks,
 }: {
   page: Page;
   index: number;
@@ -36,6 +38,8 @@ export function BookPageView({
   onRemovePost?: (postId: string) => void;
   onRemovePhoto?: (id: string) => void;
   onCyclePhotoSize?: (id: string) => void;
+  onTogglePageBreak?: (postId: string) => void;
+  pageBreaks?: Set<string>;
 }) {
   /* Kniha se čte po dvoustranách: první stránka za obálkou je pravá, pak se
      střídají. Vnitřní (širší) okraj musí být vždy u hřbetu. */
@@ -80,6 +84,8 @@ export function BookPageView({
             onRemovePost={onRemovePost}
             onRemovePhoto={onRemovePhoto}
             onCyclePhotoSize={onCyclePhotoSize}
+            onTogglePageBreak={onTogglePageBreak}
+            pageBreaks={pageBreaks}
           />
         ))}
       </div>
@@ -115,6 +121,8 @@ function BlockView({
   onRemovePost,
   onRemovePhoto,
   onCyclePhotoSize,
+  onTogglePageBreak,
+  pageBreaks,
 }: {
   block: Block;
   geo: Geometry;
@@ -127,12 +135,23 @@ function BlockView({
   onRemovePost?: (postId: string) => void;
   onRemovePhoto?: (id: string) => void;
   onCyclePhotoSize?: (id: string) => void;
+  onTogglePageBreak?: (postId: string) => void;
+  pageBreaks?: Set<string>;
 }) {
   if (block.kind === "heading") {
     return (
       <div style={{ position: "relative" }}>
         {editable && (
           <div style={{ position: "absolute", top: -2, right: -2, display: "flex", gap: 4 }}>
+            {onTogglePageBreak && (
+              <button
+                onClick={() => onTogglePageBreak(block.postId)}
+                title={pageBreaks?.has(block.postId) ? "Nezačínat na nové stránce" : "Začít na nové stránce"}
+                style={{ ...HEAD_BTN, background: pageBreaks?.has(block.postId) ? "#ea580c" : HEAD_BTN.background }}
+              >
+                ⇤
+              </button>
+            )}
             {onRemovePost && (
               <button
                 onClick={() => onRemovePost(block.postId)}

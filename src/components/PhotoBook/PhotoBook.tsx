@@ -55,6 +55,11 @@ type Settings = {
   textLayouts: Record<string, TextLayout>;
   /** Ruční velikosti fotek, klíč = id fotky. */
   photoSizes: Record<string, PhotoSize>;
+  /** Id příspěvků, které mají začít na nové stránce. */
+  pageBreaks: string[];
+  /** Ručně vybraná fotka a název na obálce. */
+  coverPhoto?: string;
+  coverTitle?: string;
 };
 
 const DEFAULTS: Settings = {
@@ -68,6 +73,7 @@ const DEFAULTS: Settings = {
   density: 3,
   textLayouts: {},
   photoSizes: {},
+  pageBreaks: [],
 };
 
 function styleFor(blogTemplate?: string | null): StyleId {
@@ -269,17 +275,20 @@ export function PhotoBook({
       density: settings?.density ?? 3,
       textLayouts: settings?.textLayouts,
       photoSizes: settings?.photoSizes,
+      pageBreaks: settings?.pageBreaks,
     });
-  }, [sources, aspects, geo, allImages.length, settings?.density, settings?.textLayouts, settings?.photoSizes]);
+  }, [sources, aspects, geo, allImages.length, settings?.density, settings?.textLayouts, settings?.photoSizes, settings?.pageBreaks]);
 
+  const breakSet = useMemo(() => new Set(settings?.pageBreaks || []), [settings?.pageBreaks]);
   const style = STYLES[settings?.style || "sand"];
   const ready = !!settings && !!posts && (!allImages.length || pages.length > 0);
 
   const coverPhoto = useMemo(() => {
     const hidden = new Set(settings?.hidden || []);
+    if (settings?.coverPhoto && !hidden.has(settings.coverPhoto)) return settings.coverPhoto;
     const first = allImages.find((a) => !hidden.has(a.id));
     return first?.id;
-  }, [allImages, settings?.hidden]);
+  }, [allImages, settings?.hidden, settings?.coverPhoto]);
 
   const dateRange = useMemo(() => {
     if (!posts?.length) return "";
@@ -323,6 +332,15 @@ export function PhotoBook({
     if ((settings.titles[postId] ?? undefined) === value) return;
     patch({ titles: { ...settings.titles, [postId]: value } });
   };
+  const togglePageBreak = (postId: string) => {
+    if (!settings) return;
+    const on = settings.pageBreaks.includes(postId);
+    patch({
+      pageBreaks: on
+        ? settings.pageBreaks.filter((x) => x !== postId)
+        : [...settings.pageBreaks, postId],
+    });
+  };
   const SIZE_CYCLE: PhotoSize[] = ["m", "l", "full", "s"];
   const cyclePhotoSize = (id: string) => {
     if (!settings) return;
@@ -346,7 +364,7 @@ export function PhotoBook({
   };
   const resetEdits = () => {
     if (!confirm("Vrátit knihu do původního stavu? Ruční úpravy textu a vynechané fotky se zahodí.")) return;
-    patch({ hidden: [], hiddenPosts: [], titles: {}, chunks: {}, textLayouts: {}, photoSizes: {} });
+    patch({ hidden: [], hiddenPosts: [], titles: {}, chunks: {}, textLayouts: {}, photoSizes: {}, pageBreaks: [], coverPhoto: undefined, coverTitle: undefined });
   };
 
   async function exportPdf() {
@@ -495,7 +513,7 @@ export function PhotoBook({
                 >
                   {i === 0 ? (
                     <BookCover
-                      title={folder.title || "Fotokniha"}
+                      title={settings?.coverTitle ?? folder.title ?? "Fotokniha"}
                       subtitle={dateRange}
                       geo={geo}
                       style={style}
@@ -531,12 +549,14 @@ export function PhotoBook({
               >
                 {sel === 0 ? (
                   <BookCover
-                    title={folder.title || "Fotokniha"}
+                    title={settings?.coverTitle ?? folder.title ?? "Fotokniha"}
                     subtitle={dateRange}
                     geo={geo}
                     style={style}
                     photoId={coverPhoto}
                     urlOf={urlOf}
+                    editable
+                    onEditTitle={(v) => patch({ coverTitle: v })}
                   />
                 ) : (
                   <BookPageView
@@ -552,11 +572,38 @@ export function PhotoBook({
                     onRemovePost={hidePost}
                     onRemovePhoto={hidePhoto}
                     onCyclePhotoSize={cyclePhotoSize}
+                    onTogglePageBreak={togglePageBreak}
+                    pageBreaks={breakSet}
                   />
                 )}
               </div>
             </div>
           </div>
+
+          {/* výběr fotky na obálku */}
+          {sel === 0 && (
+            <div className="w-[150px] shrink-0 overflow-y-auto border-l border-white/10 bg-black/40 p-3">
+              <div className="mb-2 text-[10px] font-bold uppercase tracking-widest text-stone-400">
+                Fotka na obálku
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {allImages
+                  .filter((a) => !(settings?.hidden || []).includes(a.id))
+                  .map((a) => (
+                    <button
+                      key={a.id}
+                      onClick={() => patch({ coverPhoto: a.id })}
+                      className={`aspect-square overflow-hidden rounded border transition ${
+                        coverPhoto === a.id ? "border-2 border-orange-500" : "border-white/10 hover:border-white/50"
+                      }`}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={urlOf(a.id)} alt="" className="h-full w-full object-cover" />
+                    </button>
+                  ))}
+              </div>
+            </div>
+          )}
 
           {/* vynechané fotky */}
           {(hiddenList.length > 0 || hiddenPostList.length > 0) && (
@@ -599,7 +646,7 @@ export function PhotoBook({
       {/* skrytý kontejner, ze kterého se snímá PDF */}
       <div ref={exportRef} style={{ position: "fixed", left: -99999, top: 0, opacity: 0 }} aria-hidden>
         <BookCover
-          title={folder.title || "Fotokniha"}
+          title={settings?.coverTitle ?? folder.title ?? "Fotokniha"}
           subtitle={dateRange}
           geo={geo}
           style={style}

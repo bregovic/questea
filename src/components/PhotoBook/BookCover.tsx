@@ -15,6 +15,8 @@ export function BookCover({
   style,
   photoId,
   urlOf,
+  editable = false,
+  onEditTitle,
 }: {
   title: string;
   subtitle?: string;
@@ -22,6 +24,8 @@ export function BookCover({
   style: BookStyle;
   photoId?: string;
   urlOf: (id: string) => string;
+  editable?: boolean;
+  onEditTitle?: (value: string) => void;
 }) {
   return (
     <div
@@ -86,7 +90,11 @@ export function BookCover({
           </div>
         )}
         <div
+          contentEditable={editable && !!onEditTitle}
+          suppressContentEditableWarning
+          onBlur={(e) => onEditTitle?.(e.currentTarget.textContent || "")}
           style={{
+            outline: "none",
             fontFamily: style.titleFont,
             fontWeight: style.titleWeight,
             fontStyle: style.titleItalic ? "italic" : "normal",

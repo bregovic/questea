@@ -402,6 +402,8 @@ export type ComposeInput = {
   textLayouts?: Record<string, TextLayout>;
   /** Ruční velikosti fotek, klíč = id fotky. */
   photoSizes?: Record<string, PhotoSize>;
+  /** Id příspěvků, které mají začít na nové stránce. */
+  pageBreaks?: string[];
 };
 
 /**
@@ -413,7 +415,8 @@ export type ComposeInput = {
  *  - když na stránce zbývá míň než sedmina výšky, stránka se uzavře,
  *  - zbylé místo se rozdělí do mezer mezi bloky, ať text neplave nahoře.
  */
-export function compose({ posts, aspects, geo, density = 3, textLayouts = {}, photoSizes = {} }: ComposeInput): Page[] {
+export function compose({ posts, aspects, geo, density = 3, textLayouts = {}, photoSizes = {}, pageBreaks = [] }: ComposeInput): Page[] {
+  const breaks = new Set(pageBreaks);
   const layoutOf = (postId: string, idx: number): TextLayout | undefined =>
     textLayouts[`${postId}#${idx}`];
   const pages: Page[] = [];
@@ -452,6 +455,9 @@ export function compose({ posts, aspects, geo, density = 3, textLayouts = {}, ph
   };
 
   for (const post of posts) {
+    // ruční zalomení: příspěvek má začít na čisté stránce
+    if (breaks.has(post.id) && cur.length) closePage();
+
     const photos = post.photos.map((id) => ({ id, aspect: aspectOf(id), size: photoSizes[id] }));
     const chunks = post.chunks.filter((c) => c.trim().length > 0);
     if (!chunks.length && !photos.length) continue;

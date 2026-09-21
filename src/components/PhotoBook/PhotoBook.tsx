@@ -19,6 +19,7 @@ import { BookPageView } from "./BookPageView";
 import { BookCover } from "./BookCover";
 import type { Caption } from "./PhotoCaption";
 import type { Sticker } from "./Sticker";
+import { PhotoPanel } from "./PhotoPanel";
 
 type Att = { id: string; type: string; url: string };
 type Loc = { address?: string | null; placeName?: string | null };
@@ -135,6 +136,9 @@ export function PhotoBook({
   const [sel, setSel] = useState(0);
   const [progress, setProgress] = useState<{ cur: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [picked, setPicked] = useState<string | null>(null);      // vybraná fotka
+  const [pickedRect, setPickedRect] = useState<DOMRect | null>(null);
+  const [replacing, setReplacing] = useState(false);              // otevřený výběr náhrady
 
   const exportRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -341,6 +345,62 @@ export function PhotoBook({
     window.addEventListener("resize", fit);
     return () => window.removeEventListener("resize", fit);
   }, [geo.pageW, geo.pageH]);
+
+  /* Panel se drží u vybrané fotky – její polohu je potřeba přeměřit po
+     každé změně sazby, přepnutí stránky i po rolování. */
+  useEffect(() => {
+    if (!picked) {
+      setPickedRect(null);
+      return;
+    }
+    const measure = () => {
+      const el = document.querySelector(`[data-photo-id="${picked}"]`);
+      setPickedRect(el ? el.getBoundingClientRect() : null);
+    };
+    measure();
+    const t = setTimeout(measure, 60); // po přesázení
+    window.addEventListener("resize", measure);
+    window.addEventListener("scroll", measure, true);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener("resize", measure);
+      window.removeEventListener("scroll", measure, true);
+    };
+  }, [picked, pages, sel, stageScale]);
+
+  /** Šířka fotky vůči sazebnímu obrazci → velikost, kterou sazeč umí. */
+  const resizePhoto = (id: string, frac: number) => {
+    const next: PhotoSize = frac < 0.3 ? "s" : frac < 0.52 ? "m" : frac < 0.8 ? "l" : "full";
+    if (settings?.photoSizes[id] === next) return;
+    if (settings) patch({ photoSizes: { ...settings.photoSizes, [id]: next } });
+  };
+
+  const toggleRowStart = (id: string) => {
+    if (!settings) return;
+    const on = settings.rowStarts.includes(id);
+    patch({
+      rowStarts: on ? settings.rowStarts.filter((x) => x !== id) : [...settings.rowStarts, id],
+    });
+  };
+
+  /** Vymění vybranou fotku za jinou ze stejného příspěvku: nová zaujme její
+   *  místo v pořadí, původní se z knihy vynechá. */
+  const replacePhoto = (oldId: string, newId: string) => {
+    if (!settings || !posts) return;
+    const post = posts.find((p) => (p.attachments || []).some((a) => a.id === oldId));
+    if (!post) return;
+    const hidden = new Set(settings.hidden);
+    const base = settings.photoOrder[post.id]?.length
+      ? settings.photoOrder[post.id]
+      : (post.attachments || []).filter((a) => a.type === "image" && !hidden.has(a.id)).map((a) => a.id);
+    const order = base.map((x) => (x === oldId ? newId : x));
+    patch({
+      photoOrder: { ...settings.photoOrder, [post.id]: order },
+      hidden: [...settings.hidden.filter((x) => x !== newId), oldId],
+    });
+    setPicked(newId);
+    setReplacing(false);
+  };
 
   /* ── ruční zásahy ── */
   const hidePhoto = (id: string) =>
@@ -666,6 +726,12 @@ export function PhotoBook({
                     stickers={settings?.stickers}
                     onSticker={setSticker}
                     onMovePhoto={movePhoto}
+                    selectedPhoto={picked}
+                    onSelectPhoto={(id) => {
+                      setPicked(id);
+                      setReplacing(false);
+                    }}
+                    onResizePhoto={resizePhoto}
                   />
                 )}
               </div>
@@ -732,6 +798,55 @@ export function PhotoBook({
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {picked && pickedRect && !replacing && (
+        <PhotoPanel
+          rect={pickedRect}
+          size={settings?.photoSizes[picked] || "m"}
+          rowStart={!!settings?.rowStarts.includes(picked)}
+          hasCaption={!!settings?.captions[picked]}
+          onSize={(sz) => settings && patch({ photoSizes: { ...settings.photoSizes, [picked]: sz } })}
+          onRowStart={() => toggleRowStart(picked)}
+          onCaption={() =>
+            setCaption(
+              picked,
+              settings?.captions[picked] ? null : { text: "Popisek", x: 6, y: 78 }
+            )
+          }
+          onReplace={() => setReplacing(true)}
+          onRemove={() => {
+            hidePhoto(picked);
+            setPicked(null);
+          }}
+          onClose={() => setPicked(null)}
+        />
+      )}
+
+      {picked && replacing && (
+        <div className="fixed inset-0 z-[11600] flex items-center justify-center p-8">
+          <div className="absolute inset-0 bg-stone-950/70" onClick={() => setReplacing(false)} />
+          <div className="relative max-h-[80dvh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-stone-900 p-5">
+            <div className="mb-3 text-sm font-bold">Vyměnit za jinou fotku z tohohle dne</div>
+            <div className="grid grid-cols-6 gap-2">
+              {(posts || [])
+                .filter((p) => (p.attachments || []).some((a) => a.id === picked))
+                .flatMap((p) => (p.attachments || []).filter((a) => a.type === "image"))
+                .map((a) => (
+                  <button
+                    key={a.id}
+                    onClick={() => replacePhoto(picked, a.id)}
+                    className={`aspect-square overflow-hidden rounded border transition ${
+                      a.id === picked ? "border-2 border-orange-500" : "border-white/10 hover:border-white/60"
+                    }`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={urlOf(a.id)} alt="" className="h-full w-full object-cover" />
+                  </button>
+                ))}
+            </div>
+          </div>
         </div>
       )}
 

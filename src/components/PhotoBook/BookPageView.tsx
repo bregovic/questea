@@ -32,6 +32,9 @@ export function BookPageView({
   stickers,
   onSticker,
   onMovePhoto,
+  selectedPhoto,
+  onSelectPhoto,
+  onResizePhoto,
 }: {
   page: Page;
   index: number;
@@ -52,6 +55,9 @@ export function BookPageView({
   stickers?: Record<string, Sticker[]>;
   onSticker?: (postId: string, next: Sticker | null, id?: string) => void;
   onMovePhoto?: (postId: string, fromId: string, toId: string) => void;
+  selectedPhoto?: string | null;
+  onSelectPhoto?: (id: string | null) => void;
+  onResizePhoto?: (id: string, widthFraction: number) => void;
 }) {
   /* Kniha se čte po dvoustranách: první stránka za obálkou je pravá, pak se
      střídají. Vnitřní (širší) okraj musí být vždy u hřbetu. */
@@ -128,6 +134,9 @@ export function BookPageView({
             captions={captions}
             onCaption={onCaption}
             onMovePhoto={onMovePhoto}
+            selectedPhoto={selectedPhoto}
+            onSelectPhoto={onSelectPhoto}
+            onResizePhoto={onResizePhoto}
           />
         ))}
       </div>
@@ -205,6 +214,9 @@ function BlockView({
   captions,
   onCaption,
   onMovePhoto,
+  selectedPhoto,
+  onSelectPhoto,
+  onResizePhoto,
 }: {
   block: Block;
   geo: Geometry;
@@ -222,6 +234,9 @@ function BlockView({
   captions?: Record<string, Caption>;
   onCaption?: (photoId: string, next: Caption | null) => void;
   onMovePhoto?: (postId: string, fromId: string, toId: string) => void;
+  selectedPhoto?: string | null;
+  onSelectPhoto?: (id: string | null) => void;
+  onResizePhoto?: (id: string, widthFraction: number) => void;
 }) {
   if (block.kind === "heading") {
     return (
@@ -412,6 +427,12 @@ function BlockView({
           {row.cells.map((c) => (
             <div
               key={c.id}
+              data-photo-id={c.id}
+              onClick={(e) => {
+                if (!editable || !onSelectPhoto) return;
+                e.stopPropagation();
+                onSelectPhoto(selectedPhoto === c.id ? null : c.id);
+              }}
               draggable={editable && !!onMovePhoto}
               onDragStart={(e) => e.dataTransfer.setData("text/plain", c.id)}
               onDragOver={(e) => editable && onMovePhoto && e.preventDefault()}
@@ -433,6 +454,8 @@ function BlockView({
                 boxShadow: style.photoShadow || undefined,
                 background: "#e8e4dd",
                 flex: "0 0 auto",
+                outline: selectedPhoto === c.id ? `${3 / (geo.scale || 1)}px solid #ea580c` : undefined,
+                outlineOffset: 2,
               }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -443,6 +466,42 @@ function BlockView({
                 draggable={false}
                 style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
               />
+              {editable && selectedPhoto === c.id && onResizePhoto && (
+                <span
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const cell = (e.currentTarget as HTMLElement).parentElement!;
+                    const start = cell.getBoundingClientRect();
+                    const pageBox = cell.closest(".print-page") as HTMLElement | null;
+                    const pageW = pageBox?.getBoundingClientRect().width || start.width;
+                    const contentFrac = geo.contentW / geo.pageW;
+                    const move = (ev: PointerEvent) => {
+                      const w = Math.max(20, ev.clientX - start.left);
+                      onResizePhoto(c.id, w / (pageW * contentFrac));
+                    };
+                    const up = () => {
+                      window.removeEventListener("pointermove", move);
+                      window.removeEventListener("pointerup", up);
+                    };
+                    window.addEventListener("pointermove", move);
+                    window.addEventListener("pointerup", up);
+                  }}
+                  title="Táhnutím změnit velikost"
+                  style={{
+                    position: "absolute",
+                    right: -6,
+                    bottom: -6,
+                    width: 14,
+                    height: 14,
+                    borderRadius: 4,
+                    background: "#ea580c",
+                    border: "2px solid #fff",
+                    cursor: "nwse-resize",
+                    zIndex: 3,
+                  }}
+                />
+              )}
               {captions?.[c.id] && (
                 <PhotoCaption
                   caption={captions[c.id]}

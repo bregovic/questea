@@ -332,7 +332,7 @@ function BlockView({
         contentEditable={editable}
         suppressContentEditableWarning
         onBlur={(e) =>
-          onEditText?.(block.postId, block.chunkIdx, e.currentTarget.textContent || "")
+          onEditText?.(block.postId, block.chunkIdx, (e.currentTarget.textContent || "").trim())
         }
         style={{
           width,
@@ -407,6 +407,29 @@ function BlockView({
     return (
       <div style={{ position: "relative" }}>
         {body}
+        {onEditText && (
+          <button
+            onClick={() => onEditText(block.postId, block.chunkIdx, "")}
+            title="Odstranit odstavec"
+            style={{
+              position: "absolute",
+              top: 16,
+              left: -22,
+              width: 18,
+              height: 18,
+              borderRadius: 9,
+              border: "none",
+              cursor: "pointer",
+              background: "rgba(0,0,0,0.3)",
+              color: "#fff",
+              fontSize: 11,
+              lineHeight: "18px",
+              padding: 0,
+            }}
+          >
+            ×
+          </button>
+        )}
         <button
           onClick={() => onCycleLayout(block.postId, block.chunkIdx)}
           title="Přepnout šířku textu"

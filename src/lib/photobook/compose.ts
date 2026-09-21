@@ -578,14 +578,20 @@ export function compose({ posts, aspects, geo, density = 3, textLayouts = {}, ph
     if (breaks.has(post.id) && cur.length) closePage();
 
     const photos = post.photos.map((id) => ({ id, aspect: aspectOf(id), size: photoSizes[id], rowStart: starts.has(id) }));
-    const chunks = post.chunks.filter((c) => c.trim().length > 0);
+    /* Prázdné kusy (uživatel je smazal nebo přetáhl na fotku) se přeskakují,
+       ale původní pořadí se nese s sebou. Kdyby se indexy po odstranění
+       přečíslovaly, další ruční úprava by přepsala jiný odstavec, než do
+       kterého uživatel psal. */
+    const chunks = post.chunks
+      .map((text, idx) => ({ text, idx }))
+      .filter((c) => c.text.trim().length > 0);
     if (!chunks.length && !photos.length) continue;
 
     /* ── nadpis ──
        Nesmí zůstat viset sám dole. Vyžádá si místo i pro první kus obsahu. */
     const hh = headingHeight(post.title, post.meta, geo);
     const firstContentH = chunks.length
-      ? textHeight(chunks[0], geo, true, geo.contentW)
+      ? textHeight(chunks[0].text, geo, true, geo.contentW)
       : geo.contentH * 0.2;
     if (hh > 0) {
       if (remaining() < hh + geo.gap + Math.min(firstContentH, geo.contentH * 0.18)) {
@@ -609,8 +615,8 @@ export function compose({ posts, aspects, geo, density = 3, textLayouts = {}, ph
       let lastWasAside = false;
 
       chunks.forEach((chunk, i) => {
-        const len = chunk.length;
-        const override = layoutOf(post.id, i);
+        const len = chunk.text.length;
+        const override = layoutOf(post.id, chunk.idx);
 
         /* Volba šířky: krátká poznámka přes celou šířku (neplýtvá místem),
            střední text s fotkou po boku (a nesmí být dva takové za sebou),
@@ -636,7 +642,7 @@ export function compose({ posts, aspects, geo, density = 3, textLayouts = {}, ph
         }
         lastWasAside = layout === "aside";
 
-        items.push({ t: "text", text: chunk, lead: i === 0, idx: i, layout, photo: aside });
+        items.push({ t: "text", text: chunk.text, lead: i === 0, idx: chunk.idx, layout, photo: aside });
 
         const group = pool.slice(0, perChunk);
         pool = pool.slice(group.length);
